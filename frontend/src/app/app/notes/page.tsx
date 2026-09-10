@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { PenTool, Sparkles, Plus, Search, FileText, Check } from "lucide-react";
+import { PenTool, Sparkles, Plus, Search, FileText, Trash2, X, Check } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
@@ -34,6 +34,39 @@ export default function NotesPage() {
     },
   ]);
 
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newCourse, setNewCourse] = useState("CS220");
+  const [newContent, setNewContent] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const handleAddNote = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim() || !newContent.trim()) return;
+    const newNote = {
+      id: Date.now().toString(),
+      title: newTitle,
+      course: newCourse,
+      content: newContent,
+      isAiSuggested: false,
+      date: "Just now",
+    };
+    setNotes([newNote, ...notes]);
+    setNewTitle("");
+    setNewContent("");
+    setIsModalOpen(false);
+  };
+
+  const deleteNote = (id: string) => {
+    setNotes(notes.filter((n) => n.id !== id));
+  };
+
+  const filteredNotes = notes.filter((n) =>
+    n.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    n.content.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    n.course.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -47,14 +80,30 @@ export default function NotesPage() {
           </h1>
         </div>
 
-        <Button variant="dark" size="sm" icon={<Plus className="w-4 h-4 text-[#B7F34A]" />}>
+        <Button
+          variant="dark"
+          size="sm"
+          onClick={() => setIsModalOpen(true)}
+          icon={<Plus className="w-4 h-4 text-[#B7F34A]" />}
+        >
           Create Note
         </Button>
       </div>
 
+      <div className="relative w-full sm:w-80">
+        <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+        <input
+          type="text"
+          placeholder="Search notes or concepts..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full bg-white border border-[#06383A]/10 rounded-full pl-10 pr-4 py-2 text-xs text-[#06383A] focus:outline-none"
+        />
+      </div>
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-        {notes.map((note) => (
-          <Card key={note.id} variant="light" className="p-6 flex flex-col justify-between space-y-4">
+        {filteredNotes.map((note) => (
+          <Card key={note.id} variant="light" className="p-6 flex flex-col justify-between space-y-4 hover:border-[#06383A]/30 transition-all">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <span className="text-xs font-mono font-bold text-[#8FD63A] uppercase">{note.course}</span>
@@ -70,11 +119,77 @@ export default function NotesPage() {
 
             <div className="pt-3 border-t border-gray-100 flex items-center justify-between text-xs text-gray-400 font-mono">
               <span>{note.date}</span>
-              <span className="text-[#06383A] font-bold cursor-pointer hover:underline">Open Note →</span>
+              <button
+                onClick={() => deleteNote(note.id)}
+                className="p-1 text-gray-400 hover:text-red-500 rounded transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
             </div>
           </Card>
         ))}
       </div>
+
+      {/* Add Note Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg bg-white rounded-[28px] p-6 sm:p-8 shadow-2xl border border-[#06383A]/10 space-y-5">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-extrabold text-[#06383A]">Create Course Note</h2>
+              <button onClick={() => setIsModalOpen(false)} className="p-1 rounded-lg text-gray-400 hover:text-gray-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddNote} className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono uppercase tracking-wider text-[#06383A] font-bold block">
+                  Note Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. 2PL Strict vs Rigorous Locks"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                  className="w-full bg-[#F2F5EE] border border-[#06383A]/10 rounded-xl px-4 py-2.5 text-sm text-[#06383A] focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono uppercase tracking-wider text-[#06383A] font-bold block">Course Code</label>
+                <input
+                  type="text"
+                  value={newCourse}
+                  onChange={(e) => setNewCourse(e.target.value)}
+                  className="w-full bg-[#F2F5EE] border border-[#06383A]/10 rounded-xl px-4 py-2 text-sm text-[#06383A] focus:outline-none"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-mono uppercase tracking-wider text-[#06383A] font-bold block">Content</label>
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Record your concept explanation, key formulas, or code snippets..."
+                  value={newContent}
+                  onChange={(e) => setNewContent(e.target.value)}
+                  className="w-full bg-[#F2F5EE] border border-[#06383A]/10 rounded-xl p-3 text-sm text-[#06383A] focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <Button variant="outline" size="sm" type="button" onClick={() => setIsModalOpen(false)}>
+                  Cancel
+                </Button>
+                <Button variant="dark" size="sm" type="submit">
+                  Save Note
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
