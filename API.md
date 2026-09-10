@@ -1,4 +1,4 @@
-# Synexora — API Specifications
+# Synexora — API Specifications (MERN Stack + Multi-Agent Engine)
 
 > **Synexora — Your Intelligent Student Operating System**
 
@@ -7,14 +7,14 @@
 ## 1. Overview
 
 Synexora provides two complementary API layers:
-1. **Spring Boot Core REST API** (`http://localhost:8080/api/v1`)
+1. **Node.js / Express Core REST API (MERN)** (`http://localhost:8080/api/v1`)
 2. **FastAPI AI & Multi-Agent API** (`http://localhost:8000/api/v1`)
 
 All endpoints use standard JSON payloads and responses unless otherwise specified (e.g. Server-Sent Events for streaming AI responses).
 
 ---
 
-## 2. Spring Boot Core REST Endpoints
+## 2. Express.js MERN Core REST Endpoints
 
 ### 2.1 Health Check
 - **`GET /api/v1/health`**
@@ -22,38 +22,44 @@ All endpoints use standard JSON payloads and responses unless otherwise specifie
     ```json
     {
       "status": "UP",
-      "service": "Synexora Core API",
+      "service": "Synexora MERN Core API",
       "version": "1.0.0",
+      "stack": "MERN (MongoDB, Express, React, Node.js)",
+      "endpoints": [ ... ],
       "timestamp": "2026-09-10T10:00:00Z"
     }
     ```
 
 ### 2.2 Authentication & Profile
 - **`POST /api/v1/auth/register`**
-  - **Request**: `{"email": "student@synexora.io", "password": "...", "fullName": "Alex Rivera"}`
-  - **Response 201 Created**: `{"token": "JWT_TOKEN", "user": { ... }}`
+  - **Request**: `{"email": "student@synexora.io", "password": "...", "fullName": "Alex Rivera", "major": "CSE", "academicYear": "Year 3"}`
+  - **Response 201 Created**: `{"token": "JWT_TOKEN", "tokenType": "Bearer", "user": { ... }}`
 - **`POST /api/v1/auth/login`**
   - **Request**: `{"email": "student@synexora.io", "password": "..."}`
-  - **Response 200 OK**: `{"token": "JWT_TOKEN", "user": { ... }}`
-- **`GET /api/v1/profile/me`**
+  - **Response 200 OK**: `{"token": "JWT_TOKEN", "tokenType": "Bearer", "user": { ... }}`
+- **`GET /api/v1/auth/me`**
   - **Headers**: `Authorization: Bearer <JWT>`
-  - **Response 200 OK**: Profile object with mastery score, streak, preferences.
+  - **Response 200 OK**: Profile object with GPA, mastery score, streak, preferences.
 
 ### 2.3 Productivity & Organization
+- **`GET /api/v1/dashboard/summary`**: Consolidated dashboard metrics, goals, tasks, and memory stats.
 - **`GET /api/v1/tasks`**: List student tasks with filters (`status`, `priority`).
-- **`POST /api/v1/tasks`**: Create task (`title`, `dueDate`, `priority`).
-- **`PUT /api/v1/tasks/{id}`**: Update task status or details.
-- **`DELETE /api/v1/tasks/{id}`**: Delete task.
+- **`POST /api/v1/tasks`**: Create task (`title`, `dueDate`, `priority`, `subjectTag`).
+- **`PUT /api/v1/tasks/:id`**: Update task status, priority, or completion.
+- **`DELETE /api/v1/tasks/:id`**: Delete task.
 - **`GET /api/v1/notes`**: Retrieve student notes.
 - **`POST /api/v1/notes`**: Save note (manual or AI-suggested).
+- **`DELETE /api/v1/notes/:id`**: Delete note.
 - **`GET /api/v1/calendar/events`**: Get scheduled calendar events.
 - **`POST /api/v1/calendar/events`**: Create study session or deadline event.
+- **`DELETE /api/v1/calendar/events/:id`**: Delete event.
+- **`GET /api/v1/goals`**: List active academic goals.
+- **`POST /api/v1/goals`**: Create new milestone goal.
 
 ### 2.4 Controlled Memory Endpoints
-- **`GET /api/v1/memories`**: List active memories by category.
-- **`POST /api/v1/memories`**: Persist a user-confirmed memory item.
-- **`PUT /api/v1/memories/{id}`**: Update/edit existing memory.
-- **`DELETE /api/v1/memories/{id}`**: Delete memory item.
+- **`GET /api/v1/memories`**: List active memories by category (`ACADEMIC`, `IMPORTANT_DATES`, `GOALS`, `PERFORMANCE`, etc.).
+- **`POST /api/v1/memories`**: Persist a user-confirmed memory item with confidence score.
+- **`DELETE /api/v1/memories/:id`**: Delete memory item.
 
 ---
 
@@ -83,7 +89,7 @@ All endpoints use standard JSON payloads and responses unless otherwise specifie
       "document_ids": []
     }
     ```
-  - **Response (Streaming or Structured Event)**:
+  - **Response (Structured Event)**:
     ```json
     {
       "response_text": "Great job on the 72 in DBMS! Let's make sure you finish the project strongly for Friday. Would you like a breakdown of remaining milestones?",
@@ -106,7 +112,7 @@ All endpoints use standard JSON payloads and responses unless otherwise specifie
     ```
 
 ### 3.3 RAG Knowledge Base
-- **`POST /api/v1/rag/upload`**: Upload study PDF/Docx, chunks, and creates dense vector embeddings.
+- **`POST /api/v1/rag/upload`**: Upload study PDF/Docx, chunk, and create dense vector embeddings.
 - **`POST /api/v1/rag/query`**: Semantic query against uploaded lecture notes with grounded context citation.
 - **`POST /api/v1/rag/flashcards`**: Generate revision flashcards from indexed document topics.
 

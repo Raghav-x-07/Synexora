@@ -1,4 +1,4 @@
-# Synexora — Local Development & Contribution Guide
+# Synexora — Local Development & Contribution Guide (MERN Stack)
 
 > **Synexora — Your Intelligent Student Operating System**
 
@@ -10,20 +10,21 @@ Ensure your development environment contains:
 - **Node.js**: v18.x or v20+ (`node -v`)
 - **npm**: v9+ or v10+ (`npm -v`)
 - **Python**: v3.10, v3.11, v3.12, or v3.13 (`python --version`)
-- **Java JDK**: 17+ (for Spring Boot native build / execution)
+- **MongoDB** (Optional): v6+ or MongoDB Atlas (Synexora automatically runs an in-memory simulation store if a local MongoDB daemon is not running)
 
 ---
 
 ## 2. Directory Structure Conventions
 
-The repository follows a strict directory layout:
+The repository follows a clean, modular layout:
 ```text
 Synexora/
-├── front end/               # Next.js frontend application
-├── backed/                  # Backend services orchestrator
-│   ├── spring-api/          # Spring Boot 3 Core REST API
-│   ├── ai-service/          # FastAPI Multi-Agent AI Engine
-│   └── package.json         # Unified task runner
+├── frontend/                # Next.js 14 / React frontend workspace
+├── backend/                 # Backend services orchestrator
+│   ├── server/              # Express.js & MongoDB (Mongoose) Core REST API (Port 8080)
+│   ├── ai-service/          # FastAPI Multi-Agent AI Engine (Port 8000)
+│   ├── scripts/             # Unified cross-platform startup scripts
+│   └── package.json         # Backend task runner
 ├── README.md
 ├── ARCHITECTURE.md
 ├── DATABASE.md
@@ -36,50 +37,53 @@ Synexora/
 └── ROADMAP.md
 ```
 
-> ⚠️ **Important**: Do not rename `front end/` or `backed/`.
-
 ---
 
 ## 3. Launching Services
 
-### 3.1 Frontend (`front end/`)
+### 3.1 Frontend (`frontend/`)
 ```bash
-cd "front end"
+cd frontend
 npm install
 npm run dev
 ```
-Runs the Next.js development server at [http://localhost:3000](http://localhost:3000).
+Runs the Next.js workspace at [http://localhost:3000](http://localhost:3000).
 
-### 3.2 Backend Services (`backed/`)
+### 3.2 Backend Services (`backend/`)
 ```bash
-cd backed
+cd backend
 npm install
 npm run dev
 ```
-Spawns both the Spring Boot API (Port 8080) and FastAPI AI Service (Port 8000) concurrently.
+Spawns both the **Express MERN API** (Port 8080) and **FastAPI AI Service** (Port 8000) concurrently.
 
 To run backend services independently:
 ```bash
-# In backed/
-npm run dev:api   # Launches Spring Boot API
-npm run dev:ai    # Launches FastAPI AI Engine
+# In backend/
+npm run dev:api   # Launches Express.js / Mongoose Core API on Port 8080
+npm run dev:ai    # Launches FastAPI AI Engine on Port 8000
 ```
 
 ---
 
 ## 4. Environment Setup
 
-Copy example environment files to create local `.env` files:
-
 ### Frontend
 ```bash
-cd "front end"
+cd frontend
 cp .env.example .env.local
+```
+
+### Express MERN Server
+```bash
+cd backend/server
+# Optional: MONGODB_URI=mongodb://127.0.0.1:27017/synexoradb
+# Optional: JWT_SECRET=your_jwt_secret
 ```
 
 ### AI Service
 ```bash
-cd backed/ai-service
+cd backend/ai-service
 cp .env.example .env
 ```
-Provide your API keys (e.g. `GEMINI_API_KEY`, `OPENAI_API_KEY`) in `.env`.
+Provide your API keys (`GEMINI_API_KEY`, `OPENAI_API_KEY`) in `.env`.

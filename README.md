@@ -4,14 +4,15 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Frontend: Next.js](https://img.shields.io/badge/Frontend-Next.js%2014-black)](https://nextjs.org/)
-[![Backend: Spring Boot](https://img.shields.io/badge/API-Spring%20Boot%203-green)](https://spring.io/projects/spring-boot)
+[![Backend: Express](https://img.shields.io/badge/API-Express.js%20%2F%20Node.js-green)](https://expressjs.com/)
+[![Database: MongoDB](https://img.shields.io/badge/Database-MongoDB%20%26%20Mongoose-brightgreen)](https://www.mongodb.com/)
 [![AI Engine: FastAPI](https://img.shields.io/badge/AI%20Engine-FastAPI-teal)](https://fastapi.tiangolo.com/)
 
 ---
 
 ## 🌟 What is Synexora?
 
-**Synexora** is an AI-powered Student Operating System that combines personalized learning, AI tutoring, RAG-based study assistance, intelligent memory, productivity management, scheduling, assessments, analytics, and adaptive learning into one unified platform.
+**Synexora** is an AI-powered Student Operating System built on the **MERN Stack** (MongoDB, Express.js, React/Next.js, Node.js) with a dedicated Python FastAPI Multi-Agent Engine. It unifies personalized learning, Socratic AI tutoring, RAG-based study assistance, controlled memory, productivity management, calendar scheduling, assessments, analytics, and adaptive learning into one cohesive workspace.
 
 Synexora goes far beyond a generic chatbot. It understands the student as a continuously evolving learner:
 ```text
@@ -61,31 +62,35 @@ Synexora goes far beyond a generic chatbot. It understands the student as a cont
 
 ```text
 Synexora/
-├── front end/               # Next.js 14, React, TypeScript, Tailwind CSS
+├── frontend/                # Next.js 14, React 19, TypeScript, Tailwind CSS
 │   ├── src/
-│   │   ├── app/             # App Router pages & layouts
-│   │   ├── components/      # UI component library & design system
+│   │   ├── app/             # App Router pages & 18-module student OS workspace
+│   │   ├── components/      # UI component library & dark teal design system
 │   │   ├── lib/             # API clients & utilities
 │   │   └── types/           # TypeScript definitions
 │   ├── package.json
 │   └── README.md
 │
-├── backed/                  # Backend services orchestrator
-│   ├── spring-api/          # Spring Boot 3 API (Auth, DB, Business Logic)
-│   │   ├── src/main/java/com/synexora/api/
-│   │   ├── pom.xml
-│   │   └── README.md
+├── backend/                 # Backend services orchestrator
+│   ├── server/              # MERN Stack Express.js & MongoDB/Mongoose Core REST API
+│   │   ├── config/          # MongoDB connection & fallback config
+│   │   ├── middleware/      # JWT auth middleware
+│   │   ├── models/          # Mongoose data schemas (User, Task, Note, Memory, etc.)
+│   │   ├── routes/          # Express API route handlers
+│   │   ├── utils/           # Seed data & in-memory simulation store
+│   │   └── server.js        # Express app entry point (Port 8080)
 │   │
 │   ├── ai-service/          # FastAPI AI Engine (Agents, RAG, Embeddings, LLMs)
 │   │   ├── app/
 │   │   ├── requirements.txt
 │   │   └── README.md
 │   │
-│   ├── package.json         # Unified startup script runner
+│   ├── scripts/             # Unified startup runner utilities
+│   ├── package.json         # Backend task runner
 │   └── README.md
 │
 ├── ARCHITECTURE.md          # System & Microservices Blueprint
-├── DATABASE.md              # Database Schema & Entity Relationships
+├── DATABASE.md              # MongoDB / Mongoose Collection Schemas
 ├── API.md                   # REST & AI Service API Contract
 ├── AI_ARCHITECTURE.md       # Multi-Agent Coordination & LLM Pipeline
 ├── RAG_ARCHITECTURE.md      # Retrieval-Augmented Generation Specs
@@ -103,11 +108,11 @@ Synexora/
 ### 1. Prerequisites
 - **Node.js** >= 18.x
 - **Python** >= 3.10
-- **Java JDK** >= 17 (optional for AI-only mode; required for Spring Boot API)
+- **MongoDB** (Optional: local or Atlas; defaults to in-memory simulation store if no MongoDB daemon is running)
 
 ### 2. Launch Frontend
 ```bash
-cd "front end"
+cd frontend
 npm install
 npm run dev
 ```
@@ -115,13 +120,13 @@ Open [http://localhost:3000](http://localhost:3000) to view the Synexora interfa
 
 ### 3. Launch Backend Services
 ```bash
-cd backed
+cd backend
 npm install
 npm run dev
 ```
 Or start services independently:
 ```bash
-# Launch Spring Boot API on port 8080
+# Launch Express.js MERN API on port 8080
 npm run dev:api
 
 # Launch FastAPI AI Service on port 8000

@@ -1,4 +1,4 @@
-# Synexora — System Architecture Blueprint
+# Synexora — System Architecture Blueprint (MERN Stack + Multi-Agent Engine)
 
 > **Synexora — Your Intelligent Student Operating System**  
 > Core Philosophy: **Teach. Remember. Plan. Adapt.**
@@ -7,7 +7,7 @@
 
 ## 1. Executive Architectural Overview
 
-Synexora is architected as a modular, event-aware, decoupled intelligence platform that bridges a high-performance interactive web interface with an enterprise business backend and an autonomous AI multi-agent orchestration cluster.
+Synexora is architected as a modular, event-aware, decoupled intelligence platform built on the **MERN Stack** (MongoDB, Express.js, React/Next.js, Node.js) alongside an autonomous AI multi-agent orchestration cluster powered by FastAPI.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
@@ -18,14 +18,14 @@ Synexora is architected as a modular, event-aware, decoupled intelligence platfo
                    │ HTTPS / JSON                    │ Stream / SSE / WS
                    ▼                                 ▼
 ┌──────────────────────────────────────┐   ┌─────────────────────────────┐
-│          SPRING BOOT API             │   │      FASTAPI AI ENGINE      │
+│          EXPRESS.JS CORE API         │   │      FASTAPI AI ENGINE      │
 │   Primary REST, Auth, Business Data  │◄─►│   Multi-Agent & RAG Hub     │
-│   (Port 8080)                        │   │   (Port 8000)               │
+│   (Node.js / Express - Port 8080)    │   │   (Python - Port 8000)      │
 └──────────────────┬───────────────────┘   └──────────────┬──────────────┘
                    │                                      │
                    ▼                                      ▼
 ┌──────────────────────────────────────┐   ┌─────────────────────────────┐
-│          POSTGRESQL / H2             │   │      VECTOR DB (CHROMA)     │
+│          MONGODB (MONGOOSE)          │   │      VECTOR DB (CHROMA)     │
 │   User profiles, tasks, notes,       │   │   Chunk embeddings, RAG     │
 │   memories, schedules, assessments   │   │   document indexes          │
 └──────────────────────────────────────┘   └─────────────────────────────┘
@@ -35,7 +35,7 @@ Synexora is architected as a modular, event-aware, decoupled intelligence platfo
 
 ## 2. Layered Responsibilities
 
-### 2.1 Frontend (`front end/`)
+### 2.1 Frontend (`frontend/`)
 - **Technology**: Next.js 14 (App Router), React 18/19, TypeScript, Tailwind CSS, Lucide Icons, Framer Motion.
 - **Role**: Delivers an ultra-responsive, dark-luxury glassmorphism dashboard and dedicated module interfaces.
 - **Key Modules**:
@@ -48,16 +48,17 @@ Synexora is architected as a modular, event-aware, decoupled intelligence platfo
   - `Practice & Assessments`: Adaptive quizzes, weakness detection, mistake analysis.
   - `AI Diary & Analytics`: Daily student reflections, performance trends, sentiment & consistency metrics.
 
-### 2.2 Core Business Backend (`backed/spring-api/`)
-- **Technology**: Java 17+, Spring Boot 3.x, Spring Security 6, Spring Data JPA, PostgreSQL / H2, JWT.
+### 2.2 Core Business Backend (`backend/server/` - MERN)
+- **Technology**: Node.js, Express.js, Mongoose, MongoDB, JSON Web Tokens (JWT), BCrypt.
 - **Role**: Single source of truth for student identity, persistent state, permissions, and business logic.
 - **Key Responsibilities**:
-  - User Authentication, JWT issuance, and RBAC authorization.
-  - CRUD operations for Tasks, Reminders, Notes, Calendar Events, Goals, and Diaries.
-  - Persistence of confirmed Memories and Student Profiles.
-  - Audit logging, rate limiting, and secure communication gateway with the AI Engine.
+  - User Authentication (`/api/v1/auth/*`), JWT issuance, and secure authorization middleware.
+  - CRUD operations for Tasks, Notes, Calendar Events, Goals, and Dashboard summaries.
+  - Persistence of confirmed Memories and Student Profiles with Mongoose schemas.
+  - Graceful zero-friction fallback with built-in in-memory simulation store if local MongoDB is not launched.
+  - Secure communication gateway with the AI Engine.
 
-### 2.3 AI & Intelligence Backend (`backed/ai-service/`)
+### 2.3 AI & Intelligence Backend (`backend/ai-service/`)
 - **Technology**: Python 3.10+, FastAPI, LangChain / LlamaIndex / LangGraph, Pydantic v2, ChromaDB / FAISS, OpenAI / Gemini / Anthropic SDKs.
 - **Role**: Coordinates autonomous AI agents, semantic retrieval, embeddings, and prompt orchestration.
 - **Key Responsibilities**:
@@ -74,12 +75,15 @@ Synexora is architected as a modular, event-aware, decoupled intelligence platfo
 
 | Route | Origin | Destination | Protocol | Purpose |
 |---|---|---|---|---|
-| `/api/v1/auth/*` | Frontend | Spring Boot | HTTPS REST | Authentication & Token Management |
-| `/api/v1/app/*` | Frontend | Spring Boot | HTTPS REST | Student CRUD (Tasks, Notes, Calendar) |
+| `/api/v1/auth/*` | Frontend | Express API | HTTPS REST | Authentication & Token Management |
+| `/api/v1/dashboard/*` | Frontend | Express API | HTTPS REST | Student Overview & KPI Aggregation |
+| `/api/v1/tasks` | Frontend | Express API | HTTPS REST | Task & Priority Management |
+| `/api/v1/memories` | Frontend | Express API | HTTPS REST | Controlled Student Memories |
+| `/api/v1/notes` | Frontend | Express API | HTTPS REST | Student & AI Synthesized Notes |
+| `/api/v1/calendar/*` | Frontend | Express API | HTTPS REST | Events & Schedule Management |
 | `/api/v1/ai/chat` | Frontend | FastAPI | SSE / WebSocket | Streaming AI Tutor conversations |
 | `/api/v1/ai/rag/*` | Frontend | FastAPI | HTTPS Multipart | Document upload, indexing & retrieval |
-| `/internal/v1/*` | Spring Boot | FastAPI | HTTP REST / HMAC | Server-to-server agent triggers |
-| `/internal/v1/memories` | FastAPI | Spring Boot | HTTP REST / HMAC | Forwarding approved memory payloads |
+| `/internal/v1/*` | Express API | FastAPI | HTTP REST | Server-to-server agent triggers |
 
 ---
 
@@ -113,5 +117,5 @@ Student Action (e.g. "I scored 72 in DBMS and need to submit the project on Frid
                             (Student Clicks "Save" & "Add")
                                                    │
                                                    ▼
-                                 [Spring Boot API Persists to DB]
+                               [Express.js MERN API Persists to MongoDB]
 ```
