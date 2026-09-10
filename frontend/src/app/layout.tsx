@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/context/AuthContext";
 
 export const metadata: Metadata = {
   title: "Synexora — Your Intelligent Student Operating System",
@@ -22,9 +23,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
-      <body className="min-h-screen bg-[#07090e] text-slate-100 antialiased selection:bg-indigo-500/30 selection:text-indigo-200">
-        {children}
+    <html lang="en">
+      <body className="min-h-screen bg-[#F7F8F3] text-[#06383A] antialiased selection:bg-[#B7F34A] selection:text-[#06383A]">
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );
