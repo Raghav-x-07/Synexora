@@ -54,6 +54,36 @@ if (pyCmd) {
   console.log("\x1b[33m%s\x1b[0m", "[FastAPI AI Engine] Python 'fastapi' module not installed in current environment.");
   console.log("\x1b[36m%s\x1b[0m", "[FastAPI AI Engine] Starting Synexora AI Service Dev Server on port 8000...");
 
+  let documentsStore = [
+    {
+      id: "doc-dbms-1",
+      title: "DBMS_Normalization_Formulas_2026.pdf",
+      subject: "Database Management Systems",
+      size: "2.4 MB",
+      chunks: 180,
+      status: "Indexed",
+      createdAt: "2026-09-08",
+    },
+    {
+      id: "doc-ds-2",
+      title: "CS301_Distributed_Systems_Consensus.pdf",
+      subject: "Distributed Systems",
+      size: "4.8 MB",
+      chunks: 420,
+      status: "Indexed",
+      createdAt: "2026-09-07",
+    },
+    {
+      id: "doc-algo-3",
+      title: "Graph_Theory_Algorithm_Proofs.pdf",
+      subject: "Algorithms",
+      size: "3.1 MB",
+      chunks: 310,
+      status: "Indexed",
+      createdAt: "2026-09-05",
+    },
+  ];
+
   const server = http.createServer((req, res) => {
     res.setHeader("Content-Type", "application/json");
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -172,6 +202,96 @@ if (pyCmd) {
               { step: 4, line: 2, explanation: "Base condition reached! Returns 1. Unwinding stack: 3 * 2 * 1 = 6.", variable_state: { result: 6 } },
             ],
             complexity: { time: "O(N)", space: "O(N)" },
+          })
+        );
+      } else if (url === "/api/v1/rag/documents") {
+        res.writeHead(200);
+        res.end(JSON.stringify({ status: "success", documents: documentsStore }));
+      } else if (url === "/api/v1/rag/upload") {
+        const newDoc = {
+          id: `doc-${Date.now()}`,
+          title: parsed.title || "Uploaded_Lecture_Notes.pdf",
+          subject: parsed.subject || "General Academic",
+          size: parsed.size || "1.8 MB",
+          chunks: 54,
+          status: "Indexed",
+          createdAt: new Date().toISOString().split("T")[0],
+        };
+        documentsStore.unshift(newDoc);
+        res.writeHead(201);
+        res.end(JSON.stringify({ status: "indexed", document: newDoc }));
+      } else if (url === "/api/v1/rag/query") {
+        const lower = (parsed.query || "").toLowerCase();
+        let answer = `According to your indexed course documents, the fundamental concept relates to core invariants, safety properties, and edge-case guarantees.`;
+        let citations = [
+          {
+            doc_title: "DBMS_Normalization_Formulas_2026.pdf",
+            page: 14,
+            chunk_id: "c-101",
+            topic: "BCNF vs 3NF Invariants",
+            text: "Boyce-Codd Normal Form (BCNF) strictly requires that for every non-trivial functional dependency X -> Y, X must be a superkey of relation R.",
+            relevance: 0.96,
+          },
+        ];
+
+        if (lower.includes("bcnf") || lower.includes("3nf") || lower.includes("normalization")) {
+          answer = `Based on your course materials, Boyce-Codd Normal Form (BCNF) is strictly stronger than 3NF. In 3NF, functional dependency X -> Y is allowed if X is a superkey OR Y is a prime attribute. BCNF eliminates this second exception, mandating that EVERY determinant X must be a candidate/superkey.`;
+        } else if (lower.includes("raft") || lower.includes("consensus")) {
+          answer = `According to your Distributed Systems notes, Raft achieves consensus through a single elected leader per term using randomized election timeouts (150ms - 300ms) to prevent split-vote deadlocks.`;
+          citations = [
+            {
+              doc_title: "CS301_Distributed_Systems_Consensus.pdf",
+              page: 27,
+              chunk_id: "c-201",
+              topic: "Raft Leader Election & Randomized Timeouts",
+              text: "Raft Consensus Algorithm elects a single leader node per term. When a leader fails, follower nodes trigger an election timeout randomized between 150ms and 300ms.",
+              relevance: 0.98,
+            },
+          ];
+        }
+
+        res.writeHead(200);
+        res.end(
+          JSON.stringify({
+            query: parsed.query,
+            answer,
+            citations,
+            confidence_score: 0.96,
+            source_count: citations.length,
+            timestamp: new Date().toISOString(),
+          })
+        );
+      } else if (url === "/api/v1/rag/flashcards") {
+        res.writeHead(200);
+        res.end(
+          JSON.stringify({
+            status: "success",
+            flashcards: [
+              {
+                id: "fc-1",
+                subject: "DBMS",
+                source: "DBMS_Normalization_Formulas_2026.pdf (Page 14)",
+                front: "What is the key rule that distinguishes BCNF from 3NF?",
+                back: "BCNF requires every determinant X to be a superkey for any non-trivial X -> Y, removing 3NF's allowance for Y to be a prime attribute.",
+                difficulty: "MEDIUM",
+              },
+              {
+                id: "fc-2",
+                subject: "Distributed Systems",
+                source: "CS301_Distributed_Systems_Consensus.pdf (Page 27)",
+                front: "Why does Raft randomize election timeouts between 150ms and 300ms?",
+                back: "To minimize the probability of split votes where multiple nodes become candidates simultaneously and split the vote evenly.",
+                difficulty: "HARD",
+              },
+              {
+                id: "fc-3",
+                subject: "Algorithms",
+                source: "Graph_Theory_Algorithm_Proofs.pdf (Page 9)",
+                front: "What is the optimal time complexity of Dijkstra's algorithm with a Fibonacci Heap?",
+                back: "O(E + V log V), because decrease-key operations run in amortized O(1) time.",
+                difficulty: "EASY",
+              },
+            ],
           })
         );
       } else {
