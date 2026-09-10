@@ -12,6 +12,7 @@ const noteRoutes = require("./routes/notes");
 const calendarRoutes = require("./routes/calendar");
 const goalRoutes = require("./routes/goals");
 const dashboardRoutes = require("./routes/dashboard");
+const aiRoutes = require("./routes/ai");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -32,6 +33,7 @@ app.use("/api/v1/notes", noteRoutes);
 app.use("/api/v1/calendar", calendarRoutes);
 app.use("/api/v1/goals", goalRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
+app.use("/api/v1/ai", aiRoutes);
 
 // Health & Info Endpoint
 app.get(["/api/v1/health", "/health", "/"], (req, res) => {
