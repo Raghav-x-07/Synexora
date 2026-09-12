@@ -22,6 +22,11 @@ const memorySchema = new mongoose.Schema(
       default: 'General',
       trim: true,
     },
+    source: {
+      type: String,
+      enum: ['learning-ai', 'rag', 'manual'],
+      default: 'manual',
+    },
   },
   {
     timestamps: true,

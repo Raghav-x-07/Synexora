@@ -21,7 +21,7 @@ router.get('/', async (req, res) => {
 // @desc    Create concept
 router.post('/', async (req, res) => {
   try {
-    const { concept, definition, course } = req.body;
+    const { concept, definition, course, source } = req.body;
     if (!concept || !definition) {
       return res.status(400).json({ success: false, message: 'Concept and definition are required' });
     }
@@ -31,6 +31,7 @@ router.post('/', async (req, res) => {
       concept,
       definition,
       course: course || 'General',
+      source: source || 'manual',
     });
 
     return res.status(201).json({ success: true, card });

@@ -98,6 +98,7 @@ export const LearningAIPage: React.FC = () => {
         concept: topic,
         definition: aiMsg.text,
         course: user?.major || 'General Studies',
+        source: 'learning-ai',
       });
 
       if (res.data.success) {

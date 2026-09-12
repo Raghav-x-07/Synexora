@@ -221,6 +221,7 @@ export const DocumentsPage: React.FC = () => {
         concept: conceptTitle,
         definition: aiMsg.text,
         course: activeRagDoc?.category || fileName,
+        source: 'rag',
       });
 
       if (res.data.success) {
