@@ -202,25 +202,30 @@ export const DocumentsPage: React.FC = () => {
 
   // Store RAG Answer to Memory
   const handleStoreRagToMemory = async (msgIndex: number, aiMsg: RagMessage) => {
-    let topic = `${activeRagDoc?.name || 'Document'} Notes`;
+    const fileName = activeRagDoc?.name || 'Document';
+    let userQuestion = 'Key Summary & Analysis';
+
     for (let i = msgIndex - 1; i >= 0; i--) {
       if (ragMessages[i].sender === 'user') {
-        topic = ragMessages[i].text.slice(0, 100);
+        userQuestion = ragMessages[i].text.slice(0, 120);
         break;
       }
     }
 
+    // Concept title formatted with File Name & Topic
+    const conceptTitle = `${fileName} — ${userQuestion}`;
+
     setSavingRagMemoryId(aiMsg.id);
     try {
       const res = await API.post('/memory', {
-        concept: topic,
+        concept: conceptTitle,
         definition: aiMsg.text,
-        course: activeRagDoc?.category || 'General Studies',
+        course: activeRagDoc?.category || fileName,
       });
 
       if (res.data.success) {
         setSavedRagMemoryMap((prev) => ({ ...prev, [aiMsg.id]: true }));
-        setRagMemoryNotification(`Stored "${topic.slice(0, 35)}..." in Knowledge Memory!`);
+        setRagMemoryNotification(`Stored "${conceptTitle.slice(0, 45)}..." in Knowledge Memory!`);
         setTimeout(() => setRagMemoryNotification(null), 3500);
       }
     } catch (err: any) {
