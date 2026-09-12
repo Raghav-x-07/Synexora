@@ -22,11 +22,25 @@ const documentSchema = new mongoose.Schema(
       type: String,
       default: '500 KB',
     },
+    fileType: {
+      type: String,
+      default: 'pdf',
+    },
     uploadDate: {
       type: String,
       default: () => new Date().toISOString().split('T')[0],
     },
-    fileUrl: {
+    extractedText: {
+      type: String,
+      default: '',
+    },
+    chunks: [
+      {
+        chunkIndex: Number,
+        text: String,
+      },
+    ],
+    summary: {
       type: String,
       default: '',
     },
