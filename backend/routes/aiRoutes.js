@@ -76,6 +76,9 @@ router.post('/chat', async (req, res) => {
       message: 'Failed to generate response from Groq AI.',
       error: err.message,
     });
+  }
+});
+
 // @route   POST /api/ai/memory-doubt
 // @desc    Ask a doubt on a specific memory recall concept (Mini RAG)
 router.post('/memory-doubt', async (req, res) => {
