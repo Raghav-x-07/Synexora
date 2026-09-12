@@ -1,4 +1,5 @@
 const jwt = require("jsonwebtoken");
+const User = require("../models/User");
 
 const JWT_SECRET = process.env.JWT_SECRET || "synexora_super_secret_jwt_key_that_is_at_least_256_bits_long_for_security";
 
@@ -11,38 +12,22 @@ const protect = async (req, res, next) => {
       const decoded = jwt.verify(token, JWT_SECRET);
 
       req.user = {
-        id: decoded.id || decoded.userId || "demo-alex-id",
-        email: decoded.email || "alex.rivera@synexora.io",
+        id: decoded.id || decoded.userId,
+        _id: decoded.id || decoded.userId,
+        email: decoded.email,
         role: decoded.role || "ROLE_STUDENT",
-        fullName: decoded.fullName || "Alex Rivera",
+        fullName: decoded.fullName || "",
       };
 
       return next();
     } catch (error) {
-      // In dev fallback mode, allow demo token
-      if (token === "demo_jwt_token") {
-        req.user = {
-          id: "demo-alex-id",
-          email: "alex.rivera@synexora.io",
-          role: "ROLE_STUDENT",
-          fullName: "Alex Rivera",
-        };
-        return next();
-      }
-      return res.status(401).json({ message: "Not authorized, token failed" });
+      return res.status(401).json({ message: "Not authorized, token invalid or expired" });
     }
   }
 
-  if (!token) {
-    // Check if development fallback user
-    req.user = {
-      id: "demo-alex-id",
-      email: "alex.rivera@synexora.io",
-      role: "ROLE_STUDENT",
-      fullName: "Alex Rivera",
-    };
-    return next();
-  }
+  return res.status(401).json({ message: "Not authorized, no token provided" });
 };
 
-module.exports = { protect, JWT_SECRET };
+module.exports = protect;
+module.exports.protect = protect;
+module.exports.JWT_SECRET = JWT_SECRET;

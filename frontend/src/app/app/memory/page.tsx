@@ -48,26 +48,7 @@ export default function MemoryPage() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Candidate memories pending user confirmation
-  const [candidateMemories, setCandidateMemories] = useState<MemoryItem[]>([
-    {
-      id: "cand-1",
-      category: "Academic Performance",
-      title: "DBMS Internal Test Score",
-      value: "Score: 72/100 (Stated need to strengthen Indexing & Normalization)",
-      confidenceScore: 0.95,
-      sourceContext: "Socratic Tutoring Session",
-      isSensitive: false,
-    },
-    {
-      id: "cand-2",
-      category: "Goals",
-      title: "Target Final GPA",
-      value: "Aiming to raise cumulative GPA to 3.90 this semester",
-      confidenceScore: 0.92,
-      sourceContext: "Study Planner Dialogue",
-      isSensitive: false,
-    }
-  ]);
+  const [candidateMemories, setCandidateMemories] = useState<MemoryItem[]>([]);
 
   // Modals state
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -99,59 +80,14 @@ export default function MemoryPage() {
     setLoading(true);
     try {
       const data = await apiRequest<MemoryItem[]>("/memories");
-      if (Array.isArray(data) && data.length > 0) {
-        setMemories(data);
-      } else {
-        // Fallback demo records if empty
-        setMemories([
-          {
-            id: "1",
-            category: "Academic Performance",
-            title: "DBMS Midterm Score",
-            value: "72/100 (Aiming for 85%+ in Final Exam)",
-            confidenceScore: 0.98,
-            date: "2026-09-08",
-            isSensitive: false,
-            sourceContext: "Student confirmed during DBMS review",
-          },
-          {
-            id: "2",
-            category: "Important Dates",
-            title: "Distributed Systems Project Submission",
-            value: "Friday September 12 at 23:59",
-            confidenceScore: 0.99,
-            date: "2026-09-09",
-            isSensitive: false,
-            sourceContext: "Detected from syllabus and confirmed by student",
-          },
-          {
-            id: "3",
-            category: "Learning Style",
-            title: "Explanation Format Preference",
-            value: "Prefers interactive code traces and Socratic hints over plain textbook definitions",
-            confidenceScore: 0.94,
-            date: "2026-09-05",
-            isSensitive: false,
-            sourceContext: "AI calibration based on student response pace",
-          },
-          {
-            id: "4",
-            category: "Goals",
-            title: "Mastery Target for Graph Algorithms",
-            value: "Achieve 90%+ diagnostic score on Dijkstra and Bellman-Ford",
-            confidenceScore: 0.95,
-            date: "2026-09-06",
-            isSensitive: false,
-            sourceContext: "Direct student goal entry",
-          },
-        ]);
-      }
+      setMemories(Array.isArray(data) ? data : []);
     } catch (err) {
-      console.warn("Using offline memory store.");
+      setMemories([]);
     } finally {
       setLoading(false);
     }
   };
+
 
   useEffect(() => {
     fetchMemories();

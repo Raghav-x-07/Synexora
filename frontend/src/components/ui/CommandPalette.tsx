@@ -48,7 +48,7 @@ export default function CommandPalette({ isOpen, onClose }: CommandPaletteProps)
 
   const commands = [
     { title: "Dashboard Cockpit", href: "/app", icon: <Layers className="w-4 h-4" />, category: "Core" },
-    { title: "AI Socratic Tutor", href: "/app/tutor", icon: <GraduationCap className="w-4 h-4" />, category: "Learning" },
+    { title: "AI Tutor", href: "/app/tutor", icon: <GraduationCap className="w-4 h-4" />, category: "Learning" },
     { title: "Controlled Memory Ledger", href: "/app/memory", icon: <BrainCircuit className="w-4 h-4" />, category: "Memory" },
     { title: "RAG Document Knowledge Base", href: "/app/rag", icon: <FileText className="w-4 h-4" />, category: "Learning" },
     { title: "Tasks & Deadlines", href: "/app/tasks", icon: <CheckSquare className="w-4 h-4" />, category: "Productivity" },

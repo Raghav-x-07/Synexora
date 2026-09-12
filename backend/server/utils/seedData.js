@@ -1,6 +1,6 @@
 const mockStore = {
   user: {
-    id: "demo-alex-id",
+    id: "66e01a2b3c4d5e6f7a8b9c0d",
     email: "alex.rivera@synexora.io",
     fullName: "Alex Rivera",
     role: "ROLE_STUDENT",

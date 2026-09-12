@@ -14,6 +14,15 @@ const goalRoutes = require("./routes/goals");
 const dashboardRoutes = require("./routes/dashboard");
 const aiRoutes = require("./routes/ai");
 const ragRoutes = require("./routes/rag");
+const practiceRoutes = require("./routes/practice");
+const assessmentRoutes = require("./routes/assessments");
+const learningPathRoutes = require("./routes/learningPath");
+const scheduleRoutes = require("./routes/schedule");
+const diaryRoutes = require("./routes/diary");
+const analyticsRoutes = require("./routes/analytics");
+const orchestratorRoutes = require("./routes/orchestrator");
+const mediaRoutes = require("./routes/media");
+const { securityHeaders, rateLimiter, sanitizeRequest } = require("./middleware/security");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -21,21 +30,49 @@ const PORT = process.env.PORT || 8080;
 // Connect to MongoDB (with automatic graceful fallback)
 connectDB();
 
-// Middleware
+// Security & Standard Middleware
+app.use(securityHeaders);
+app.use(rateLimiter);
 app.use(cors({ origin: "*", credentials: true }));
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+app.use(sanitizeRequest);
 app.use(morgan("dev"));
 
 // API Routes
 app.use("/api/v1/auth", authRoutes);
+app.use("/api/auth", authRoutes);
 app.use("/api/v1/memories", memoryRoutes);
+app.use("/api/memories", memoryRoutes);
 app.use("/api/v1/tasks", taskRoutes);
+app.use("/api/tasks", taskRoutes);
 app.use("/api/v1/notes", noteRoutes);
+app.use("/api/notes", noteRoutes);
 app.use("/api/v1/calendar", calendarRoutes);
+app.use("/api/calendar", calendarRoutes);
 app.use("/api/v1/goals", goalRoutes);
+app.use("/api/goals", goalRoutes);
 app.use("/api/v1/dashboard", dashboardRoutes);
+app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/v1/ai", aiRoutes);
+app.use("/api/ai", aiRoutes);
 app.use("/api/v1/rag", ragRoutes);
+app.use("/api/rag", ragRoutes);
+app.use("/api/v1/practice", practiceRoutes);
+app.use("/api/practice", practiceRoutes);
+app.use("/api/v1/assessments", assessmentRoutes);
+app.use("/api/assessments", assessmentRoutes);
+app.use("/api/v1/learning-path", learningPathRoutes);
+app.use("/api/learning-path", learningPathRoutes);
+app.use("/api/v1/schedule", scheduleRoutes);
+app.use("/api/schedule", scheduleRoutes);
+app.use("/api/v1/diary", diaryRoutes);
+app.use("/api/diary", diaryRoutes);
+app.use("/api/v1/analytics", analyticsRoutes);
+app.use("/api/analytics", analyticsRoutes);
+app.use("/api/v1/orchestrator", orchestratorRoutes);
+app.use("/api/orchestrator", orchestratorRoutes);
+app.use("/api/v1/media", mediaRoutes);
+app.use("/api/media", mediaRoutes);
 
 // Health & Info Endpoint
 app.get(["/api/v1/health", "/health", "/"], (req, res) => {

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import Link from "next/link";
 import { ArrowRight, Sparkles, Brain, CheckCircle2, ChevronRight, FileText, Send, Calendar } from "lucide-react";
 
 export default function Hero() {
@@ -39,13 +40,13 @@ export default function Hero() {
 
             {/* CTA Buttons */}
             <div className="pt-4 flex flex-col sm:flex-row items-center justify-center gap-3.5">
-              <a
-                href="#cta"
+              <Link
+                href="/app"
                 className="btn-pill-dark px-8 py-3.5 text-base font-semibold flex items-center gap-2 group shadow-md"
               >
                 <span>Get started</span>
                 <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
-              </a>
+              </Link>
               <a
                 href="#story"
                 className="btn-pill-outline px-7 py-3.5 text-base font-medium"
@@ -87,7 +88,7 @@ export default function Hero() {
                         : "text-white/70 hover:text-white"
                     }`}
                   >
-                    Socratic Tutor
+                    AI Tutor
                   </button>
                   <button
                     onClick={() => setActiveTab("schedule")}

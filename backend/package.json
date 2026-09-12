@@ -7,6 +7,7 @@
     "dev": "concurrently -n \"API,AI\" -c \"green.bold,cyan.bold\" \"npm run dev:api\" \"npm run dev:ai\"",
     "dev:api": "node scripts/run-api.js",
     "dev:ai": "node scripts/run-ai.js",
+    "test:e2e": "node scripts/test-e2e.js",
     "install:all": "npm install && cd ai-service && (python -m venv venv || python3 -m venv venv) && node ../scripts/install-ai.js"
   },
   "dependencies": {

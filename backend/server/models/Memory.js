@@ -10,15 +10,7 @@ const memorySchema = new mongoose.Schema(
     category: {
       type: String,
       required: true,
-      enum: [
-        "Academic Performance",
-        "Important Dates",
-        "Learning Style",
-        "Goals",
-        "Career",
-        "Notes",
-        "Sensitive Information",
-      ],
+      default: "Academic Performance",
     },
     title: {
       type: String,

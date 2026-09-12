@@ -1,53 +1,116 @@
 "use client";
 
-import React, { useState } from "react";
-import { CheckSquare, Plus, Filter, Calendar, AlertCircle, CheckCircle2, Trash2, X } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { CheckSquare, Plus, Filter, Calendar, AlertCircle, CheckCircle2, Trash2, X, Loader2 } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
+import { apiRequest } from "@/lib/apiClient";
+
+interface TaskItem {
+  id?: string;
+  _id?: string;
+  title: string;
+  course?: string;
+  dueDate?: string;
+  priority: "LOW" | "MEDIUM" | "HIGH";
+  completed?: boolean;
+  done?: boolean;
+}
 
 export default function TasksPage() {
-  const [tasks, setTasks] = useState([
-    { id: "1", title: "Submit Distributed Systems Project Draft", course: "CS301", dueDate: "Friday, 23:59", priority: "HIGH", done: false },
-    { id: "2", title: "Complete BCNF Decomposition Practice Set", course: "CS220", dueDate: "Tomorrow, 18:00", priority: "HIGH", done: false },
-    { id: "3", title: "Review Bellman-Ford Shortest Path Proof", course: "CS240", dueDate: "Monday, 12:00", priority: "MEDIUM", done: true },
-    { id: "4", title: "Draft AI Ethics Weekly Diary Reflection", course: "GEN101", dueDate: "Sunday, 20:00", priority: "LOW", done: false },
-  ]);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [filter, setFilter] = useState<"ALL" | "TODO" | "DONE">("ALL");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newTitle, setNewTitle] = useState("");
   const [newCourse, setNewCourse] = useState("CS301");
-  const [newDueDate, setNewDueDate] = useState("This Friday");
-  const [newPriority, setNewPriority] = useState("MEDIUM");
+  const [newDueDate, setNewDueDate] = useState("");
+  const [newPriority, setNewPriority] = useState<"LOW" | "MEDIUM" | "HIGH">("MEDIUM");
 
-  const toggleTask = (id: string) => {
-    setTasks(tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await apiRequest<TaskItem[]>("/tasks");
+      setTasks(Array.isArray(data) ? data : []);
+    } catch (err: any) {
+      setError(err.message || "Failed to load tasks");
+      setTasks([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const deleteTask = (id: string) => {
-    setTasks(tasks.filter((t) => t.id !== id));
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const getTaskId = (task: TaskItem) => task.id || task._id || "";
+  const isDone = (task: TaskItem) => Boolean(task.completed ?? task.done);
+
+  const toggleTask = async (task: TaskItem) => {
+    const id = getTaskId(task);
+    const updatedStatus = !isDone(task);
+    // Optimistic UI update
+    setTasks(tasks.map((t) => (getTaskId(t) === id ? { ...t, completed: updatedStatus, done: updatedStatus } : t)));
+
+    try {
+      await apiRequest(`/tasks/${id}`, {
+        method: "PUT",
+        body: JSON.stringify({ completed: updatedStatus }),
+      });
+    } catch (err) {
+      // Revert if error
+      setTasks(tasks.map((t) => (getTaskId(t) === id ? { ...t, completed: !updatedStatus, done: !updatedStatus } : t)));
+    }
   };
 
-  const handleAddTask = (e: React.FormEvent) => {
+  const deleteTask = async (task: TaskItem) => {
+    const id = getTaskId(task);
+    setTasks(tasks.filter((t) => getTaskId(t) !== id));
+
+    try {
+      await apiRequest(`/tasks/${id}`, {
+        method: "DELETE",
+      });
+    } catch (err) {
+      fetchTasks();
+    }
+  };
+
+  const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
-    const newTask = {
-      id: Date.now().toString(),
-      title: newTitle,
-      course: newCourse,
-      dueDate: newDueDate,
-      priority: newPriority,
-      done: false,
-    };
-    setTasks([newTask, ...tasks]);
-    setNewTitle("");
-    setIsModalOpen(false);
+
+    try {
+      const created = await apiRequest<TaskItem>("/tasks", {
+        method: "POST",
+        body: JSON.stringify({
+          title: newTitle,
+          course: newCourse,
+          dueDate: newDueDate || "Upcoming",
+          priority: newPriority,
+        }),
+      });
+
+      setTasks([created, ...tasks]);
+      setNewTitle("");
+      setNewDueDate("");
+      setIsModalOpen(false);
+    } catch (err: any) {
+      alert(err.message || "Failed to create task");
+    }
   };
 
+  const pendingCount = tasks.filter((t) => !isDone(t)).length;
+  const completedCount = tasks.filter((t) => isDone(t)).length;
+
   const filteredTasks = tasks.filter((t) => {
-    if (filter === "TODO") return !t.done;
-    if (filter === "DONE") return t.done;
+    if (filter === "TODO") return !isDone(t);
+    if (filter === "DONE") return isDone(t);
     return true;
   });
 
@@ -59,7 +122,7 @@ export default function TasksPage() {
           <div className="flex items-center gap-2 mb-1">
             <Badge variant="lime">Context-Aware Planner</Badge>
             <span className="text-xs text-gray-500 font-mono">
-              {tasks.filter((t) => !t.done).length} Pending Tasks
+              {pendingCount} Pending Tasks
             </span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-[#06383A] tracking-tight">
@@ -89,50 +152,97 @@ export default function TasksPage() {
                 : "bg-white border border-[#06383A]/10 text-[#06383A] hover:bg-gray-50"
             }`}
           >
-            {f === "ALL" ? `All (${tasks.length})` : f === "TODO" ? `To Do (${tasks.filter(t => !t.done).length})` : `Completed (${tasks.filter(t => t.done).length})`}
+            {f === "ALL" ? `All (${tasks.length})` : f === "TODO" ? `To Do (${pendingCount})` : `Completed (${completedCount})`}
           </button>
         ))}
       </div>
 
-      {/* Tasks List */}
-      <div className="space-y-3">
-        {filteredTasks.map((task) => (
-          <Card key={task.id} variant="light" className="p-4 flex items-center justify-between gap-4 hover:border-[#06383A]/30 transition-all">
-            <div className="flex items-center gap-3.5">
-              <button
-                onClick={() => toggleTask(task.id)}
-                className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-colors ${
-                  task.done ? "bg-emerald-500 border-emerald-500 text-white" : "border-gray-300 hover:border-[#06383A]"
-                }`}
-              >
-                {task.done && <CheckCircle2 className="w-4 h-4" />}
-              </button>
-              <div>
-                <div className={`text-sm font-bold ${task.done ? "line-through text-gray-400" : "text-[#06383A]"}`}>
-                  {task.title}
-                </div>
-                <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
-                  <span className="font-mono font-bold text-[#06383A]/70">{task.course}</span>
-                  <span>•</span>
-                  <span>Due: {task.dueDate}</span>
-                </div>
-              </div>
-            </div>
+      {/* Loading State */}
+      {loading && (
+        <div className="py-12 text-center text-gray-500 flex flex-col items-center gap-2">
+          <Loader2 className="w-6 h-6 animate-spin text-[#06383A]" />
+          <span className="text-sm font-medium">Loading your tasks...</span>
+        </div>
+      )}
 
-            <div className="flex items-center gap-3">
-              <Badge variant={task.priority === "HIGH" ? "amber" : "gray"}>
-                {task.priority}
-              </Badge>
-              <button
-                onClick={() => deleteTask(task.id)}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          </Card>
-        ))}
-      </div>
+      {/* Error State */}
+      {!loading && error && (
+        <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-sm text-red-600 flex items-center justify-between">
+          <span>{error}</span>
+          <Button variant="outline" size="sm" onClick={fetchTasks}>Retry</Button>
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!loading && !error && filteredTasks.length === 0 && (
+        <div className="py-16 text-center border-2 border-dashed border-gray-200 rounded-3xl bg-white/50 p-8 space-y-3">
+          <CheckSquare className="w-10 h-10 text-gray-300 mx-auto" />
+          <h3 className="font-bold text-base text-[#06383A]">No tasks found</h3>
+          <p className="text-xs text-gray-500 max-w-sm mx-auto">
+            {filter === "ALL"
+              ? "You haven't added any tasks yet. Create a task to organize your academic deadlines."
+              : filter === "TODO"
+              ? "No pending tasks to do! You're all caught up."
+              : "No completed tasks yet."}
+          </p>
+          {filter === "ALL" && (
+            <Button
+              variant="dark"
+              size="sm"
+              onClick={() => setIsModalOpen(true)}
+              icon={<Plus className="w-3.5 h-3.5 text-[#B7F34A]" />}
+            >
+              Add First Task
+            </Button>
+          )}
+        </div>
+      )}
+
+      {/* Tasks List */}
+      {!loading && !error && filteredTasks.length > 0 && (
+        <div className="space-y-3">
+          {filteredTasks.map((task) => {
+            const id = getTaskId(task);
+            const done = isDone(task);
+            return (
+              <Card key={id} variant="light" className="p-4 flex items-center justify-between gap-4 hover:border-[#06383A]/30 transition-all">
+                <div className="flex items-center gap-3.5">
+                  <button
+                    onClick={() => toggleTask(task)}
+                    className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-colors ${
+                      done ? "bg-emerald-500 border-emerald-500 text-white" : "border-gray-300 hover:border-[#06383A]"
+                    }`}
+                  >
+                    {done && <CheckCircle2 className="w-4 h-4" />}
+                  </button>
+                  <div>
+                    <div className={`text-sm font-bold ${done ? "line-through text-gray-400" : "text-[#06383A]"}`}>
+                      {task.title}
+                    </div>
+                    <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
+                      {task.course && <span className="font-mono font-bold text-[#06383A]/70">{task.course}</span>}
+                      {task.course && task.dueDate && <span>•</span>}
+                      {task.dueDate && <span>Due: {task.dueDate}</span>}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <Badge variant={task.priority === "HIGH" ? "amber" : "gray"}>
+                    {task.priority}
+                  </Badge>
+                  <button
+                    onClick={() => deleteTask(task)}
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
 
       {/* Add Task Modal */}
       {isModalOpen && (
@@ -174,7 +284,7 @@ export default function TasksPage() {
                   <label className="text-xs font-mono uppercase tracking-wider text-[#06383A] font-bold block">Priority</label>
                   <select
                     value={newPriority}
-                    onChange={(e) => setNewPriority(e.target.value)}
+                    onChange={(e) => setNewPriority(e.target.value as "LOW" | "MEDIUM" | "HIGH")}
                     className="w-full bg-[#F2F5EE] border border-[#06383A]/10 rounded-xl px-4 py-2 text-sm text-[#06383A] focus:outline-none"
                   >
                     <option value="LOW">LOW</option>
@@ -210,3 +320,4 @@ export default function TasksPage() {
     </div>
   );
 }
+

@@ -10,8 +10,8 @@ import Button from "@/components/ui/Button";
 export default function LoginPage() {
   const router = useRouter();
   const { login, isLoading } = useAuth();
-  const [email, setEmail] = useState("alex.rivera@synexora.io");
-  const [password, setPassword] = useState("Password123!");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -60,6 +60,7 @@ export default function LoginPage() {
               <input
                 type="email"
                 required
+                placeholder="student@university.edu"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#B7F34A]"
@@ -79,6 +80,7 @@ export default function LoginPage() {
               <input
                 type="password"
                 required
+                placeholder="••••••••"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#B7F34A]"
@@ -102,13 +104,6 @@ export default function LoginPage() {
           <Link href="/register" className="text-[#B7F34A] font-bold hover:underline">
             Register for Free
           </Link>
-        </div>
-
-        {/* Demo Credentials Box */}
-        <div className="p-3 rounded-xl bg-black/40 border border-white/10 text-[11px] text-slate-300 space-y-1">
-          <div className="font-mono text-[#B7F34A] font-bold">⚡ Demo Student Credentials:</div>
-          <div>Email: <code className="text-white">alex.rivera@synexora.io</code></div>
-          <div>Password: <code className="text-white">Password123!</code></div>
         </div>
 
       </div>

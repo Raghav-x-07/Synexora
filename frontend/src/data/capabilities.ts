@@ -9,7 +9,7 @@ export interface CapabilityItem {
 export const capabilitiesData: CapabilityItem[] = [
   {
     id: "cap-tutor",
-    title: "AI Socratic Tutor",
+    title: "AI Tutor",
     category: "Learning",
     description: "Step-by-step doubt resolution, conceptual breakdowns, and adaptive hints tailored to your pace.",
     iconName: "GraduationCap",

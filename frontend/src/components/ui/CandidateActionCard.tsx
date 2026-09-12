@@ -17,7 +17,7 @@ export default function CandidateActionCard({
   category,
   title,
   value,
-  sourceContext = "Detected from conversation with Socratic Tutor",
+  sourceContext = "Detected from conversation with AI Tutor",
   onSave,
   onIgnore,
 }: CandidateActionCardProps) {

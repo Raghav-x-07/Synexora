@@ -9,27 +9,27 @@ const studentProfileSchema = new mongoose.Schema(
     },
     major: {
       type: String,
-      default: "Computer Science & Engineering",
+      default: "General Studies",
     },
     academicYear: {
       type: String,
-      default: "Year 3",
+      default: "Year 1",
     },
     gpa: {
       type: Number,
-      default: 3.85,
+      default: 0.0,
     },
     masteryScore: {
       type: Number,
-      default: 84.0,
+      default: 0.0,
     },
     studyStreakDays: {
       type: Number,
-      default: 14,
+      default: 0,
     },
     learningStylePreference: {
       type: String,
-      default: "Interactive Code Traces & Socratic Hints",
+      default: "Socratic Guidance & Practice",
     },
   },
   {

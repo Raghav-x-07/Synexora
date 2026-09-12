@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 import {
   Sparkles,
   Flame,
@@ -18,15 +19,46 @@ import {
   Send,
   AlertCircle,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
 import Card from "@/components/ui/Card";
 import Button from "@/components/ui/Button";
 import Badge from "@/components/ui/Badge";
 import MetricTile from "@/components/ui/MetricTile";
-import CandidateActionCard from "@/components/ui/CandidateActionCard";
+import { apiRequest } from "@/lib/apiClient";
+
+interface DashboardData {
+  masteryScore?: number;
+  studyStreakDays?: number;
+  totalTasks?: number;
+  completedTasks?: number;
+  pendingTasks?: number;
+  totalNotes?: number;
+  totalMemories?: number;
+  activeGoals?: number;
+  upcomingDeadlines?: Array<{
+    id: string;
+    title: string;
+    course?: string;
+    dueDate?: string;
+    priority?: string;
+  }>;
+}
 
 export default function StudentDashboardCockpit() {
+  const { user } = useAuth();
   const [promptInput, setPromptInput] = useState("");
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiRequest<DashboardData>("/dashboard/summary")
+      .then((data) => setDashboardData(data))
+      .catch(() => {
+        setDashboardData(null);
+      })
+      .finally(() => setLoading(false));
+  }, []);
 
   const quickPrompts = [
     "Deconstruct Dijkstra's algorithm vs Bellman-Ford",
@@ -34,10 +66,17 @@ export default function StudentDashboardCockpit() {
     "Summarize key takeaways from Lecture 8 slides",
   ];
 
+  const studentFirstName = user?.fullName ? user.fullName.split(" ")[0] : "Student";
+  const streakDays = dashboardData?.studyStreakDays ?? user?.studyStreakDays ?? 0;
+  const mastery = dashboardData?.masteryScore ?? user?.masteryScore ?? 0;
+  const completedTasks = dashboardData?.completedTasks ?? 0;
+  const totalTasks = dashboardData?.totalTasks ?? 0;
+  const deadlines = dashboardData?.upcomingDeadlines ?? [];
+
   return (
     <div className="space-y-8 animate-in fade-in duration-300">
       
-      {/* 1. Student Hero Welcome & Daily Mission */}
+      {/* 1. Student Hero Welcome */}
       <div className="relative bg-[#06383A] text-white rounded-[32px] p-6 sm:p-10 border border-white/10 overflow-hidden shadow-xl">
         <div className="absolute top-0 right-0 w-[450px] h-[300px] bg-radial-gradient from-[#B7F34A]/20 via-[#8FD63A]/10 to-transparent blur-[80px] pointer-events-none" />
         
@@ -45,14 +84,22 @@ export default function StudentDashboardCockpit() {
           <div className="space-y-2 max-w-2xl">
             <div className="flex items-center gap-2">
               <span className="text-xs font-mono uppercase tracking-wider text-[#B7F34A] font-bold">
-                Student Cockpit • Fall Semester 2026
+                Student Cockpit • Synexora OS
               </span>
             </div>
             <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-              Good morning, Alex.
+              Good day, {studentFirstName}.
             </h1>
             <p className="text-sm sm:text-base text-slate-300 leading-relaxed font-normal">
-              You have <strong className="text-white font-semibold">2 focus study blocks</strong> and <strong className="text-[#B7F34A] font-semibold">1 critical deadline</strong> scheduled today. Your academic mastery improved by 4% this week.
+              {deadlines.length > 0 ? (
+                <>
+                  You have <strong className="text-white font-semibold">{deadlines.length} upcoming deadlines</strong> scheduled. Your current study streak is <strong className="text-[#B7F34A] font-semibold">{streakDays} days</strong>.
+                </>
+              ) : (
+                <>
+                  Welcome to your workspace. Start by adding tasks, setting academic goals, or exploring study materials with the AI Tutor.
+                </>
+              )}
             </p>
           </div>
 
@@ -62,73 +109,65 @@ export default function StudentDashboardCockpit() {
                 Launch AI Tutor
               </Button>
             </Link>
-            <Link href="/app/practice">
+            <Link href="/app/tasks">
               <Button variant="outline" size="md" className="text-white border-white/20 hover:bg-white/10">
-                Start Practice
+                View Tasks
               </Button>
             </Link>
           </div>
         </div>
       </div>
 
-      {/* 2. Controlled Memory Live Candidate Action Card */}
-      <CandidateActionCard
-        category="Academic Performance"
-        title="DBMS Midterm Score: 72/100"
-        value="Target: 85%+ in Final Exam. AI will tailor B-Tree and Normalization practice."
-        sourceContext="Detected during your conversation with AI Tutor"
-      />
-
-      {/* 3. Four Key Academic KPI Tiles */}
+      {/* 2. Four Key Academic KPI Tiles */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         <MetricTile
           label="Subject Mastery"
-          value="84%"
-          change="+4.2%"
-          sublabel="Across 4 enrolled courses"
+          value={`${mastery}%`}
+          change={mastery > 0 ? "Tracking" : "Baseline"}
+          sublabel="Across enrolled courses"
           icon={<GraduationCap className="w-5 h-5 text-[#06383A]" />}
           theme="lime"
         />
         <MetricTile
           label="Study Streak"
-          value="14 Days"
-          change="Top 5%"
-          sublabel="Personal record: 21 days"
+          value={`${streakDays} Days`}
+          change={streakDays > 0 ? "Active" : "Start today"}
+          sublabel="Consistent daily focus"
           icon={<Flame className="w-5 h-5 text-orange-500" />}
           theme="light"
         />
         <MetricTile
           label="Task Velocity"
-          value="18/24"
-          change="75%"
-          sublabel="6 tasks remaining this week"
+          value={`${completedTasks}/${totalTasks}`}
+          change={totalTasks > 0 ? `${Math.round((completedTasks / totalTasks) * 100)}%` : "0%"}
+          sublabel={`${totalTasks - completedTasks} tasks remaining`}
           icon={<CheckSquare className="w-5 h-5 text-[#8FD63A]" />}
           theme="light"
         />
         <MetricTile
-          label="Focus Time"
-          value="28.5h"
-          change="On Track"
-          sublabel="Weekly target: 30 hours"
-          icon={<Clock className="w-5 h-5 text-[#B7F34A]" />}
+          label="Active Goals"
+          value={`${dashboardData?.activeGoals ?? 0}`}
+          change="Goals set"
+          sublabel="Target milestones"
+          icon={<Target className="w-5 h-5 text-[#B7F34A]" />}
           theme="dark"
         />
       </div>
 
-      {/* 4. Socratic AI Quick Prompt Bar */}
+      {/* 3. Socratic AI Quick Prompt Bar */}
       <Card variant="light" className="p-6">
         <div className="flex items-center justify-between mb-3">
           <span className="text-xs font-bold uppercase tracking-wider text-[#06383A] flex items-center gap-1.5">
             <Sparkles className="w-4 h-4 text-[#8FD63A]" />
-            Ask Synexora Socratic Tutor
+            Ask Synexora AI Tutor
           </span>
-          <span className="text-xs text-gray-400 font-mono">Grounded across 1,420 course pages</span>
+          <span className="text-xs text-gray-400 font-mono">Interactive Socratic Learning</span>
         </div>
 
         <div className="relative mb-3">
           <input
             type="text"
-            placeholder="Ask a doubt, request a step-by-step concept breakdown, or generate practice..."
+            placeholder="Ask a doubt, request a step-by-step concept breakdown, or explore a topic..."
             value={promptInput}
             onChange={(e) => setPromptInput(e.target.value)}
             className="w-full bg-[#F2F5EE] border border-[#06383A]/10 rounded-2xl px-4 py-3 text-sm text-[#06383A] placeholder-[#06383A]/40 focus:outline-none focus:border-[#06383A]/40 pr-12 font-medium"
@@ -154,111 +193,81 @@ export default function StudentDashboardCockpit() {
         </div>
       </Card>
 
-      {/* 5. Dual Grid: Upcoming Deadlines & Adaptive Learning Path */}
+      {/* 4. Dual Grid: Upcoming Deadlines & Quick Modules */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left: Deadlines & Calendar Radar */}
+        {/* Left: Deadlines Radar */}
         <div className="lg:col-span-6 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-[#06383A] flex items-center gap-2">
               <Calendar className="w-4 h-4 text-[#8FD63A]" />
-              Deadlines & Exam Radar
+              Deadlines & Upcoming Tasks
             </h3>
-            <Link href="/app/calendar" className="text-xs font-bold text-[#06383A] hover:text-[#8FD63A] flex items-center gap-1">
-              <span>Full Calendar</span>
+            <Link href="/app/tasks" className="text-xs font-bold text-[#06383A] hover:text-[#8FD63A] flex items-center gap-1">
+              <span>All Tasks</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
 
           <div className="space-y-3">
-            <div className="bg-white rounded-2xl p-4 border border-red-500/20 shadow-sm flex items-start justify-between gap-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Badge variant="amber" pulse>Due in 2 Days</Badge>
-                  <span className="text-xs font-mono text-gray-400">CS301</span>
+            {deadlines.length > 0 ? (
+              deadlines.map((dl) => (
+                <div key={dl.id} className="bg-white rounded-2xl p-4 border border-[#06383A]/10 shadow-sm flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <Badge variant={dl.priority === "HIGH" ? "amber" : "gray"}>Due: {dl.dueDate || "Upcoming"}</Badge>
+                      {dl.course && <span className="text-xs font-mono text-gray-400">{dl.course}</span>}
+                    </div>
+                    <div className="font-bold text-sm text-[#06383A]">{dl.title}</div>
+                  </div>
+                  <Link href="/app/tasks">
+                    <CheckSquare className="w-5 h-5 text-gray-300 hover:text-emerald-500 cursor-pointer transition-colors shrink-0 mt-1" />
+                  </Link>
                 </div>
-                <div className="font-bold text-sm text-[#06383A]">Distributed Systems Project Submission</div>
-                <div className="text-xs text-gray-500">Milestone: Raft Consensus Implementation Draft</div>
+              ))
+            ) : (
+              <div className="bg-white rounded-2xl p-8 border border-[#06383A]/10 shadow-sm text-center space-y-2">
+                <CheckSquare className="w-8 h-8 text-gray-300 mx-auto" />
+                <div className="text-sm font-bold text-[#06383A]">No upcoming deadlines</div>
+                <div className="text-xs text-gray-500">You are all caught up! Add a new task in Tasks & Deadlines.</div>
               </div>
-              <CheckSquare className="w-5 h-5 text-gray-300 hover:text-emerald-500 cursor-pointer transition-colors shrink-0 mt-1" />
-            </div>
-
-            <div className="bg-white rounded-2xl p-4 border border-[#06383A]/10 shadow-sm flex items-start justify-between gap-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Badge variant="gray">In 5 Days</Badge>
-                  <span className="text-xs font-mono text-gray-400">CS220</span>
-                </div>
-                <div className="font-bold text-sm text-[#06383A]">DBMS Midterm Assessment</div>
-                <div className="text-xs text-gray-500">Target score: 85%+ • 3 Practice Quizzes remaining</div>
-              </div>
-              <CheckSquare className="w-5 h-5 text-gray-300 hover:text-emerald-500 cursor-pointer transition-colors shrink-0 mt-1" />
-            </div>
-
-            <div className="bg-white rounded-2xl p-4 border border-[#06383A]/10 shadow-sm flex items-start justify-between gap-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Badge variant="gray">Next Week</Badge>
-                  <span className="text-xs font-mono text-gray-400">CS240</span>
-                </div>
-                <div className="font-bold text-sm text-[#06383A]">Graph Algorithms Lab Report</div>
-                <div className="text-xs text-gray-500">Shortest path benchmark analysis</div>
-              </div>
-              <CheckSquare className="w-5 h-5 text-gray-300 hover:text-emerald-500 cursor-pointer transition-colors shrink-0 mt-1" />
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Right: Active Adaptive Learning Path */}
+        {/* Right: Quick Features Navigation */}
         <div className="lg:col-span-6 space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-bold text-[#06383A] flex items-center gap-2">
               <Layers className="w-4 h-4 text-[#8FD63A]" />
-              Active Adaptive Learning Trajectory
+              Quick Access Hub
             </h3>
-            <Link href="/app/learning-path" className="text-xs font-bold text-[#06383A] hover:text-[#8FD63A] flex items-center gap-1">
-              <span>View Trajectory</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
           </div>
 
-          <div className="bg-white rounded-2xl p-6 border border-[#06383A]/10 shadow-sm space-y-5">
-            <div className="flex items-center justify-between">
-              <div>
-                <span className="text-xs font-mono font-bold text-[#8FD63A] uppercase">Active Path</span>
-                <h4 className="text-base font-extrabold text-[#06383A]">Advanced Database Query Optimization</h4>
-              </div>
-              <span className="text-sm font-black font-mono text-[#06383A]">68% Mastered</span>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Link href="/app/notes" className="p-4 rounded-2xl bg-white border border-[#06383A]/10 hover:border-[#06383A]/30 transition-all space-y-2">
+              <FileText className="w-5 h-5 text-[#8FD63A]" />
+              <div className="font-bold text-sm text-[#06383A]">Course Notes</div>
+              <p className="text-xs text-gray-500">Capture, summarize, and review your notes.</p>
+            </Link>
 
-            {/* Progress Bar */}
-            <div className="w-full h-2.5 rounded-full bg-gray-100 overflow-hidden">
-              <div className="h-full bg-[#B7F34A] rounded-full" style={{ width: "68%" }} />
-            </div>
+            <Link href="/app/goals" className="p-4 rounded-2xl bg-white border border-[#06383A]/10 hover:border-[#06383A]/30 transition-all space-y-2">
+              <Target className="w-5 h-5 text-[#8FD63A]" />
+              <div className="font-bold text-sm text-[#06383A]">Academic Goals</div>
+              <p className="text-xs text-gray-500">Track milestones and semester objectives.</p>
+            </Link>
 
-            {/* Steps in path */}
-            <div className="space-y-2.5 text-xs">
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#F2F5EE] border border-[#06383A]/5">
-                <span className="flex items-center gap-2 font-semibold text-[#06383A]">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  1. B-Tree vs Hash Index Storage
-                </span>
-                <span className="text-emerald-600 font-bold">Done</span>
-              </div>
+            <Link href="/app/calendar" className="p-4 rounded-2xl bg-white border border-[#06383A]/10 hover:border-[#06383A]/30 transition-all space-y-2">
+              <Calendar className="w-5 h-5 text-[#8FD63A]" />
+              <div className="font-bold text-sm text-[#06383A]">Adaptive Calendar</div>
+              <p className="text-xs text-gray-500">Schedule your study slots and deadlines.</p>
+            </Link>
 
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-[#B7F34A]/15 border border-[#B7F34A]/30">
-                <span className="flex items-center gap-2 font-bold text-[#06383A]">
-                  <span className="w-2 h-2 rounded-full bg-[#06383A] animate-pulse" />
-                  2. Cost-Based Query Execution Plans
-                </span>
-                <span className="text-[#06383A] font-bold">In Progress</span>
-              </div>
-
-              <div className="flex items-center justify-between p-2.5 rounded-xl bg-gray-50 border border-gray-100 opacity-60">
-                <span className="text-gray-600">3. Concurrency Control & Strict 2PL</span>
-                <span className="text-gray-400">Upcoming</span>
-              </div>
-            </div>
+            <Link href="/app/tutor" className="p-4 rounded-2xl bg-white border border-[#06383A]/10 hover:border-[#06383A]/30 transition-all space-y-2">
+              <Sparkles className="w-5 h-5 text-[#8FD63A]" />
+              <div className="font-bold text-sm text-[#06383A]">AI Socratic Tutor</div>
+              <p className="text-xs text-gray-500">Interactive guidance and concept drills.</p>
+            </Link>
           </div>
         </div>
 
@@ -267,3 +276,4 @@ export default function StudentDashboardCockpit() {
     </div>
   );
 }
+

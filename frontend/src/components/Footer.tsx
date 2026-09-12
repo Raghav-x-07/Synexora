@@ -9,7 +9,7 @@ export default function Footer() {
     {
       title: "Platform",
       links: [
-        { label: "AI Socratic Tutor", href: "#story" },
+        { label: "AI Tutor", href: "#story" },
         { label: "Controlled Memory", href: "#memory" },
         { label: "RAG Knowledge Base", href: "#features" },
         { label: "Adaptive Scheduling", href: "#capabilities" },

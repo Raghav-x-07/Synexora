@@ -117,20 +117,11 @@ export default function RAGPage() {
         body: JSON.stringify({ query: searchQuery }),
       });
       setQueryResult(res);
-    } catch (err) {
+    } catch (err: any) {
       setQueryResult({
-        answer: `According to your indexed course documents, ${searchQuery} is evaluated against core safety invariants and boundary constraints.`,
-        citations: [
-          {
-            doc_title: "DBMS_Normalization_Formulas_2026.pdf",
-            page: 14,
-            chunk_id: "c-101",
-            topic: "Normalization Invariants",
-            text: "Boyce-Codd Normal Form (BCNF) strictly requires that for every non-trivial functional dependency X -> Y, X must be a superkey.",
-            relevance: 0.95,
-          },
-        ],
-        confidence_score: 0.95,
+        answer: "AI query service unavailable. Please make sure the AI service is running.",
+        citations: [],
+        confidence_score: 0,
       });
     } finally {
       setQueryLoading(false);
@@ -155,19 +146,8 @@ export default function RAGPage() {
       showToast(`Successfully indexed "${uploadTitle}" into vector knowledge base!`);
       setIsUploadOpen(false);
       setUploadTitle("");
-    } catch (err) {
-      const fallbackDoc: DocumentItem = {
-        id: `doc-${Date.now()}`,
-        title: uploadTitle.endsWith(".pdf") ? uploadTitle : `${uploadTitle}.pdf`,
-        subject: uploadSubject,
-        chunks: 36,
-        size: "1.6 MB",
-        status: "Indexed",
-        createdAt: new Date().toISOString().split("T")[0],
-      };
-      setDocuments((prev) => [fallbackDoc, ...prev]);
-      showToast(`Document indexed locally.`);
-      setIsUploadOpen(false);
+    } catch (err: any) {
+      showToast(err.message || "Failed to index document. AI service may be offline.");
     } finally {
       setUploadLoading(false);
     }
@@ -178,7 +158,7 @@ export default function RAGPage() {
       await apiRequest(`/rag/documents/${id}`, { method: "DELETE" });
     } catch (err) {}
     setDocuments((prev) => prev.filter((d) => d.id !== id));
-    showToast("Document and vector embeddings deleted.");
+    showToast("Document deleted.");
   };
 
   const openFlashcards = async () => {
@@ -191,36 +171,12 @@ export default function RAGPage() {
       const cards = await apiRequest<any>("/rag/flashcards", { method: "POST", body: JSON.stringify({}) });
       setFlashcards(Array.isArray(cards) ? cards : cards.flashcards || []);
     } catch (err) {
-      setFlashcards([
-        {
-          id: "fc-1",
-          subject: "DBMS",
-          source: "DBMS_Normalization_Formulas_2026.pdf (Page 14)",
-          front: "What is the key condition that distinguishes BCNF from 3NF?",
-          back: "BCNF requires every determinant X to be a superkey for any non-trivial functional dependency X -> Y, eliminating 3NF's allowance for prime attributes.",
-          difficulty: "MEDIUM",
-        },
-        {
-          id: "fc-2",
-          subject: "Distributed Systems",
-          source: "CS301_Distributed_Systems_Consensus.pdf (Page 27)",
-          front: "Why does Raft randomize election timeouts between 150ms and 300ms?",
-          back: "To minimize the probability of split-vote deadlocks when multiple nodes trigger candidate elections simultaneously.",
-          difficulty: "HARD",
-        },
-        {
-          id: "fc-3",
-          subject: "Algorithms",
-          source: "Graph_Theory_Algorithm_Proofs.pdf (Page 9)",
-          front: "What is the time complexity of Dijkstra with a Fibonacci Heap?",
-          back: "O(E + V log V), because decrease-key operations run in amortized O(1) time.",
-          difficulty: "EASY",
-        },
-      ]);
+      setFlashcards([]);
     } finally {
       setFlashcardLoading(false);
     }
   };
+
 
   const totalChunks = documents.reduce((acc, d) => acc + (d.chunks || 0), 0);
 

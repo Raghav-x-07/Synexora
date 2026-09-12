@@ -22,35 +22,35 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (fullName: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<User | null>({
-    id: "demo-alex",
-    email: "alex.rivera@synexora.io",
-    fullName: "Alex Rivera",
-    role: "ROLE_STUDENT",
-    major: "Computer Science & Engineering",
-    academicYear: "Year 3",
-    gpa: 3.85,
-    masteryScore: 84.0,
-    studyStreakDays: 14,
-  });
+  const [user, setUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const userData = await apiRequest<User>("/auth/me");
+      setUser(userData);
+    } catch (err) {
+      // If token is invalid or expired, clear it
+      localStorage.removeItem("synexora_token");
+      setToken(null);
+      setUser(null);
+    }
+  };
 
   useEffect(() => {
     const storedToken = localStorage.getItem("synexora_token");
     if (storedToken) {
       setToken(storedToken);
-      // Fetch user profile if token exists
-      apiRequest<User>("/auth/me")
-        .then((userData) => setUser(userData))
-        .catch(() => {
-          // Keep default demo user if backend is offline in standalone dev
-        });
+      fetchCurrentUser().finally(() => setIsLoading(false));
+    } else {
+      setIsLoading(false);
     }
   }, []);
 
@@ -64,26 +64,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("synexora_token", data.token);
       setToken(data.token);
       setUser(data.user);
-    } catch (err: any) {
-      // Fallback for standalone demo mode
-      if (email === "alex.rivera@synexora.io" || email.includes("@")) {
-        const demoUser: User = {
-          id: "demo-alex",
-          email,
-          fullName: "Alex Rivera",
-          role: "ROLE_STUDENT",
-          major: "Computer Science & Engineering",
-          academicYear: "Year 3",
-          gpa: 3.85,
-          masteryScore: 84.0,
-          studyStreakDays: 14,
-        };
-        setUser(demoUser);
-        localStorage.setItem("synexora_token", "demo_jwt_token");
-        setToken("demo_jwt_token");
-      } else {
-        throw err;
-      }
     } finally {
       setIsLoading(false);
     }
@@ -99,22 +79,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("synexora_token", data.token);
       setToken(data.token);
       setUser(data.user);
-    } catch (err: any) {
-      // Fallback demo
-      const newUser: User = {
-        id: "new-student",
-        email,
-        fullName,
-        role: "ROLE_STUDENT",
-        major: "Computer Science",
-        academicYear: "Year 1",
-        gpa: 4.0,
-        masteryScore: 70.0,
-        studyStreakDays: 1,
-      };
-      setUser(newUser);
-      localStorage.setItem("synexora_token", "demo_jwt_token");
-      setToken("demo_jwt_token");
     } finally {
       setIsLoading(false);
     }
@@ -126,8 +90,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const refreshUser = async () => {
+    if (token) {
+      await fetchCurrentUser();
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, token, isLoading, login, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );
@@ -140,3 +110,4 @@ export function useAuth() {
   }
   return context;
 }
+

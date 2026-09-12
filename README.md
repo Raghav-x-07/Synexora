@@ -12,49 +12,39 @@
 
 ## 🌟 What is Synexora?
 
-**Synexora** is an AI-powered Student Operating System built on the **MERN Stack** (MongoDB, Express.js, React/Next.js, Node.js) with a dedicated Python FastAPI Multi-Agent Engine. It unifies personalized learning, Socratic AI tutoring, RAG-based study assistance, controlled memory, productivity management, calendar scheduling, assessments, analytics, and adaptive learning into one cohesive workspace.
+**Synexora** is an intelligent Student Operating System built with a **Next.js 14** frontend, an **Express.js / Node.js** REST API with **MongoDB / Mongoose** persistence, and a separate **FastAPI** service for AI / LLM capabilities.
 
-Synexora goes far beyond a generic chatbot. It understands the student as a continuously evolving learner:
+It provides a unified student dashboard for managing tasks, notes, goals, calendar schedules, and AI-assisted learning.
+
 ```text
-                         SYNEXORA
-                            │
-                         Student
-                            │
-                            ▼
-                   ┌─────────────────┐
-                   │ AI ORCHESTRATOR │
-                   └────────┬────────┘
-                            │
-          ┌─────────────────┼─────────────────┐
-          ▼                 ▼                 ▼
-     Learning AI       Personal AI       Memory Agent
-          │                 │                 │
-          ▼                 ▼                 ▼
-         RAG             Planning          Controlled
-          │              Calendar            Memory
-          │              Tasks
-          │              Reminders
-          │
-          ▼
-    Assessment Agent
-          │
-          ▼
-   Adaptive Learning
-          │
-          ▼
-   Student Profile
++-------------------------------------------------------------+
+|                      Next.js Frontend                       |
+|               (React 19 / TypeScript / Tailwind)            |
++------------------------------+------------------------------+
+                               |
+                               v
++-------------------------------------------------------------+
+|                     Express.js Backend                      |
+|                   (REST API / JWT Auth)                     |
++--------------------+-------------------+--------------------+
+                     |                   |
+                     v                   v
++-----------------------------+ +-----------------------------+
+|      MongoDB / Mongoose     | |      FastAPI AI Service     |
+|   (Users, Tasks, Notes,     | |      (Python / Uvicorn /    |
+|    Goals, Memories, etc.)   | |       LLM Integrations)     |
++-----------------------------+ +-----------------------------+
 ```
 
 ---
 
-## 🚀 Core Product Philosophy
+## 🚀 Development Principle: Vertical Slices
 
-> **ONE STUDENT → ONE INTELLIGENT SYSTEM → MULTIPLE SPECIALIZED AI CAPABILITIES**
+Synexora is structured so that every feature follows a clean, complete vertical flow:
 
-1. **Teach**: Personalized Socratic explanations, step-by-step doubt resolution, and intelligent practice generation.
-2. **Remember**: Controlled memory where Synexora detects meaningful context (grades, goals, weak topics) and asks student permission before saving.
-3. **Plan**: Context-aware scheduling that links academic deadlines, weaknesses, and available study hours.
-4. **Adapt**: Dynamic learning paths that continuously evolve based on assessment feedback and study reflections.
+$$\text{Frontend UI} \longrightarrow \text{API Client} \longrightarrow \text{Express Route / Controller} \longrightarrow \text{MongoDB Model}$$
+
+No hidden mock data or silent fake stores are used in the core application flow. When the database is empty, the UI renders clean empty states.
 
 ---
 
@@ -64,41 +54,35 @@ Synexora goes far beyond a generic chatbot. It understands the student as a cont
 Synexora/
 ├── frontend/                # Next.js 14, React 19, TypeScript, Tailwind CSS
 │   ├── src/
-│   │   ├── app/             # App Router pages & 18-module student OS workspace
-│   │   ├── components/      # UI component library & dark teal design system
-│   │   ├── lib/             # API clients & utilities
-│   │   └── types/           # TypeScript definitions
-│   ├── package.json
-│   └── README.md
+│   │   ├── app/             # App Router pages (Dashboard, Tasks, Notes, Goals, etc.)
+│   │   ├── components/      # UI components & dark teal design system
+│   │   ├── context/         # AuthContext & state providers
+│   │   └── lib/             # API client (apiClient.ts)
+│   └── package.json
 │
 ├── backend/                 # Backend services orchestrator
-│   ├── server/              # MERN Stack Express.js & MongoDB/Mongoose Core REST API
-│   │   ├── config/          # MongoDB connection & fallback config
-│   │   ├── middleware/      # JWT auth middleware
-│   │   ├── models/          # Mongoose data schemas (User, Task, Note, Memory, etc.)
+│   ├── server/              # Express.js REST API & Mongoose models (Port 8080)
+│   │   ├── config/          # MongoDB connection (db.js)
+│   │   ├── middleware/      # JWT authentication (auth.js)
+│   │   ├── models/          # Mongoose models (User, Task, Note, Goal, Memory, etc.)
 │   │   ├── routes/          # Express API route handlers
-│   │   ├── utils/           # Seed data & in-memory simulation store
-│   │   └── server.js        # Express app entry point (Port 8080)
+│   │   └── server.js        # Server entry point
 │   │
-│   ├── ai-service/          # FastAPI AI Engine (Agents, RAG, Embeddings, LLMs)
-│   │   ├── app/
-│   │   ├── requirements.txt
-│   │   └── README.md
+│   ├── ai-service/          # FastAPI Python AI Service (Port 8000)
+│   │   ├── app/             # FastAPI routers & endpoints
+│   │   ├── venv/            # Python virtual environment
+│   │   └── requirements.txt
 │   │
-│   ├── scripts/             # Unified startup runner utilities
-│   ├── package.json         # Backend task runner
-│   └── README.md
+│   ├── scripts/             # Startup scripts (run-ai.js)
+│   └── package.json
 │
-├── ARCHITECTURE.md          # System & Microservices Blueprint
-├── DATABASE.md              # MongoDB / Mongoose Collection Schemas
-├── API.md                   # REST & AI Service API Contract
-├── AI_ARCHITECTURE.md       # Multi-Agent Coordination & LLM Pipeline
-├── RAG_ARCHITECTURE.md      # Retrieval-Augmented Generation Specs
-├── MEMORY_ARCHITECTURE.md   # Controlled Memory & Privacy Protocol
-├── SECURITY.md              # Security, Auth, RBAC & Protection Policies
-├── DEVELOPMENT.md           # Local Setup & Contribution Guide
-├── ROADMAP.md               # 14-Phase Product Delivery Plan
-└── README.md
+├── .env.example             # Root environment configuration template
+├── PROJECT_STATUS.md        # Comprehensive implementation status
+├── ARCHITECTURE.md          # Architecture blueprint
+├── DATABASE.md              # MongoDB collection schemas
+├── API.md                   # REST & AI Service API reference
+├── DEVELOPMENT.md           # Local setup and workflow guide
+└── ROADMAP.md               # Sequential feature roadmap
 ```
 
 ---
@@ -108,46 +92,55 @@ Synexora/
 ### 1. Prerequisites
 - **Node.js** >= 18.x
 - **Python** >= 3.10
-- **MongoDB** (Optional: local or Atlas; defaults to in-memory simulation store if no MongoDB daemon is running)
+- **MongoDB** (Local instance on `mongodb://localhost:27017/synexora` or MongoDB Atlas URI)
 
-### 2. Launch Frontend
+### 2. Configure Environment Variables
+Copy `.env.example` to respective directories:
+- `backend/server/.env`
+- `backend/ai-service/.env` (optional)
+- `frontend/.env.local` (optional, defaults to `http://localhost:8080/api/v1`)
+
+### 3. Setup Python Virtual Environment for AI Service
 ```bash
+cd backend/ai-service
+python -m venv venv
+.\venv\Scripts\pip install -r requirements.txt   # Windows
+# or: source venv/bin/activate && pip install -r requirements.txt # macOS/Linux
+```
+
+### 4. Start the Application
+
+You can start the full stack using npm scripts from the `backend/` directory or individually:
+
+```bash
+# Terminal 1: Backend Express Server
+cd backend/server
+npm run dev
+
+# Terminal 2: AI Service (FastAPI)
+cd backend/ai-service
+.\venv\Scripts\uvicorn app.main:app --port 8000 --reload
+
+# Terminal 3: Frontend Next.js
 cd frontend
-npm install
 npm run dev
 ```
-Open [http://localhost:3000](http://localhost:3000) to view the Synexora interface.
 
-### 3. Launch Backend Services
-```bash
-cd backend
-npm install
-npm run dev
-```
-Or start services independently:
-```bash
-# Launch Express.js MERN API on port 8080
-npm run dev:api
-
-# Launch FastAPI AI Service on port 8000
-npm run dev:ai
-```
+Open [http://localhost:3000](http://localhost:3000) to view the application.
 
 ---
 
-## 🗺️ Architectural Documentation
+## 🗺️ Documentation
 
-- [Architecture Overview](ARCHITECTURE.md)
-- [Database Schema](DATABASE.md)
-- [API Specifications](API.md)
-- [AI & Agent Architecture](AI_ARCHITECTURE.md)
-- [RAG Architecture](RAG_ARCHITECTURE.md)
-- [Controlled Memory Architecture](MEMORY_ARCHITECTURE.md)
-- [Security & Privacy](SECURITY.md)
-- [Development Guide](DEVELOPMENT.md)
-- [Phase Roadmap](ROADMAP.md)
+- [Project Status](PROJECT_STATUS.md) — What works, what's cleaned, and recommended next steps
+- [Architecture Blueprint](ARCHITECTURE.md) — Architectural overview & request flows
+- [Database Schema](DATABASE.md) — Mongoose models & indexes
+- [API Reference](API.md) — Endpoints, request/response formats
+- [Development Guide](DEVELOPMENT.md) — Step-by-step setup and conventions
+- [Sequential Roadmap](ROADMAP.md) — Feature-by-feature implementation plan
 
 ---
 
 ## 📄 License
 Synexora is open-source software licensed under the MIT license.
+

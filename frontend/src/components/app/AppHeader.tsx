@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useAuth } from "@/context/AuthContext";
 import {
   Search,
   Bell,
@@ -22,6 +23,7 @@ export default function AppHeader({
   onOpenCommandPalette: () => void;
   onToggleMobileSidebar: () => void;
 }) {
+  const { user } = useAuth();
   const [notificationsOpen, setNotificationsOpen] = useState(false);
 
   return (
@@ -54,35 +56,26 @@ export default function AppHeader({
         
         {/* Active Study Streak Badge */}
         <div className="hidden sm:flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#B7F34A]/20 border border-[#B7F34A]/50 text-xs font-bold text-[#06383A]">
-          <Flame className="w-4 h-4 text-orange-500 fill-orange-500 animate-bounce" />
-          <span>14 Days Streak</span>
+          <Flame className="w-4 h-4 text-orange-500 fill-orange-500" />
+          <span>{user?.studyStreakDays ?? 0} Days Streak</span>
         </div>
 
-        {/* Notification Bell with Badge */}
+        {/* Notification Bell */}
         <div className="relative">
           <button
             onClick={() => setNotificationsOpen(!notificationsOpen)}
             className="w-9 h-9 rounded-full bg-white border border-[#06383A]/10 flex items-center justify-center text-[#06383A] hover:bg-gray-50 transition-colors shadow-sm relative"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#B7F34A] border-2 border-white" />
           </button>
 
           {notificationsOpen && (
             <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl p-4 shadow-2xl border border-[#06383A]/10 text-[#06383A] animate-in fade-in zoom-in-95 duration-200 z-50">
               <div className="flex items-center justify-between pb-2 border-b border-gray-100">
                 <span className="text-xs font-bold uppercase tracking-wider">Notifications</span>
-                <span className="text-[10px] text-gray-400">2 New</span>
               </div>
-              <div className="py-2 space-y-2 text-xs">
-                <div className="p-2.5 rounded-xl bg-[#F2F5EE] border border-[#06383A]/5">
-                  <span className="font-bold block text-[#06383A]">Candidate Memory Detected</span>
-                  <span className="text-[11px] text-gray-500">DBMS Midterm Score: 72/100 needs confirmation.</span>
-                </div>
-                <div className="p-2.5 rounded-xl bg-[#F2F5EE] border border-[#06383A]/5">
-                  <span className="font-bold block text-[#06383A]">Deadline Alert</span>
-                  <span className="text-[11px] text-gray-500">Distributed Systems Draft due in 48h.</span>
-                </div>
+              <div className="py-4 text-center text-xs text-gray-500">
+                No new notifications.
               </div>
             </div>
           )}
@@ -99,3 +92,4 @@ export default function AppHeader({
     </header>
   );
 }
+

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
 import {
   Layers,
   GraduationCap,
@@ -25,6 +26,7 @@ import {
   ChevronRight,
   ShieldCheck,
   Flame,
+  Video,
 } from "lucide-react";
 
 export interface NavItem {
@@ -47,6 +49,14 @@ export default function AppSidebar({
   setIsCollapsed: (v: boolean) => void;
 }) {
   const pathname = usePathname();
+  const { user } = useAuth();
+
+  const getInitials = (name?: string) => {
+    if (!name) return "ST";
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+    return name.slice(0, 2).toUpperCase();
+  };
 
   const navGroups: NavGroup[] = [
     {
@@ -58,9 +68,10 @@ export default function AppSidebar({
     {
       group: "Intelligence & Learning",
       items: [
-        { title: "AI Socratic Tutor", href: "/app/tutor", icon: <GraduationCap className="w-4 h-4" />, badge: "AI" },
-        { title: "Controlled Memory", href: "/app/memory", icon: <BrainCircuit className="w-4 h-4" />, badge: "3 New" },
+        { title: "AI Tutor", href: "/app/tutor", icon: <GraduationCap className="w-4 h-4" />, badge: "AI" },
+        { title: "Controlled Memory", href: "/app/memory", icon: <BrainCircuit className="w-4 h-4" /> },
         { title: "RAG Knowledge Base", href: "/app/rag", icon: <FileText className="w-4 h-4" /> },
+        { title: "Video Learning", href: "/app/media", icon: <Video className="w-4 h-4" /> },
         { title: "Intelligent Notes", href: "/app/notes", icon: <PenTool className="w-4 h-4" /> },
       ],
     },
@@ -178,22 +189,23 @@ export default function AppSidebar({
 
       {/* Sidebar Footer User Card */}
       <div className="p-3 border-t border-white/10">
-        <div className="p-2.5 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-3">
+        <Link href="/app/profile" className="block p-2.5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-[#B7F34A] to-emerald-400 flex items-center justify-center text-[#06383A] font-bold text-xs shrink-0">
-            AR
+            {getInitials(user?.fullName)}
           </div>
           {!isCollapsed && (
             <div className="flex-1 overflow-hidden">
               <span className="text-xs font-bold text-white block truncate">
-                Alex Rivera
+                {user?.fullName || "Student Account"}
               </span>
               <span className="text-[10px] text-[#B7F34A] block truncate flex items-center gap-1">
-                <Flame className="w-3 h-3 inline" /> 14-Day Streak
+                <Flame className="w-3 h-3 inline" /> {user?.studyStreakDays ?? 0}-Day Streak
               </span>
             </div>
           )}
-        </div>
+        </Link>
       </div>
     </aside>
   );
 }
+

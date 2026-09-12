@@ -56,19 +56,19 @@ export default function Navbar() {
 
         {/* Right CTA */}
         <div className="hidden md:flex items-center gap-3">
-          <a
-            href="#memory"
+          <Link
+            href="/login"
             className="text-[13px] font-medium text-[#06383A] hover:opacity-75 px-3 py-1.5 transition-opacity"
           >
             Log in
-          </a>
-          <a
-            href="#cta"
+          </Link>
+          <Link
+            href="/app"
             className="btn-pill-dark px-4 py-2 text-[13px] font-semibold flex items-center gap-1.5 group"
           >
             <span>Get started</span>
             <ArrowRight className="w-3.5 h-3.5 transition-transform duration-200 group-hover:translate-x-1" />
-          </a>
+          </Link>
         </div>
 
         {/* Mobile Hamburger Button */}
@@ -96,20 +96,20 @@ export default function Navbar() {
               </a>
             ))}
             <div className="pt-2 flex flex-col gap-2.5">
-              <a
-                href="#cta"
+              <Link
+                href="/app"
                 onClick={() => setMobileMenuOpen(false)}
                 className="btn-pill-primary w-full py-3 text-sm font-semibold text-[#06383A] text-center"
               >
                 Get started →
-              </a>
-              <a
-                href="#cta"
+              </Link>
+              <Link
+                href="/login"
                 onClick={() => setMobileMenuOpen(false)}
                 className="btn-pill-outline w-full py-2.5 text-sm text-[#06383A] text-center"
               >
                 Log in
-              </a>
+              </Link>
             </div>
           </div>
         </div>

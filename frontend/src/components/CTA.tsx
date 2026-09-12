@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { ArrowRight, Sparkles } from "lucide-react";
 
 export default function CTA() {
@@ -28,10 +29,13 @@ export default function CTA() {
             </p>
 
             <div className="pt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
-              <button className="btn-pill-primary px-8 py-4 text-base font-bold text-[#06383A] flex items-center gap-2 group shadow-xl">
+              <Link
+                href="/app"
+                className="btn-pill-primary px-8 py-4 text-base font-bold text-[#06383A] flex items-center gap-2 group shadow-xl"
+              >
                 <span>Get started now</span>
                 <ArrowRight className="w-4 h-4 transition-transform duration-200 group-hover:translate-x-1" />
-              </button>
+              </Link>
               <a
                 href="#memory"
                 className="btn-pill-outline text-white border-white/20 hover:bg-white/10 px-7 py-4 text-base font-medium"
