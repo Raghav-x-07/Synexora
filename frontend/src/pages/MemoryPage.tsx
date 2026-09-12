@@ -14,6 +14,11 @@ import {
   FileText,
   Layers,
   Download,
+  HelpCircle,
+  X,
+  Send,
+  Sparkles,
+  User as UserIcon,
 } from 'lucide-react';
 
 type MemorySource = 'all' | 'rag' | 'learning-ai' | 'manual';
@@ -25,6 +30,13 @@ interface MemoryCard {
   course: string;
   source?: 'learning-ai' | 'rag' | 'manual';
   createdAt?: string;
+}
+
+interface DoubtMessage {
+  id: string;
+  sender: 'user' | 'ai';
+  text: string;
+  timestamp: string;
 }
 
 export const MemoryPage: React.FC = () => {
@@ -39,6 +51,13 @@ export const MemoryPage: React.FC = () => {
   const [newSource, setNewSource] = useState<'manual' | 'learning-ai' | 'rag'>('manual');
   const [revealedIds, setRevealedIds] = useState<Record<string, boolean>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // RAG Doubt Modal State
+  const [doubtModalCard, setDoubtModalCard] = useState<MemoryCard | null>(null);
+  const [doubtMessages, setDoubtMessages] = useState<DoubtMessage[]>([]);
+  const [doubtInput, setDoubtInput] = useState('');
+  const [isDoubtThinking, setIsDoubtThinking] = useState(false);
+  const [doubtError, setDoubtError] = useState<string | null>(null);
 
   const fetchCards = async () => {
     try {
@@ -207,6 +226,68 @@ export const MemoryPage: React.FC = () => {
       .replace(/_+/g, '_')
       .slice(0, 35);
     doc.save(`${sanitizedTitle}_Notes.pdf`);
+  };
+
+  // Open Doubt Modal
+  const handleOpenDoubtModal = (card: MemoryCard) => {
+    setDoubtModalCard(card);
+    setDoubtMessages([
+      {
+        id: '1',
+        sender: 'ai',
+        text: `Hello! I am your RAG Doubt Assistant grounded in "${card.concept}". Ask me anything about this concept, formulas, steps, or request intuitive analogies!`,
+        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      },
+    ]);
+    setDoubtInput('');
+    setDoubtError(null);
+  };
+
+  // Send Doubt Question
+  const handleSendDoubt = async (e?: React.FormEvent, customQuestion?: string) => {
+    if (e) e.preventDefault();
+    const question = (customQuestion || doubtInput).trim();
+    if (!question || !doubtModalCard || isDoubtThinking) return;
+
+    const userMsg: DoubtMessage = {
+      id: Date.now().toString(),
+      sender: 'user',
+      text: question,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    };
+
+    setDoubtMessages((prev) => [...prev, userMsg]);
+    setDoubtInput('');
+    setIsDoubtThinking(true);
+    setDoubtError(null);
+
+    try {
+      const res = await API.post('/ai/memory-doubt', {
+        concept: doubtModalCard.concept,
+        definition: doubtModalCard.definition,
+        course: doubtModalCard.course,
+        question,
+        history: doubtMessages,
+      });
+
+      if (res.data.success && res.data.reply) {
+        const aiMsg: DoubtMessage = {
+          id: (Date.now() + 1).toString(),
+          sender: 'ai',
+          text: res.data.reply,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+        setDoubtMessages((prev) => [...prev, aiMsg]);
+      } else {
+        throw new Error(res.data.message || 'No reply received');
+      }
+    } catch (err: any) {
+      console.error('Doubt solving error:', err);
+      const errMsg = err.response?.data?.message || 'Failed to solve doubt with Groq AI.';
+      setDoubtError(errMsg);
+    } finally {
+      setIsDoubtThinking(false);
+    }
   };
 
   // Section Counts
@@ -561,15 +642,27 @@ export const MemoryPage: React.FC = () => {
                       </button>
 
                       {isRevealed && (
-                        <button
-                          type="button"
-                          onClick={() => handleDownloadPdf(card)}
-                          className="btn-secondary text-xs py-1 px-2.5 gap-1.5 text-green-700 hover:bg-green-50 hover:border-green-300 transition-colors"
-                          title="Download this note as a styled PDF"
-                        >
-                          <Download className="w-3.5 h-3.5 text-green-600" />
-                          <span>Download Notes PDF</span>
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => handleDownloadPdf(card)}
+                            className="btn-secondary text-xs py-1 px-2.5 gap-1.5 text-green-700 hover:bg-green-50 hover:border-green-300 transition-colors"
+                            title="Download this note as a styled PDF"
+                          >
+                            <Download className="w-3.5 h-3.5 text-green-600" />
+                            <span>Download Notes PDF</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDoubtModal(card)}
+                            className="btn-secondary text-xs py-1 px-2.5 gap-1.5 text-purple-700 hover:bg-purple-50 hover:border-purple-300 transition-colors"
+                            title="Ask AI Doubt grounded in this concept"
+                          >
+                            <HelpCircle className="w-3.5 h-3.5 text-purple-600" />
+                            <span>Ask Doubt</span>
+                          </button>
+                        </>
                       )}
                     </div>
 
@@ -584,6 +677,156 @@ export const MemoryPage: React.FC = () => {
             })
           )}
         </div>
+
+        {/* Grounded RAG Doubt Assistant Modal */}
+        {doubtModalCard && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+            <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl flex flex-col h-[620px] max-h-[90vh] overflow-hidden">
+              {/* Modal Header */}
+              <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
+                <div className="flex items-center gap-2.5 overflow-hidden">
+                  <div className="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center text-white shrink-0 shadow-sm">
+                    <Bot className="w-5 h-5" />
+                  </div>
+                  <div className="truncate">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-slate-900 truncate">
+                        {doubtModalCard.concept}
+                      </h3>
+                      <span className="text-[10px] font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded border border-purple-200 shrink-0">
+                        RAG Grounded
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-500">
+                      Grounded in stored memory note • Course: {doubtModalCard.course}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setDoubtModalCard(null)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Grounded Note Excerpt Banner */}
+              <div className="px-4 py-2.5 bg-purple-50/60 border-b border-purple-100 text-xs text-slate-700 flex items-start gap-2">
+                <FileText className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
+                <div className="truncate max-h-12 overflow-y-auto">
+                  <span className="font-semibold text-purple-900">Grounded Source Note: </span>
+                  <span className="text-slate-600">{doubtModalCard.definition.slice(0, 220)}...</span>
+                </div>
+              </div>
+
+              {/* Chat Message Stream */}
+              <div className="p-4 overflow-y-auto flex-1 space-y-3.5 bg-slate-50/30">
+                {doubtMessages.map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex items-start gap-2.5 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}
+                  >
+                    <div
+                      className={`w-6 h-6 rounded flex items-center justify-center text-[11px] font-bold shrink-0 ${
+                        msg.sender === 'user' ? 'bg-slate-800 text-white' : 'bg-purple-600 text-white'
+                      }`}
+                    >
+                      {msg.sender === 'user' ? <UserIcon className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
+                    </div>
+
+                    <div
+                      className={`max-w-lg p-3 rounded-lg text-xs leading-relaxed ${
+                        msg.sender === 'user'
+                          ? 'bg-purple-600 text-white'
+                          : 'bg-white text-slate-800 border border-slate-200 shadow-sm'
+                      }`}
+                    >
+                      <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+                      <span className={`block text-[9px] mt-1 text-right ${
+                        msg.sender === 'user' ? 'text-purple-200' : 'text-slate-400'
+                      }`}>
+                        {msg.timestamp}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+
+                {isDoubtThinking && (
+                  <div className="flex items-center gap-2 text-xs text-purple-700 italic p-2">
+                    <Sparkles className="w-3.5 h-3.5 animate-spin text-purple-600" />
+                    <span>Analyzing grounded context & resolving doubt with Groq AI...</span>
+                  </div>
+                )}
+
+                {doubtError && (
+                  <div className="p-2.5 bg-red-50 border border-red-200 rounded text-red-700 text-xs">
+                    {doubtError}
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Doubt Prompt Pills */}
+              <div className="px-3 py-2 border-t border-slate-200 bg-white flex items-center gap-1.5 overflow-x-auto text-[11px]">
+                <button
+                  type="button"
+                  onClick={() => handleSendDoubt(undefined, 'Explain this concept with a practical real-world example')}
+                  disabled={isDoubtThinking}
+                  className="px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-slate-700 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 shrink-0 transition-colors disabled:opacity-50"
+                >
+                  💡 Practical Example
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendDoubt(undefined, 'Simplify this explanation in 2 plain sentences')}
+                  disabled={isDoubtThinking}
+                  className="px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-slate-700 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 shrink-0 transition-colors disabled:opacity-50"
+                >
+                  ⚡ Simplify It
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendDoubt(undefined, 'Give me an intuitive analogy to easily memorize this')}
+                  disabled={isDoubtThinking}
+                  className="px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-slate-700 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 shrink-0 transition-colors disabled:opacity-50"
+                >
+                  🧠 Intuitive Analogy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSendDoubt(undefined, 'Generate a multiple-choice practice question based on this note')}
+                  disabled={isDoubtThinking}
+                  className="px-2.5 py-1 rounded bg-slate-50 border border-slate-200 text-slate-700 hover:bg-purple-50 hover:border-purple-200 hover:text-purple-700 shrink-0 transition-colors disabled:opacity-50"
+                >
+                  📝 Practice Quiz
+                </button>
+              </div>
+
+              {/* Input Form */}
+              <form onSubmit={handleSendDoubt} className="p-3 border-t border-slate-200 bg-slate-50 flex gap-2">
+                <input
+                  type="text"
+                  value={doubtInput}
+                  onChange={(e) => setDoubtInput(e.target.value)}
+                  placeholder={`Ask a doubt about ${doubtModalCard.concept}...`}
+                  disabled={isDoubtThinking}
+                  className="input-clean text-xs flex-1 disabled:opacity-50"
+                />
+                <button
+                  type="submit"
+                  disabled={!doubtInput.trim() || isDoubtThinking}
+                  className="btn-primary text-xs px-4 gap-1.5 disabled:opacity-50 bg-purple-600 hover:bg-purple-700"
+                >
+                  {isDoubtThinking ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5" />
+                  )}
+                  <span>Ask</span>
+                </button>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </AppLayout>
   );

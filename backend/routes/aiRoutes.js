@@ -76,6 +76,69 @@ router.post('/chat', async (req, res) => {
       message: 'Failed to generate response from Groq AI.',
       error: err.message,
     });
+// @route   POST /api/ai/memory-doubt
+// @desc    Ask a doubt on a specific memory recall concept (Mini RAG)
+router.post('/memory-doubt', async (req, res) => {
+  const { concept, definition, course, question, history = [] } = req.body;
+
+  if (!concept || !question || !question.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Concept and doubt question are required.',
+    });
+  }
+
+  try {
+    const groq = getGroqClient();
+
+    const systemInstruction = `You are Synexora RAG Doubt Solver, an expert academic tutor.
+The student is asking a doubt regarding the following specific study memory note:
+=== GROUNDED STUDY CONTEXT ===
+Topic / Concept: ${concept}
+Course / Subject: ${course || 'General'}
+Source Notes & Definition:
+${definition}
+==============================
+
+Instructions:
+1. Ground your answer in the provided study note context above.
+2. Directly answer the student's doubt with clear explanation, intuitive analogies, or step-by-step breakdowns.
+3. If they ask for examples, formula derivations, edge cases, or quiz questions, provide them clearly.
+4. Keep the response well-structured, educational, and easy to understand.`;
+
+    const messages = [
+      { role: 'system', content: systemInstruction },
+      ...history.slice(-6).map((msg) => ({
+        role: msg.sender === 'user' ? 'user' : 'assistant',
+        content: msg.text || msg.content,
+      })),
+      { role: 'user', content: question.trim() },
+    ];
+
+    const chatCompletion = await groq.chat.completions.create({
+      messages,
+      model: 'qwen/qwen3.6-27b',
+      temperature: 0.5,
+      max_tokens: 700,
+    });
+
+    let rawReply = chatCompletion.choices[0]?.message?.content || 'I could not generate an answer for this doubt.';
+    if (rawReply.includes('</think>')) {
+      rawReply = rawReply.split('</think>')[1].trim();
+    }
+
+    return res.status(200).json({
+      success: true,
+      reply: rawReply,
+      model: 'qwen/qwen3.6-27b',
+    });
+  } catch (err) {
+    console.error('[Memory Doubt Error]', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to solve doubt with Groq AI.',
+      error: err.message,
+    });
   }
 });
 
