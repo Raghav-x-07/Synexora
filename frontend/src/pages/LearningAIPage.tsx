@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { AppLayout } from '../components/AppLayout';
-import { Bot, Send, Trash2, Sparkles, User as UserIcon } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import API from '../lib/api';
+import { Bot, Send, Trash2, Sparkles, User as UserIcon, AlertCircle } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -10,43 +12,71 @@ interface Message {
 }
 
 export const LearningAIPage: React.FC = () => {
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
       sender: 'ai',
-      text: 'Hello! I am your Synexora AI learning assistant. Ask me to explain a concept, summarize lecture points, or help you solve a problem step-by-step.',
+      text: 'Hello! I am your Synexora AI learning assistant powered by Groq. Ask me to break down a difficult topic, quiz you, or solve a problem step-by-step.',
       timestamp: '10:00 AM',
     },
   ]);
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || isTyping) return;
 
+    const userPrompt = inputText.trim();
     const userMsg: Message = {
       id: Date.now().toString(),
       sender: 'user',
-      text: inputText,
+      text: userPrompt,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
     setMessages((prev) => [...prev, userMsg]);
     setInputText('');
     setIsTyping(true);
+    setErrorMessage(null);
 
-    // Simulate AI response
-    setTimeout(() => {
+    try {
+      const res = await API.post('/ai/chat', {
+        prompt: userPrompt,
+        history: messages,
+        learningStyle: user?.preferences?.learningStyle || 'socratic',
+        subject: user?.major,
+      });
+
+      if (res.data.success && res.data.reply) {
+        const aiReply: Message = {
+          id: (Date.now() + 1).toString(),
+          sender: 'ai',
+          text: res.data.reply,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        };
+        setMessages((prev) => [...prev, aiReply]);
+      } else {
+        throw new Error(res.data.message || 'No reply received');
+      }
+    } catch (err: any) {
+      console.error('AI chat error:', err);
+      const errMsg = err.response?.data?.message || 'Failed to reach AI tutor. Please check backend connection.';
+      setErrorMessage(errMsg);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: (Date.now() + 1).toString(),
+          sender: 'ai',
+          text: `[Error: ${errMsg}]`,
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
+    } finally {
       setIsTyping(false);
-      const aiReply: Message = {
-        id: (Date.now() + 1).toString(),
-        sender: 'ai',
-        text: `Regarding "${userMsg.text}": Let's break this down systematically. Step 1: Identify the main definition and boundaries. Step 2: Examine how the primary variables interact. Would you like a detailed example or a practice question?`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      };
-      setMessages((prev) => [...prev, aiReply]);
-    }, 600);
+    }
   };
 
   const handleClear = () => {
@@ -58,6 +88,7 @@ export const LearningAIPage: React.FC = () => {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ]);
+    setErrorMessage(null);
   };
 
   const setPrompt = (text: string) => {
@@ -73,6 +104,9 @@ export const LearningAIPage: React.FC = () => {
             <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <Bot className="w-5 h-5 text-green-600" />
               <span>Learning AI Tutor</span>
+              <span className="text-[10px] font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded border border-green-200">
+                Groq Live
+              </span>
             </h1>
             <p className="text-xs text-slate-500">
               Interactive conceptual explanations and study assistance
@@ -87,6 +121,13 @@ export const LearningAIPage: React.FC = () => {
             <span>Clear</span>
           </button>
         </div>
+
+        {errorMessage && (
+          <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         {/* Quick Prompt Chips */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
@@ -149,7 +190,7 @@ export const LearningAIPage: React.FC = () => {
             {isTyping && (
               <div className="flex items-center gap-2 text-xs text-slate-500 italic p-2">
                 <Sparkles className="w-3.5 h-3.5 text-green-600 animate-spin" />
-                <span>AI is formulating response...</span>
+                <span>Groq AI is thinking...</span>
               </div>
             )}
           </div>
@@ -161,11 +202,12 @@ export const LearningAIPage: React.FC = () => {
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="Ask a question about your subject..."
-              className="input-clean flex-1"
+              disabled={isTyping}
+              className="input-clean flex-1 disabled:opacity-50"
             />
             <button
               type="submit"
-              disabled={!inputText.trim()}
+              disabled={!inputText.trim() || isTyping}
               className="btn-primary px-4 gap-1.5 disabled:opacity-50"
             >
               <Send className="w-4 h-4" />

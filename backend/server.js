@@ -3,6 +3,7 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const authRoutes = require('./routes/authRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -33,6 +34,7 @@ app.get('/api/health', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 404 Handler
 app.use((req, res) => {
