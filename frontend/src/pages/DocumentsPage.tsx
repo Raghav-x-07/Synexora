@@ -18,6 +18,8 @@ import {
   BookOpen,
   ChevronDown,
   ChevronUp,
+  Brain,
+  Check,
 } from 'lucide-react';
 
 interface DocItem {
@@ -56,6 +58,11 @@ export const DocumentsPage: React.FC = () => {
   const [ragInput, setRagInput] = useState('');
   const [isQueryingRag, setIsQueryingRag] = useState(false);
   const [showSources, setShowSources] = useState<Record<string, boolean>>({});
+
+  // Store to Memory state for RAG answers
+  const [savingRagMemoryId, setSavingRagMemoryId] = useState<string | null>(null);
+  const [savedRagMemoryMap, setSavedRagMemoryMap] = useState<Record<string, boolean>>({});
+  const [ragMemoryNotification, setRagMemoryNotification] = useState<string | null>(null);
 
   const fetchDocs = async () => {
     try {
@@ -190,6 +197,36 @@ export const DocumentsPage: React.FC = () => {
       ]);
     } finally {
       setIsQueryingRag(false);
+    }
+  };
+
+  // Store RAG Answer to Memory
+  const handleStoreRagToMemory = async (msgIndex: number, aiMsg: RagMessage) => {
+    let topic = `${activeRagDoc?.name || 'Document'} Notes`;
+    for (let i = msgIndex - 1; i >= 0; i--) {
+      if (ragMessages[i].sender === 'user') {
+        topic = ragMessages[i].text.slice(0, 100);
+        break;
+      }
+    }
+
+    setSavingRagMemoryId(aiMsg.id);
+    try {
+      const res = await API.post('/memory', {
+        concept: topic,
+        definition: aiMsg.text,
+        course: activeRagDoc?.category || 'General Studies',
+      });
+
+      if (res.data.success) {
+        setSavedRagMemoryMap((prev) => ({ ...prev, [aiMsg.id]: true }));
+        setRagMemoryNotification(`Stored "${topic.slice(0, 35)}..." in Knowledge Memory!`);
+        setTimeout(() => setRagMemoryNotification(null), 3500);
+      }
+    } catch (err: any) {
+      console.error('Store RAG to memory error:', err);
+    } finally {
+      setSavingRagMemoryId(null);
     }
   };
 
@@ -416,9 +453,16 @@ export const DocumentsPage: React.FC = () => {
                 </button>
               </div>
 
+              {ragMemoryNotification && (
+                <div className="m-3 mb-0 p-2.5 rounded-md bg-green-50 border border-green-200 text-green-800 text-xs flex items-center gap-2 animate-fade-in">
+                  <Brain className="w-4 h-4 text-green-600 shrink-0" />
+                  <span>{ragMemoryNotification}</span>
+                </div>
+              )}
+
               {/* RAG Conversation History */}
               <div className="p-4 overflow-y-auto flex-1 space-y-4">
-                {ragMessages.map((msg) => (
+                {ragMessages.map((msg, idx) => (
                   <div
                     key={msg.id}
                     className={`flex items-start gap-2.5 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}
@@ -465,7 +509,40 @@ export const DocumentsPage: React.FC = () => {
                         </div>
                       )}
 
-                      <span className="text-[9px] text-slate-400 mt-1 block text-right">{msg.timestamp}</span>
+                      <div className="mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between">
+                        <span className="text-[9px] text-slate-400">{msg.timestamp}</span>
+
+                        {/* Store to Memory button on RAG responses */}
+                        {msg.sender === 'ai' && msg.id !== '1' && (
+                          <button
+                            type="button"
+                            onClick={() => handleStoreRagToMemory(idx, msg)}
+                            disabled={savingRagMemoryId === msg.id || savedRagMemoryMap[msg.id]}
+                            className={`text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors ${
+                              savedRagMemoryMap[msg.id]
+                                ? 'bg-green-100 text-green-800 border-green-300 cursor-default'
+                                : 'bg-white text-slate-700 border-slate-300 hover:bg-green-50 hover:border-green-400 hover:text-green-700'
+                            }`}
+                          >
+                            {savingRagMemoryId === msg.id ? (
+                              <>
+                                <Loader2 className="w-3 h-3 animate-spin text-green-600" />
+                                <span>Saving...</span>
+                              </>
+                            ) : savedRagMemoryMap[msg.id] ? (
+                              <>
+                                <Check className="w-3 h-3 text-green-600" />
+                                <span>Stored in Memory</span>
+                              </>
+                            ) : (
+                              <>
+                                <Brain className="w-3 h-3 text-green-600" />
+                                <span>Store to Memory</span>
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))}
