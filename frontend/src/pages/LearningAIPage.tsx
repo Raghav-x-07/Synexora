@@ -91,10 +91,6 @@ export const LearningAIPage: React.FC = () => {
     setErrorMessage(null);
   };
 
-  const setPrompt = (text: string) => {
-    setInputText(text);
-  };
-
   return (
     <AppLayout>
       <div className="space-y-4">
@@ -128,29 +124,6 @@ export const LearningAIPage: React.FC = () => {
             <span>{errorMessage}</span>
           </div>
         )}
-
-        {/* Quick Prompt Chips */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-          <span className="text-slate-400 shrink-0 font-medium">Suggestions:</span>
-          <button
-            onClick={() => setPrompt('Explain the difference between TCP and UDP with simple examples')}
-            className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 shrink-0"
-          >
-            TCP vs UDP
-          </button>
-          <button
-            onClick={() => setPrompt('How does binary search achieve O(log n) time complexity?')}
-            className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 shrink-0"
-          >
-            Binary Search Complexity
-          </button>
-          <button
-            onClick={() => setPrompt('Give me a 3-step study plan for my Linear Algebra midterm')}
-            className="px-2.5 py-1 rounded bg-slate-100 text-slate-700 hover:bg-slate-200 shrink-0"
-          >
-            Linear Algebra Plan
-          </button>
-        </div>
 
         {/* Chat Box */}
         <div className="bg-white border border-slate-200 rounded-lg h-[500px] flex flex-col justify-between">
