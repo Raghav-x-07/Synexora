@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppLayout } from '../components/AppLayout';
-import { BarChart3, Plus, Clock, BookOpen, CheckCircle2 } from 'lucide-react';
+import API from '../lib/api';
+import { BarChart3, Plus, Clock, BookOpen, CheckCircle2, Trash2, Loader2 } from 'lucide-react';
 
 interface StudyLog {
-  id: string;
+  _id: string;
   subject: string;
   durationMinutes: number;
   date: string;
@@ -11,36 +12,71 @@ interface StudyLog {
 }
 
 export const ProgressPage: React.FC = () => {
-  const [logs, setLogs] = useState<StudyLog[]>([
-    { id: '1', subject: 'CS 301 Distributed Systems', durationMinutes: 120, date: '2026-09-11', topic: 'Raft consensus protocols and cluster setup' },
-    { id: '2', subject: 'MATH 201 Calculus', durationMinutes: 90, date: '2026-09-10', topic: 'Integration techniques & problem set #3' },
-    { id: '3', subject: 'AI 402 Deep Learning', durationMinutes: 60, date: '2026-09-09', topic: 'Multi-head attention mechanisms review' },
-  ]);
+  const [logs, setLogs] = useState<StudyLog[]>([]);
+  const [totalHours, setTotalHours] = useState('0.0');
+  const [avgDuration, setAvgDuration] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [isAdding, setIsAdding] = useState(false);
   const [subject, setSubject] = useState('CS 301 Distributed Systems');
   const [duration, setDuration] = useState('60');
   const [topic, setTopic] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddLog = (e: React.FormEvent) => {
+  const fetchProgress = async () => {
+    try {
+      setIsLoading(true);
+      const res = await API.get('/progress');
+      if (res.data.success) {
+        setLogs(res.data.logs || []);
+        setTotalHours(res.data.totalHours || '0.0');
+        setAvgDuration(res.data.avgSessionMinutes || 0);
+      }
+    } catch (err) {
+      console.error('Fetch progress error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProgress();
+  }, []);
+
+  const handleAddLog = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topic.trim()) return;
 
-    const newLog: StudyLog = {
-      id: Date.now().toString(),
-      subject,
-      durationMinutes: parseInt(duration, 10) || 60,
-      date: new Date().toISOString().split('T')[0],
-      topic,
-    };
+    setIsSubmitting(true);
+    try {
+      const res = await API.post('/progress', {
+        subject,
+        durationMinutes: parseInt(duration, 10) || 60,
+        topic,
+      });
 
-    setLogs([newLog, ...logs]);
-    setTopic('');
-    setIsAdding(false);
+      if (res.data.success && res.data.log) {
+        setTopic('');
+        setIsAdding(false);
+        fetchProgress();
+      }
+    } catch (err) {
+      console.error('Add study log error:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const totalMinutes = logs.reduce((acc, curr) => acc + curr.durationMinutes, 0);
-  const totalHours = (totalMinutes / 60).toFixed(1);
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await API.delete(`/progress/${id}`);
+      if (res.data.success) {
+        fetchProgress();
+      }
+    } catch (err) {
+      console.error('Delete log error:', err);
+    }
+  };
 
   return (
     <AppLayout>
@@ -52,7 +88,7 @@ export const ProgressPage: React.FC = () => {
               <BarChart3 className="w-5 h-5 text-green-600" />
               <span>Study Progress & Logs</span>
             </h1>
-            <p className="text-xs text-slate-500">Track focused study time and daily academic discipline</p>
+            <p className="text-xs text-slate-500">Track focused study time and daily academic discipline saved to MongoDB</p>
           </div>
           <button
             onClick={() => setIsAdding(!isAdding)}
@@ -80,7 +116,7 @@ export const ProgressPage: React.FC = () => {
               <BookOpen className="w-4 h-4 text-green-600" />
             </div>
             <p className="text-2xl font-bold text-slate-900">{logs.length}</p>
-            <p className="text-xs text-slate-500 mt-1">Total study blocks</p>
+            <p className="text-xs text-slate-500 mt-1">Total study blocks in database</p>
           </div>
 
           <div className="bg-white border border-slate-200 rounded-lg p-5">
@@ -88,9 +124,7 @@ export const ProgressPage: React.FC = () => {
               <span className="text-xs font-semibold uppercase">Avg Session Length</span>
               <CheckCircle2 className="w-4 h-4 text-green-600" />
             </div>
-            <p className="text-2xl font-bold text-slate-900">
-              {logs.length > 0 ? Math.round(totalMinutes / logs.length) : 0} min
-            </p>
+            <p className="text-2xl font-bold text-slate-900">{avgDuration} min</p>
             <p className="text-xs text-slate-500 mt-1">Mean duration</p>
           </div>
         </div>
@@ -142,8 +176,8 @@ export const ProgressPage: React.FC = () => {
               >
                 Cancel
               </button>
-              <button type="submit" className="btn-primary text-xs">
-                Save Study Log
+              <button type="submit" disabled={isSubmitting} className="btn-primary text-xs disabled:opacity-50">
+                {isSubmitting ? 'Saving...' : 'Save Study Log'}
               </button>
             </div>
           </form>
@@ -153,20 +187,40 @@ export const ProgressPage: React.FC = () => {
         <div className="space-y-3">
           <h2 className="text-sm font-bold text-slate-800">Study History</h2>
           <div className="bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
-            {logs.map((log) => (
-              <div key={log.id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-900">{log.subject}</span>
-                    <span className="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">
-                      {log.durationMinutes} minutes
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600 mt-1">{log.topic}</p>
-                </div>
-                <span className="text-xs text-slate-400 shrink-0">{log.date}</span>
+            {isLoading ? (
+              <div className="p-8 text-center text-slate-400 text-sm flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-green-600" />
+                <span>Loading study history from database...</span>
               </div>
-            ))}
+            ) : logs.length === 0 ? (
+              <div className="p-8 text-center text-slate-400 text-sm">
+                No study logs saved in database yet. Click "Log Study Session" above to start tracking.
+              </div>
+            ) : (
+              logs.map((log) => (
+                <div key={log._id} className="p-4 flex items-center justify-between hover:bg-slate-50 transition-colors">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-900">{log.subject}</span>
+                      <span className="text-[11px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded font-medium">
+                        {log.durationMinutes} minutes
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 mt-1">{log.topic}</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-slate-400">{log.date}</span>
+                    <button
+                      onClick={() => handleDelete(log._id)}
+                      className="p-1 text-slate-400 hover:text-red-600 rounded"
+                      title="Delete log"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

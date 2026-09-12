@@ -2,8 +2,17 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
+
+// Route Handlers
 const authRoutes = require('./routes/authRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const taskRoutes = require('./routes/taskRoutes');
+const noteRoutes = require('./routes/noteRoutes');
+const documentRoutes = require('./routes/documentRoutes');
+const eventRoutes = require('./routes/eventRoutes');
+const memoryRoutes = require('./routes/memoryRoutes');
+const assessmentRoutes = require('./routes/assessmentRoutes');
+const progressRoutes = require('./routes/progressRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -35,6 +44,13 @@ app.get('/api/health', (req, res) => {
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/tasks', taskRoutes);
+app.use('/api/notes', noteRoutes);
+app.use('/api/documents', documentRoutes);
+app.use('/api/events', eventRoutes);
+app.use('/api/memory', memoryRoutes);
+app.use('/api/assessments', assessmentRoutes);
+app.use('/api/progress', progressRoutes);
 
 // 404 Handler
 app.use((req, res) => {

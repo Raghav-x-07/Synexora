@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppLayout } from '../components/AppLayout';
-import { Calendar as CalendarIcon, Plus, Trash2, Clock, Tag } from 'lucide-react';
+import API from '../lib/api';
+import { Calendar as CalendarIcon, Plus, Trash2, Clock, Tag, Loader2 } from 'lucide-react';
 
 interface EventItem {
-  id: string;
+  _id: string;
   title: string;
   date: string;
   time: string;
@@ -12,12 +13,8 @@ interface EventItem {
 }
 
 export const CalendarPage: React.FC = () => {
-  const [events, setEvents] = useState<EventItem[]>([
-    { id: '1', title: 'CS301 Midterm Exam', date: '2026-09-14', time: '10:00 AM', type: 'exam', course: 'CS 301' },
-    { id: '2', title: 'AI Ethics Paper Submission', date: '2026-09-16', time: '11:59 PM', type: 'assignment', course: 'AI 402' },
-    { id: '3', title: 'Linear Algebra Review Workshop', date: '2026-09-18', time: '02:00 PM', type: 'study', course: 'MATH 215' },
-    { id: '4', title: 'Distributed Systems Guest Lecture', date: '2026-09-20', time: '09:30 AM', type: 'lecture', course: 'CS 301' },
-  ]);
+  const [events, setEvents] = useState<EventItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [isAdding, setIsAdding] = useState(false);
   const [newTitle, setNewTitle] = useState('');
@@ -25,29 +22,63 @@ export const CalendarPage: React.FC = () => {
   const [newTime, setNewTime] = useState('');
   const [newType, setNewType] = useState<'exam' | 'assignment' | 'lecture' | 'study'>('study');
   const [newCourse, setNewCourse] = useState('CS 301');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddEvent = (e: React.FormEvent) => {
+  const fetchEvents = async () => {
+    try {
+      setIsLoading(true);
+      const res = await API.get('/events');
+      if (res.data.success && res.data.events) {
+        setEvents(res.data.events);
+      }
+    } catch (err) {
+      console.error('Fetch events error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvents();
+  }, []);
+
+  const handleAddEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim() || !newDate) return;
 
-    const newEvent: EventItem = {
-      id: Date.now().toString(),
-      title: newTitle,
-      date: newDate,
-      time: newTime || 'All Day',
-      type: newType,
-      course: newCourse || 'General',
-    };
+    setIsSubmitting(true);
+    try {
+      const res = await API.post('/events', {
+        title: newTitle,
+        date: newDate,
+        time: newTime || 'All Day',
+        type: newType,
+        course: newCourse || 'General',
+      });
 
-    setEvents([...events, newEvent].sort((a, b) => a.date.localeCompare(b.date)));
-    setNewTitle('');
-    setNewDate('');
-    setNewTime('');
-    setIsAdding(false);
+      if (res.data.success && res.data.event) {
+        setEvents([...events, res.data.event].sort((a, b) => a.date.localeCompare(b.date)));
+        setNewTitle('');
+        setNewDate('');
+        setNewTime('');
+        setIsAdding(false);
+      }
+    } catch (err) {
+      console.error('Add event error:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setEvents(events.filter((e) => e.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await API.delete(`/events/${id}`);
+      if (res.data.success) {
+        setEvents(events.filter((e) => e._id !== id));
+      }
+    } catch (err) {
+      console.error('Delete event error:', err);
+    }
   };
 
   const getTypeBadge = (type: string) => {
@@ -73,7 +104,7 @@ export const CalendarPage: React.FC = () => {
               <CalendarIcon className="w-5 h-5 text-green-600" />
               <span>Academic Schedule & Calendar</span>
             </h1>
-            <p className="text-xs text-slate-500">Track exam dates, assignment deadlines, and lecture slots</p>
+            <p className="text-xs text-slate-500">Track exam dates, assignment deadlines, and lecture slots stored in MongoDB</p>
           </div>
           <button
             onClick={() => setIsAdding(!isAdding)}
@@ -153,8 +184,8 @@ export const CalendarPage: React.FC = () => {
               >
                 Cancel
               </button>
-              <button type="submit" className="btn-primary text-xs">
-                Save Event
+              <button type="submit" disabled={isSubmitting} className="btn-primary text-xs disabled:opacity-50">
+                {isSubmitting ? 'Saving...' : 'Save Event'}
               </button>
             </div>
           </form>
@@ -164,12 +195,17 @@ export const CalendarPage: React.FC = () => {
         <div className="space-y-3">
           <h2 className="text-sm font-bold text-slate-800">Upcoming Events ({events.length})</h2>
           <div className="bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
-            {events.length === 0 ? (
-              <p className="p-8 text-center text-slate-400 text-sm">No events scheduled.</p>
+            {isLoading ? (
+              <div className="p-8 text-center text-slate-400 text-sm flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-green-600" />
+                <span>Loading calendar events from database...</span>
+              </div>
+            ) : events.length === 0 ? (
+              <p className="p-8 text-center text-slate-400 text-sm">No events scheduled. Use the form above to add an event.</p>
             ) : (
               events.map((event) => (
                 <div
-                  key={event.id}
+                  key={event._id}
                   className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition-colors"
                 >
                   <div className="flex items-start gap-3">
@@ -201,7 +237,7 @@ export const CalendarPage: React.FC = () => {
                       {event.type}
                     </span>
                     <button
-                      onClick={() => handleDelete(event.id)}
+                      onClick={() => handleDelete(event._id)}
                       className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
                       title="Delete event"
                     >

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppLayout } from '../components/AppLayout';
-import { FileText, Plus, Trash2, Download, Search } from 'lucide-react';
+import API from '../lib/api';
+import { FileText, Plus, Trash2, Download, Search, Loader2 } from 'lucide-react';
 
 interface DocItem {
-  id: string;
+  _id: string;
   name: string;
   category: string;
   size: string;
@@ -11,36 +12,65 @@ interface DocItem {
 }
 
 export const DocumentsPage: React.FC = () => {
-  const [docs, setDocs] = useState<DocItem[]>([
-    { id: '1', name: 'CS301_Distributed_Systems_Syllabus.pdf', category: 'Computer Science', size: '1.2 MB', uploadDate: '2026-09-10' },
-    { id: '2', name: 'Neural_Networks_Cheatsheet.pdf', category: 'AI & Machine Learning', size: '850 KB', uploadDate: '2026-09-08' },
-    { id: '3', name: 'Linear_Algebra_Eigenvalues_Notes.docx', category: 'Mathematics', size: '420 KB', uploadDate: '2026-09-05' },
-  ]);
-
+  const [docs, setDocs] = useState<DocItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [docName, setDocName] = useState('');
   const [category, setCategory] = useState('Computer Science');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddDoc = (e: React.FormEvent) => {
+  const fetchDocs = async () => {
+    try {
+      setIsLoading(true);
+      const res = await API.get('/documents');
+      if (res.data.success && res.data.documents) {
+        setDocs(res.data.documents);
+      }
+    } catch (err) {
+      console.error('Fetch docs error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDocs();
+  }, []);
+
+  const handleAddDoc = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!docName.trim()) return;
 
-    const newDoc: DocItem = {
-      id: Date.now().toString(),
-      name: docName.endsWith('.pdf') || docName.endsWith('.docx') ? docName : `${docName}.pdf`,
-      category,
-      size: '500 KB',
-      uploadDate: new Date().toISOString().split('T')[0],
-    };
+    setIsSubmitting(true);
+    try {
+      const res = await API.post('/documents', {
+        name: docName,
+        category,
+        size: '650 KB',
+      });
 
-    setDocs([newDoc, ...docs]);
-    setDocName('');
-    setIsAdding(false);
+      if (res.data.success && res.data.document) {
+        setDocs([res.data.document, ...docs]);
+        setDocName('');
+        setIsAdding(false);
+      }
+    } catch (err) {
+      console.error('Add document error:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    setDocs(docs.filter(d => d.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await API.delete(`/documents/${id}`);
+      if (res.data.success) {
+        setDocs(docs.filter((d) => d._id !== id));
+      }
+    } catch (err) {
+      console.error('Delete doc error:', err);
+    }
   };
 
   const filteredDocs = docs.filter(
@@ -60,12 +90,12 @@ export const DocumentsPage: React.FC = () => {
               <span>Course Documents</span>
             </h1>
             <p className="text-xs text-slate-500">
-              Manage study guides, lecture PDFs, and research papers
+              Manage study guides, lecture PDFs, and syllabus files saved in MongoDB
             </p>
           </div>
           <button
             onClick={() => setIsAdding(!isAdding)}
-            className="btn-primary gap-1.5 self-start sm:self-auto"
+            className="btn-primary gap-1.5 self-start sm:self-auto text-xs"
           >
             <Plus className="w-4 h-4" />
             <span>{isAdding ? 'Close Form' : 'Add Document'}</span>
@@ -85,7 +115,7 @@ export const DocumentsPage: React.FC = () => {
                   onChange={(e) => setDocName(e.target.value)}
                   placeholder="e.g. Operating_Systems_Lecture1.pdf"
                   required
-                  className="input-clean"
+                  className="input-clean text-xs"
                 />
               </div>
               <div>
@@ -96,7 +126,7 @@ export const DocumentsPage: React.FC = () => {
                   onChange={(e) => setCategory(e.target.value)}
                   placeholder="e.g. Computer Science"
                   required
-                  className="input-clean"
+                  className="input-clean text-xs"
                 />
               </div>
             </div>
@@ -108,8 +138,8 @@ export const DocumentsPage: React.FC = () => {
               >
                 Cancel
               </button>
-              <button type="submit" className="btn-primary text-xs">
-                Save Document
+              <button type="submit" disabled={isSubmitting} className="btn-primary text-xs disabled:opacity-50">
+                {isSubmitting ? 'Saving...' : 'Save Document'}
               </button>
             </div>
           </form>
@@ -123,7 +153,7 @@ export const DocumentsPage: React.FC = () => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search documents by name or subject..."
-            className="input-clean pl-9"
+            className="input-clean pl-9 text-xs"
           />
         </div>
 
@@ -141,15 +171,24 @@ export const DocumentsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredDocs.length === 0 ? (
+                {isLoading ? (
                   <tr>
                     <td colSpan={5} className="px-4 py-8 text-center text-slate-400 text-sm">
-                      No documents found. Click "Add Document" to store a new file.
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-green-600" />
+                        <span>Loading documents from database...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : filteredDocs.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-8 text-center text-slate-400 text-sm">
+                      No documents found. Click "Add Document" to store a new file record.
                     </td>
                   </tr>
                 ) : (
                   filteredDocs.map((doc) => (
-                    <tr key={doc.id} className="hover:bg-slate-50 transition-colors">
+                    <tr key={doc._id} className="hover:bg-slate-50 transition-colors">
                       <td className="px-4 py-3 font-medium text-slate-800 flex items-center gap-2">
                         <FileText className="w-4 h-4 text-green-600 shrink-0" />
                         <span className="truncate max-w-xs">{doc.name}</span>
@@ -171,7 +210,7 @@ export const DocumentsPage: React.FC = () => {
                             <Download className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDelete(doc.id)}
+                            onClick={() => handleDelete(doc._id)}
                             className="p-1 rounded text-slate-400 hover:text-red-600 hover:bg-red-50"
                             title="Delete"
                           >

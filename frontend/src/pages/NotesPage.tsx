@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppLayout } from '../components/AppLayout';
-import { StickyNote, Plus, Trash2, Save, Search } from 'lucide-react';
+import API from '../lib/api';
+import { StickyNote, Plus, Trash2, Save, Search, Loader2 } from 'lucide-react';
 
 interface NoteItem {
-  id: string;
+  _id: string;
   title: string;
   content: string;
   tag: string;
@@ -11,75 +12,94 @@ interface NoteItem {
 }
 
 export const NotesPage: React.FC = () => {
-  const [notes, setNotes] = useState<NoteItem[]>([
-    {
-      id: '1',
-      title: 'Distributed Consensus & Raft Notes',
-      content: 'Raft divides time into terms of arbitrary length. Terms are numbered with consecutive integers. Each term begins with an election, in which one or more candidates attempt to become leader.',
-      tag: 'CS 301',
-      updatedAt: '2026-09-11',
-    },
-    {
-      id: '2',
-      title: 'Attention Is All You Need Summary',
-      content: 'The Transformer model replaces recurrent layers most commonly used in encoder-decoder architectures with multi-head self-attention mechanisms.',
-      tag: 'AI 402',
-      updatedAt: '2026-09-09',
-    },
-  ]);
-
-  const [selectedNoteId, setSelectedNoteId] = useState<string>(notes[0]?.id || '');
+  const [notes, setNotes] = useState<NoteItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedNoteId, setSelectedNoteId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const activeNote = notes.find((n) => n.id === selectedNoteId) || notes[0];
+  const activeNote = notes.find((n) => n._id === selectedNoteId) || notes[0];
 
-  const [editTitle, setEditTitle] = useState(activeNote?.title || '');
-  const [editContent, setEditContent] = useState(activeNote?.content || '');
-  const [editTag, setEditTag] = useState(activeNote?.tag || '');
+  const [editTitle, setEditTitle] = useState('');
+  const [editContent, setEditContent] = useState('');
+  const [editTag, setEditTag] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
-  // Sync editor fields when activeNote changes
-  React.useEffect(() => {
-    if (activeNote) {
-      setEditTitle(activeNote.title);
-      setEditContent(activeNote.content);
-      setEditTag(activeNote.tag);
+  const fetchNotes = async () => {
+    try {
+      setIsLoading(true);
+      const res = await API.get('/notes');
+      if (res.data.success && res.data.notes) {
+        setNotes(res.data.notes);
+        if (res.data.notes.length > 0 && !selectedNoteId) {
+          setSelectedNoteId(res.data.notes[0]._id);
+        }
+      }
+    } catch (err: any) {
+      console.error('Fetch notes error:', err);
+    } finally {
+      setIsLoading(false);
     }
-  }, [selectedNoteId]);
-
-  const handleCreateNote = () => {
-    const newNote: NoteItem = {
-      id: Date.now().toString(),
-      title: 'Untitled Note',
-      content: '',
-      tag: 'General',
-      updatedAt: new Date().toISOString().split('T')[0],
-    };
-    setNotes([newNote, ...notes]);
-    setSelectedNoteId(newNote.id);
   };
 
-  const handleSaveNote = () => {
+  useEffect(() => {
+    fetchNotes();
+  }, []);
+
+  useEffect(() => {
+    if (activeNote) {
+      setEditTitle(activeNote.title || '');
+      setEditContent(activeNote.content || '');
+      setEditTag(activeNote.tag || 'General');
+    }
+  }, [selectedNoteId, activeNote]);
+
+  const handleCreateNote = async () => {
+    try {
+      const res = await API.post('/notes', {
+        title: 'Untitled Note',
+        content: '',
+        tag: 'General',
+      });
+      if (res.data.success && res.data.note) {
+        setNotes([res.data.note, ...notes]);
+        setSelectedNoteId(res.data.note._id);
+      }
+    } catch (err) {
+      console.error('Create note error:', err);
+    }
+  };
+
+  const handleSaveNote = async () => {
     if (!activeNote) return;
-    setNotes(
-      notes.map((n) =>
-        n.id === activeNote.id
-          ? {
-              ...n,
-              title: editTitle || 'Untitled Note',
-              content: editContent,
-              tag: editTag || 'General',
-              updatedAt: new Date().toISOString().split('T')[0],
-            }
-          : n
-      )
-    );
+    setIsSaving(true);
+    try {
+      const res = await API.put(`/notes/${activeNote._id}`, {
+        title: editTitle || 'Untitled Note',
+        content: editContent,
+        tag: editTag || 'General',
+      });
+      if (res.data.success && res.data.note) {
+        setNotes(notes.map((n) => (n._id === activeNote._id ? res.data.note : n)));
+      }
+    } catch (err) {
+      console.error('Save note error:', err);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDeleteNote = (id: string) => {
-    const remaining = notes.filter((n) => n.id !== id);
-    setNotes(remaining);
-    if (selectedNoteId === id && remaining.length > 0) {
-      setSelectedNoteId(remaining[0].id);
+  const handleDeleteNote = async (id: string) => {
+    try {
+      const res = await API.delete(`/notes/${id}`);
+      if (res.data.success) {
+        const remaining = notes.filter((n) => n._id !== id);
+        setNotes(remaining);
+        if (selectedNoteId === id && remaining.length > 0) {
+          setSelectedNoteId(remaining[0]._id);
+        }
+      }
+    } catch (err) {
+      console.error('Delete note error:', err);
     }
   };
 
@@ -99,7 +119,7 @@ export const NotesPage: React.FC = () => {
               <StickyNote className="w-5 h-5 text-green-600" />
               <span>Study Notes</span>
             </h1>
-            <p className="text-xs text-slate-500">Capture lecture summaries and study outlines</p>
+            <p className="text-xs text-slate-500">Capture lecture summaries and study outlines saved to MongoDB</p>
           </div>
           <button onClick={handleCreateNote} className="btn-primary gap-1.5 text-xs">
             <Plus className="w-4 h-4" />
@@ -124,15 +144,20 @@ export const NotesPage: React.FC = () => {
               </div>
 
               <div className="space-y-1 overflow-y-auto max-h-[420px]">
-                {filteredNotes.length === 0 ? (
-                  <p className="text-xs text-slate-400 p-3 text-center">No notes found.</p>
+                {isLoading ? (
+                  <p className="text-xs text-slate-400 p-3 text-center flex items-center justify-center gap-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-green-600" />
+                    <span>Loading notes...</span>
+                  </p>
+                ) : filteredNotes.length === 0 ? (
+                  <p className="text-xs text-slate-400 p-3 text-center">No notes found. Click "New Note" to create one.</p>
                 ) : (
                   filteredNotes.map((note) => (
                     <div
-                      key={note.id}
-                      onClick={() => setSelectedNoteId(note.id)}
+                      key={note._id}
+                      onClick={() => setSelectedNoteId(note._id)}
                       className={`p-2.5 rounded-md cursor-pointer transition-colors border ${
-                        note.id === selectedNoteId
+                        note._id === selectedNoteId
                           ? 'bg-green-50/70 border-green-300'
                           : 'border-transparent hover:bg-slate-50'
                       }`}
@@ -154,7 +179,7 @@ export const NotesPage: React.FC = () => {
               </div>
             </div>
             <div className="text-[11px] text-slate-400 pt-2 border-t border-slate-100">
-              {notes.length} notes stored
+              {notes.length} notes stored in database
             </div>
           </div>
 
@@ -187,17 +212,23 @@ export const NotesPage: React.FC = () => {
                 />
 
                 <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                  <span className="text-xs text-slate-400">Last edited: {activeNote.updatedAt}</span>
+                  <span className="text-xs text-slate-400">
+                    Last updated: {new Date(activeNote.updatedAt).toLocaleDateString()}
+                  </span>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => handleDeleteNote(activeNote.id)}
+                      onClick={() => handleDeleteNote(activeNote._id)}
                       className="btn-secondary text-xs text-red-600 hover:bg-red-50"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                       <span>Delete</span>
                     </button>
-                    <button onClick={handleSaveNote} className="btn-primary text-xs gap-1.5">
-                      <Save className="w-3.5 h-3.5" />
+                    <button
+                      onClick={handleSaveNote}
+                      disabled={isSaving}
+                      className="btn-primary text-xs gap-1.5 disabled:opacity-50"
+                    >
+                      {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                       <span>Save Changes</span>
                     </button>
                   </div>

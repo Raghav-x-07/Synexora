@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppLayout } from '../components/AppLayout';
-import { Award, Plus, CheckCircle2, PlayCircle, RefreshCw } from 'lucide-react';
+import API from '../lib/api';
+import { Award, Plus, CheckCircle2, PlayCircle, RefreshCw, Trash2, Loader2 } from 'lucide-react';
 
 interface AssessmentRecord {
-  id: string;
+  _id: string;
   title: string;
   course: string;
   date: string;
@@ -30,11 +31,8 @@ const sampleQuiz = [
 ];
 
 export const AssessmentsPage: React.FC = () => {
-  const [assessments, setAssessments] = useState<AssessmentRecord[]>([
-    { id: '1', title: 'Algorithms Quiz 1', course: 'CS 301', date: '2026-09-08', score: '92%', status: 'completed' },
-    { id: '2', title: 'Calculus Mid-Term Evaluation', course: 'MATH 201', date: '2026-09-02', score: '88%', status: 'completed' },
-    { id: '3', title: 'Deep Learning Diagnostic Quiz', course: 'AI 402', date: '2026-09-17', score: 'Pending', status: 'upcoming' },
-  ]);
+  const [assessments, setAssessments] = useState<AssessmentRecord[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [isTakingQuiz, setIsTakingQuiz] = useState(false);
   const [currentQIndex, setCurrentQIndex] = useState(0);
@@ -45,6 +43,25 @@ export const AssessmentsPage: React.FC = () => {
   const [newTitle, setNewTitle] = useState('');
   const [newCourse, setNewCourse] = useState('CS 301');
   const [newScore, setNewScore] = useState('90%');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const fetchAssessments = async () => {
+    try {
+      setIsLoading(true);
+      const res = await API.get('/assessments');
+      if (res.data.success && res.data.assessments) {
+        setAssessments(res.data.assessments);
+      }
+    } catch (err) {
+      console.error('Fetch assessments error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAssessments();
+  }, []);
 
   const handleStartQuiz = () => {
     setIsTakingQuiz(true);
@@ -59,11 +76,10 @@ export const AssessmentsPage: React.FC = () => {
     setSelectedAnswers(updated);
   };
 
-  const handleNextQuestion = () => {
+  const handleNextQuestion = async () => {
     if (currentQIndex < sampleQuiz.length - 1) {
       setCurrentQIndex(currentQIndex + 1);
     } else {
-      // Calculate score
       let correctCount = 0;
       selectedAnswers.forEach((ans, idx) => {
         if (ans === sampleQuiz[idx].correct) correctCount++;
@@ -71,35 +87,56 @@ export const AssessmentsPage: React.FC = () => {
       const percent = Math.round((correctCount / sampleQuiz.length) * 100);
       setQuizScore(percent);
 
-      // Save to assessments list
-      const record: AssessmentRecord = {
-        id: Date.now().toString(),
-        title: 'Quick Diagnostic Quiz',
-        course: 'General CS & Engineering',
-        date: new Date().toISOString().split('T')[0],
-        score: `${percent}%`,
-        status: 'completed',
-      };
-      setAssessments([record, ...assessments]);
+      try {
+        const res = await API.post('/assessments', {
+          title: 'Diagnostic Quiz (Computer Systems)',
+          course: 'CS & Algorithms',
+          score: `${percent}%`,
+          status: 'completed',
+        });
+        if (res.data.success && res.data.assessment) {
+          setAssessments([res.data.assessment, ...assessments]);
+        }
+      } catch (err) {
+        console.error('Save quiz score error:', err);
+      }
     }
   };
 
-  const handleAddManual = (e: React.FormEvent) => {
+  const handleAddManual = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
-    const newRecord: AssessmentRecord = {
-      id: Date.now().toString(),
-      title: newTitle,
-      course: newCourse,
-      date: new Date().toISOString().split('T')[0],
-      score: newScore || 'Pending',
-      status: newScore.includes('%') ? 'completed' : 'upcoming',
-    };
+    setIsSubmitting(true);
+    try {
+      const res = await API.post('/assessments', {
+        title: newTitle,
+        course: newCourse,
+        score: newScore || 'Pending',
+        status: newScore.includes('%') ? 'completed' : 'upcoming',
+      });
 
-    setAssessments([newRecord, ...assessments]);
-    setNewTitle('');
-    setIsAdding(false);
+      if (res.data.success && res.data.assessment) {
+        setAssessments([res.data.assessment, ...assessments]);
+        setNewTitle('');
+        setIsAdding(false);
+      }
+    } catch (err) {
+      console.error('Add manual assessment error:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await API.delete(`/assessments/${id}`);
+      if (res.data.success) {
+        setAssessments(assessments.filter((a) => a._id !== id));
+      }
+    } catch (err) {
+      console.error('Delete assessment error:', err);
+    }
   };
 
   return (
@@ -112,7 +149,7 @@ export const AssessmentsPage: React.FC = () => {
               <Award className="w-5 h-5 text-green-600" />
               <span>Assessments & Diagnostic Tests</span>
             </h1>
-            <p className="text-xs text-slate-500">Track quiz results and evaluate subject comprehension</p>
+            <p className="text-xs text-slate-500">Track quiz results and evaluate subject comprehension in MongoDB</p>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={handleStartQuiz} className="btn-primary gap-1.5 text-xs">
@@ -172,7 +209,7 @@ export const AssessmentsPage: React.FC = () => {
                     disabled={selectedAnswers[currentQIndex] === undefined}
                     className="btn-primary text-xs disabled:opacity-50"
                   >
-                    {currentQIndex === sampleQuiz.length - 1 ? 'Finish & Score' : 'Next Question'}
+                    {currentQIndex === sampleQuiz.length - 1 ? 'Finish & Save to Database' : 'Next Question'}
                   </button>
                 </div>
               </div>
@@ -180,7 +217,7 @@ export const AssessmentsPage: React.FC = () => {
               <div className="text-center py-6 space-y-3">
                 <CheckCircle2 className="w-10 h-10 text-green-600 mx-auto" />
                 <h4 className="text-lg font-bold text-slate-900">Quiz Completed</h4>
-                <p className="text-sm text-slate-600">Your Diagnostic Score: <strong className="text-green-700 font-black text-xl">{quizScore}%</strong></p>
+                <p className="text-sm text-slate-600">Your Diagnostic Score: <strong className="text-green-700 font-black text-xl">{quizScore}%</strong> (Saved to database)</p>
                 <button
                   onClick={handleStartQuiz}
                   className="btn-secondary text-xs gap-1.5 inline-flex mt-2"
@@ -237,8 +274,8 @@ export const AssessmentsPage: React.FC = () => {
               >
                 Cancel
               </button>
-              <button type="submit" className="btn-primary text-xs">
-                Save Record
+              <button type="submit" disabled={isSubmitting} className="btn-primary text-xs disabled:opacity-50">
+                {isSubmitting ? 'Saving...' : 'Save Record'}
               </button>
             </div>
           </form>
@@ -254,29 +291,56 @@ export const AssessmentsPage: React.FC = () => {
                   <th className="px-4 py-3">Course</th>
                   <th className="px-4 py-3">Date</th>
                   <th className="px-4 py-3">Score</th>
-                  <th className="px-4 py-3 text-right">Status</th>
+                  <th className="px-4 py-3">Status</th>
+                  <th className="px-4 py-3 text-right">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {assessments.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-4 py-3 font-medium text-slate-900">{item.title}</td>
-                    <td className="px-4 py-3 text-xs text-slate-600">{item.course}</td>
-                    <td className="px-4 py-3 text-xs text-slate-500">{item.date}</td>
-                    <td className="px-4 py-3 font-semibold text-xs text-slate-900">{item.score}</td>
-                    <td className="px-4 py-3 text-right">
-                      <span
-                        className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded border ${
-                          item.status === 'completed'
-                            ? 'bg-green-50 text-green-700 border-green-200'
-                            : 'bg-amber-50 text-amber-700 border-amber-200'
-                        }`}
-                      >
-                        {item.status}
-                      </span>
+                {isLoading ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400 text-sm">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin text-green-600" />
+                        <span>Loading assessments from database...</span>
+                      </div>
                     </td>
                   </tr>
-                ))}
+                ) : assessments.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} className="px-4 py-8 text-center text-slate-400 text-sm">
+                      No assessment records saved yet. Take a quiz or click "Log Score" to add one.
+                    </td>
+                  </tr>
+                ) : (
+                  assessments.map((item) => (
+                    <tr key={item._id} className="hover:bg-slate-50 transition-colors">
+                      <td className="px-4 py-3 font-medium text-slate-900">{item.title}</td>
+                      <td className="px-4 py-3 text-xs text-slate-600">{item.course}</td>
+                      <td className="px-4 py-3 text-xs text-slate-500">{item.date}</td>
+                      <td className="px-4 py-3 font-semibold text-xs text-slate-900">{item.score}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded border ${
+                            item.status === 'completed'
+                              ? 'bg-green-50 text-green-700 border-green-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}
+                        >
+                          {item.status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => handleDelete(item._id)}
+                          className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                          title="Delete record"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

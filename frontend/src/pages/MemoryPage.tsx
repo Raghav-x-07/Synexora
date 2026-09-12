@@ -1,66 +1,82 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppLayout } from '../components/AppLayout';
-import { Brain, Plus, Trash2, Search, Eye, EyeOff } from 'lucide-react';
+import API from '../lib/api';
+import { Brain, Plus, Trash2, Search, Eye, EyeOff, Loader2 } from 'lucide-react';
 
 interface MemoryCard {
-  id: string;
+  _id: string;
   concept: string;
   definition: string;
   course: string;
 }
 
 export const MemoryPage: React.FC = () => {
-  const [cards, setCards] = useState<MemoryCard[]>([
-    {
-      id: '1',
-      concept: 'CAP Theorem',
-      definition: 'A distributed system can guarantee at most two of Consistency, Availability, and Partition Tolerance simultaneously.',
-      course: 'CS 301',
-    },
-    {
-      id: '2',
-      concept: 'Self-Attention Formula',
-      definition: 'Attention(Q, K, V) = softmax(Q * K^T / sqrt(d_k)) * V',
-      course: 'AI 402',
-    },
-    {
-      id: '3',
-      concept: 'Eigenvalue Condition',
-      definition: 'A scalar lambda is an eigenvalue of matrix A if there exists a non-zero vector v such that A*v = lambda*v.',
-      course: 'MATH 215',
-    },
-  ]);
-
+  const [cards, setCards] = useState<MemoryCard[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [newConcept, setNewConcept] = useState('');
   const [newDefinition, setNewDefinition] = useState('');
   const [newCourse, setNewCourse] = useState('CS 301');
   const [revealedIds, setRevealedIds] = useState<Record<string, boolean>>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddCard = (e: React.FormEvent) => {
+  const fetchCards = async () => {
+    try {
+      setIsLoading(true);
+      const res = await API.get('/memory');
+      if (res.data.success && res.data.cards) {
+        setCards(res.data.cards);
+      }
+    } catch (err) {
+      console.error('Fetch memory cards error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCards();
+  }, []);
+
+  const handleAddCard = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newConcept.trim() || !newDefinition.trim()) return;
 
-    const newCard: MemoryCard = {
-      id: Date.now().toString(),
-      concept: newConcept,
-      definition: newDefinition,
-      course: newCourse || 'General',
-    };
+    setIsSubmitting(true);
+    try {
+      const res = await API.post('/memory', {
+        concept: newConcept,
+        definition: newDefinition,
+        course: newCourse || 'General',
+      });
 
-    setCards([newCard, ...cards]);
-    setNewConcept('');
-    setNewDefinition('');
-    setIsAdding(false);
+      if (res.data.success && res.data.card) {
+        setCards([res.data.card, ...cards]);
+        setNewConcept('');
+        setNewDefinition('');
+        setIsAdding(false);
+      }
+    } catch (err) {
+      console.error('Add card error:', err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const toggleReveal = (id: string) => {
     setRevealedIds((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const handleDelete = (id: string) => {
-    setCards(cards.filter((c) => c.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await API.delete(`/memory/${id}`);
+      if (res.data.success) {
+        setCards(cards.filter((c) => c._id !== id));
+      }
+    } catch (err) {
+      console.error('Delete concept error:', err);
+    }
   };
 
   const filteredCards = cards.filter(
@@ -80,7 +96,7 @@ export const MemoryPage: React.FC = () => {
               <Brain className="w-5 h-5 text-green-600" />
               <span>Knowledge Memory & Recall</span>
             </h1>
-            <p className="text-xs text-slate-500">Core concepts, formulas, and definitions for active recall</p>
+            <p className="text-xs text-slate-500">Core concepts, formulas, and definitions saved to MongoDB</p>
           </div>
           <button
             onClick={() => setIsAdding(!isAdding)}
@@ -136,8 +152,8 @@ export const MemoryPage: React.FC = () => {
               >
                 Cancel
               </button>
-              <button type="submit" className="btn-primary text-xs">
-                Save Concept
+              <button type="submit" disabled={isSubmitting} className="btn-primary text-xs disabled:opacity-50">
+                {isSubmitting ? 'Saving...' : 'Save Concept'}
               </button>
             </div>
           </form>
@@ -157,16 +173,21 @@ export const MemoryPage: React.FC = () => {
 
         {/* Concepts Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {filteredCards.length === 0 ? (
+          {isLoading ? (
+            <div className="md:col-span-2 p-8 text-center text-slate-400 text-sm flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-green-600" />
+              <span>Loading memory cards from database...</span>
+            </div>
+          ) : filteredCards.length === 0 ? (
             <div className="md:col-span-2 p-8 text-center text-slate-400 text-sm border border-slate-200 rounded-lg">
-              No concepts found.
+              No concepts stored in database. Use "Add Concept" to create your first flashcard.
             </div>
           ) : (
             filteredCards.map((card) => {
-              const isRevealed = !!revealedIds[card.id];
+              const isRevealed = !!revealedIds[card._id];
               return (
                 <div
-                  key={card.id}
+                  key={card._id}
                   className="bg-white border border-slate-200 rounded-lg p-5 flex flex-col justify-between"
                 >
                   <div>
@@ -175,7 +196,7 @@ export const MemoryPage: React.FC = () => {
                         {card.course}
                       </span>
                       <button
-                        onClick={() => handleDelete(card.id)}
+                        onClick={() => handleDelete(card._id)}
                         className="text-slate-400 hover:text-red-600 p-1"
                         title="Delete concept"
                       >
@@ -183,7 +204,7 @@ export const MemoryPage: React.FC = () => {
                       </button>
                     </div>
                     <h3 className="text-base font-bold text-slate-900 mb-3">{card.concept}</h3>
-                    
+
                     <div className="bg-slate-50 border border-slate-100 rounded p-3 min-h-[60px] text-xs text-slate-700">
                       {isRevealed ? (
                         <p className="leading-relaxed">{card.definition}</p>
@@ -195,7 +216,7 @@ export const MemoryPage: React.FC = () => {
 
                   <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
                     <button
-                      onClick={() => toggleReveal(card.id)}
+                      onClick={() => toggleReveal(card._id)}
                       className="btn-secondary text-xs py-1 px-2.5 gap-1.5"
                     >
                       {isRevealed ? (

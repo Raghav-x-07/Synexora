@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppLayout } from '../components/AppLayout';
-import { CheckSquare, Plus, Trash2 } from 'lucide-react';
+import API from '../lib/api';
+import { CheckSquare, Plus, Trash2, Loader2, AlertCircle } from 'lucide-react';
 
 interface TaskItem {
-  id: string;
+  _id: string;
   title: string;
   course: string;
   priority: 'low' | 'medium' | 'high';
@@ -12,43 +13,83 @@ interface TaskItem {
 }
 
 export const TasksPage: React.FC = () => {
-  const [tasks, setTasks] = useState<TaskItem[]>([
-    { id: '1', title: 'Review Chapter 4 Algorithms lecture notes', course: 'CS 301', priority: 'high', dueDate: '2026-09-14', completed: false },
-    { id: '2', title: 'Submit Calculus II Problem Set', course: 'MATH 201', priority: 'medium', dueDate: '2026-09-15', completed: true },
-    { id: '3', title: 'Prepare presentation slides for AI Seminar', course: 'AI 402', priority: 'high', dueDate: '2026-09-16', completed: false },
-    { id: '4', title: 'Read Machine Learning research paper', course: 'AI 402', priority: 'low', dueDate: '2026-09-18', completed: false },
-  ]);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
   const [newTitle, setNewTitle] = useState('');
   const [newCourse, setNewCourse] = useState('CS 301');
   const [newPriority, setNewPriority] = useState<'low' | 'medium' | 'high'>('medium');
   const [newDueDate, setNewDueDate] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleAddTask = (e: React.FormEvent) => {
+  const fetchTasks = async () => {
+    try {
+      setIsLoading(true);
+      const res = await API.get('/tasks');
+      if (res.data.success) {
+        setTasks(res.data.tasks);
+      }
+    } catch (err: any) {
+      console.error('Fetch tasks error:', err);
+      setErrorMessage(err.response?.data?.message || 'Failed to fetch tasks from database');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTasks();
+  }, []);
+
+  const handleAddTask = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
-    const newTask: TaskItem = {
-      id: Date.now().toString(),
-      title: newTitle,
-      course: newCourse || 'General',
-      priority: newPriority,
-      dueDate: newDueDate || 'No due date',
-      completed: false,
-    };
+    setIsSubmitting(true);
+    setErrorMessage(null);
 
-    setTasks([newTask, ...tasks]);
-    setNewTitle('');
-    setNewDueDate('');
+    try {
+      const res = await API.post('/tasks', {
+        title: newTitle,
+        course: newCourse || 'General',
+        priority: newPriority,
+        dueDate: newDueDate || 'No due date',
+      });
+
+      if (res.data.success && res.data.task) {
+        setTasks([res.data.task, ...tasks]);
+        setNewTitle('');
+        setNewDueDate('');
+      }
+    } catch (err: any) {
+      setErrorMessage(err.response?.data?.message || 'Failed to create task');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const toggleTask = (id: string) => {
-    setTasks(tasks.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)));
+  const toggleTask = async (id: string, currentCompleted: boolean) => {
+    try {
+      const res = await API.put(`/tasks/${id}`, { completed: !currentCompleted });
+      if (res.data.success) {
+        setTasks(tasks.map((t) => (t._id === id ? { ...t, completed: !currentCompleted } : t)));
+      }
+    } catch (err: any) {
+      console.error('Toggle task error:', err);
+    }
   };
 
-  const deleteTask = (id: string) => {
-    setTasks(tasks.filter((t) => t.id !== id));
+  const deleteTask = async (id: string) => {
+    try {
+      const res = await API.delete(`/tasks/${id}`);
+      if (res.data.success) {
+        setTasks(tasks.filter((t) => t._id !== id));
+      }
+    } catch (err: any) {
+      console.error('Delete task error:', err);
+    }
   };
 
   const filteredTasks = tasks.filter((t) => {
@@ -72,8 +113,15 @@ export const TasksPage: React.FC = () => {
             <CheckSquare className="w-5 h-5 text-green-600" />
             <span>Academic Tasks & Deadlines</span>
           </h1>
-          <p className="text-xs text-slate-500">Track homework, reading assignments, and project deliverables</p>
+          <p className="text-xs text-slate-500">Track homework, reading assignments, and deliverables saved to MongoDB</p>
         </div>
+
+        {errorMessage && (
+          <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         {/* Add Task Input Form */}
         <form onSubmit={handleAddTask} className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
@@ -109,8 +157,12 @@ export const TasksPage: React.FC = () => {
               onChange={(e) => setNewDueDate(e.target.value)}
               className="input-clean sm:col-span-2 text-sm"
             />
-            <button type="submit" className="btn-primary sm:col-span-1 py-2 text-xs flex items-center justify-center">
-              <Plus className="w-4 h-4" />
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="btn-primary sm:col-span-1 py-2 text-xs flex items-center justify-center disabled:opacity-50"
+            >
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
             </button>
           </div>
         </form>
@@ -128,38 +180,43 @@ export const TasksPage: React.FC = () => {
               onClick={() => setFilter('active')}
               className={`px-3 py-1 rounded ${filter === 'active' ? 'bg-white shadow-sm text-slate-900 font-semibold' : 'text-slate-600'}`}
             >
-              Active ({tasks.filter(t => !t.completed).length})
+              Active ({tasks.filter((t) => !t.completed).length})
             </button>
             <button
               onClick={() => setFilter('completed')}
               className={`px-3 py-1 rounded ${filter === 'completed' ? 'bg-white shadow-sm text-slate-900 font-semibold' : 'text-slate-600'}`}
             >
-              Completed ({tasks.filter(t => t.completed).length})
+              Completed ({tasks.filter((t) => t.completed).length})
             </button>
           </div>
           <span className="text-xs text-slate-500">
-            {tasks.filter(t => t.completed).length} of {tasks.length} tasks completed
+            {tasks.filter((t) => t.completed).length} of {tasks.length} tasks completed
           </span>
         </div>
 
         {/* Tasks List */}
         <div className="bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
-          {filteredTasks.length === 0 ? (
+          {isLoading ? (
+            <div className="p-8 text-center text-slate-400 text-sm flex items-center justify-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin text-green-600" />
+              <span>Loading tasks from database...</span>
+            </div>
+          ) : filteredTasks.length === 0 ? (
             <div className="p-8 text-center text-slate-400 text-sm">
-              No tasks found in this view.
+              No tasks found in this view. Use the form above to add a new task.
             </div>
           ) : (
             filteredTasks.map((task) => (
               <div
-                key={task.id}
+                key={task._id}
                 className="p-3.5 flex items-center justify-between hover:bg-slate-50 transition-colors gap-3"
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   <input
                     type="checkbox"
                     checked={task.completed}
-                    onChange={() => toggleTask(task.id)}
-                    className="w-4 h-4 text-green-600 rounded border-slate-300 focus:ring-green-500"
+                    onChange={() => toggleTask(task._id, task.completed)}
+                    className="w-4 h-4 text-green-600 rounded border-slate-300 focus:ring-green-500 cursor-pointer"
                   />
                   <div className="truncate">
                     <p className={`text-sm font-medium ${task.completed ? 'line-through text-slate-400' : 'text-slate-900'}`}>
@@ -168,7 +225,7 @@ export const TasksPage: React.FC = () => {
                     <div className="flex items-center gap-2 mt-0.5 text-xs text-slate-500">
                       <span>{task.course}</span>
                       <span>•</span>
-                      <span>Due: {task.dueDate}</span>
+                      <span>Due: {task.dueDate || 'No due date'}</span>
                     </div>
                   </div>
                 </div>
@@ -178,7 +235,7 @@ export const TasksPage: React.FC = () => {
                     {task.priority}
                   </span>
                   <button
-                    onClick={() => deleteTask(task.id)}
+                    onClick={() => deleteTask(task._id)}
                     className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
                     title="Delete task"
                   >
