@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { AppLayout } from '../components/AppLayout';
 import { useAuth } from '../context/AuthContext';
 import API from '../lib/api';
-import { Bot, Send, Trash2, Sparkles, User as UserIcon, AlertCircle } from 'lucide-react';
+import { Bot, Send, Trash2, Sparkles, User as UserIcon, AlertCircle, Brain, Check, Loader2 } from 'lucide-react';
 
 interface Message {
   id: string;
@@ -24,6 +24,9 @@ export const LearningAIPage: React.FC = () => {
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [savingMemoryId, setSavingMemoryId] = useState<string | null>(null);
+  const [savedMemoryMap, setSavedMemoryMap] = useState<Record<string, boolean>>({});
+  const [memoryNotification, setMemoryNotification] = useState<string | null>(null);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,6 +82,37 @@ export const LearningAIPage: React.FC = () => {
     }
   };
 
+  const handleStoreToMemory = async (msgIndex: number, aiMsg: Message) => {
+    // Find the preceding user message to use as the concept/topic
+    let topic = 'AI Study Concept';
+    for (let i = msgIndex - 1; i >= 0; i--) {
+      if (messages[i].sender === 'user') {
+        topic = messages[i].text.slice(0, 100);
+        break;
+      }
+    }
+
+    setSavingMemoryId(aiMsg.id);
+    try {
+      const res = await API.post('/memory', {
+        concept: topic,
+        definition: aiMsg.text,
+        course: user?.major || 'General Studies',
+      });
+
+      if (res.data.success) {
+        setSavedMemoryMap((prev) => ({ ...prev, [aiMsg.id]: true }));
+        setMemoryNotification(`Stored "${topic.slice(0, 40)}..." in Knowledge Memory!`);
+        setTimeout(() => setMemoryNotification(null), 3500);
+      }
+    } catch (err: any) {
+      console.error('Store to memory error:', err);
+      setErrorMessage(err.response?.data?.message || 'Failed to store concept in memory.');
+    } finally {
+      setSavingMemoryId(null);
+    }
+  };
+
   const handleClear = () => {
     setMessages([
       {
@@ -125,11 +159,18 @@ export const LearningAIPage: React.FC = () => {
           </div>
         )}
 
+        {memoryNotification && (
+          <div className="p-3 rounded-md bg-green-50 border border-green-200 text-green-800 text-xs flex items-center gap-2 animate-fade-in">
+            <Brain className="w-4 h-4 text-green-600 shrink-0" />
+            <span>{memoryNotification}</span>
+          </div>
+        )}
+
         {/* Chat Box */}
-        <div className="bg-white border border-slate-200 rounded-lg h-[500px] flex flex-col justify-between">
+        <div className="bg-white border border-slate-200 rounded-lg h-[520px] flex flex-col justify-between">
           {/* Messages list */}
           <div className="p-4 overflow-y-auto space-y-4 flex-1">
-            {messages.map((msg) => (
+            {messages.map((msg, idx) => (
               <div
                 key={msg.id}
                 className={`flex items-start gap-3 ${
@@ -153,9 +194,41 @@ export const LearningAIPage: React.FC = () => {
                   }`}
                 >
                   <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
-                  <span className="text-[10px] text-slate-400 mt-1 block text-right">
-                    {msg.timestamp}
-                  </span>
+
+                  <div className="mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between text-xs">
+                    <span className="text-[10px] text-slate-400">{msg.timestamp}</span>
+
+                    {/* Store to Memory button for AI responses */}
+                    {msg.sender === 'ai' && msg.id !== '1' && (
+                      <button
+                        type="button"
+                        onClick={() => handleStoreToMemory(idx, msg)}
+                        disabled={savingMemoryId === msg.id || savedMemoryMap[msg.id]}
+                        className={`text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors ${
+                          savedMemoryMap[msg.id]
+                            ? 'bg-green-100 text-green-800 border-green-300 cursor-default'
+                            : 'bg-white text-slate-700 border-slate-300 hover:bg-green-50 hover:border-green-400 hover:text-green-700'
+                        }`}
+                      >
+                        {savingMemoryId === msg.id ? (
+                          <>
+                            <Loader2 className="w-3 h-3 animate-spin text-green-600" />
+                            <span>Saving...</span>
+                          </>
+                        ) : savedMemoryMap[msg.id] ? (
+                          <>
+                            <Check className="w-3 h-3 text-green-600" />
+                            <span>Stored in Memory</span>
+                          </>
+                        ) : (
+                          <>
+                            <Brain className="w-3 h-3 text-green-600" />
+                            <span>Store to Memory</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}
