@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from '../components/AppLayout';
 import API from '../lib/api';
+import jsPDF from 'jspdf';
 import {
   Brain,
   Plus,
@@ -12,6 +13,7 @@ import {
   Bot,
   FileText,
   Layers,
+  Download,
 } from 'lucide-react';
 
 type MemorySource = 'all' | 'rag' | 'learning-ai' | 'manual';
@@ -107,6 +109,104 @@ export const MemoryPage: React.FC = () => {
     } catch (err) {
       console.error('Delete concept error:', err);
     }
+  };
+
+  // Download Notes PDF Handler
+  const handleDownloadPdf = (card: MemoryCard) => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const src = getCardSource(card);
+    const sourceLabel =
+      src === 'rag'
+        ? 'Ask RAG Document Knowledge'
+        : src === 'learning-ai'
+        ? 'Synexora AI Learning Tutor'
+        : 'Manual Study Flashcard';
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const maxContentWidth = pageWidth - margin * 2;
+
+    // Header bar
+    doc.setFillColor(16, 185, 129); // Synexora green
+    doc.rect(0, 0, pageWidth, 16, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SYNEXORA — STUDY KNOWLEDGE & MEMORY NOTES', margin, 11);
+
+    // Meta Header
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(
+      `Source: ${sourceLabel}  |  Subject/Course: ${card.course}  |  Date: ${new Date(
+        card.createdAt || Date.now()
+      ).toLocaleDateString()}`,
+      margin,
+      23
+    );
+
+    // Divider
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.4);
+    doc.line(margin, 26, pageWidth - margin, 26);
+
+    // Concept Title
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    const splitTitle = doc.splitTextToSize(card.concept, maxContentWidth);
+    doc.text(splitTitle, margin, 34);
+
+    let currentY = 34 + splitTitle.length * 6 + 4;
+
+    // Sub-header
+    doc.setTextColor(71, 85, 105);
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('NOTES / FORMULAS / EXPLANATION:', margin, currentY);
+    currentY += 6;
+
+    // Definition / Notes Content
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(9.5);
+    doc.setFont('helvetica', 'normal');
+    const splitDef = doc.splitTextToSize(card.definition, maxContentWidth);
+
+    const lineHeight = 5.2;
+    for (let i = 0; i < splitDef.length; i++) {
+      if (currentY + lineHeight > pageHeight - 18) {
+        // Footer on current page
+        doc.setTextColor(148, 163, 184);
+        doc.setFontSize(8);
+        doc.text('Synexora AI Academic Workspace — Active Recall & Study Hub', margin, pageHeight - 8);
+
+        // Add page
+        doc.addPage();
+        currentY = 18;
+      }
+      doc.text(splitDef[i], margin, currentY);
+      currentY += lineHeight;
+    }
+
+    // Bottom footer on final page
+    doc.setTextColor(148, 163, 184);
+    doc.setFontSize(8);
+    doc.text('Synexora AI Academic Workspace — Active Recall & Study Hub', margin, pageHeight - 8);
+
+    // File name
+    const sanitizedTitle = (card.concept || 'Notes')
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .replace(/_+/g, '_')
+      .slice(0, 35);
+    doc.save(`${sanitizedTitle}_Notes.pdf`);
   };
 
   // Section Counts
@@ -441,23 +541,37 @@ export const MemoryPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between">
-                    <button
-                      onClick={() => toggleReveal(card._id)}
-                      className="btn-secondary text-xs py-1 px-2.5 gap-1.5"
-                    >
-                      {isRevealed ? (
-                        <>
-                          <EyeOff className="w-3.5 h-3.5" />
-                          <span>Hide</span>
-                        </>
-                      ) : (
-                        <>
-                          <Eye className="w-3.5 h-3.5" />
-                          <span>Reveal Definition</span>
-                        </>
+                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => toggleReveal(card._id)}
+                        className="btn-secondary text-xs py-1 px-2.5 gap-1.5"
+                      >
+                        {isRevealed ? (
+                          <>
+                            <EyeOff className="w-3.5 h-3.5" />
+                            <span>Hide</span>
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Reveal Definition</span>
+                          </>
+                        )}
+                      </button>
+
+                      {isRevealed && (
+                        <button
+                          type="button"
+                          onClick={() => handleDownloadPdf(card)}
+                          className="btn-secondary text-xs py-1 px-2.5 gap-1.5 text-green-700 hover:bg-green-50 hover:border-green-300 transition-colors"
+                          title="Download this note as a styled PDF"
+                        >
+                          <Download className="w-3.5 h-3.5 text-green-600" />
+                          <span>Download Notes PDF</span>
+                        </button>
                       )}
-                    </button>
+                    </div>
 
                     {card.createdAt && (
                       <span className="text-[10px] text-slate-400">
