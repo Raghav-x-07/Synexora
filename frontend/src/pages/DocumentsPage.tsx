@@ -28,8 +28,10 @@ import {
   MicOff,
   Volume2,
   VolumeX,
+  Headphones,
 } from 'lucide-react';
 import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
+import { DocumentAudioModal } from '../components/DocumentAudioModal';
 
 interface DocItem {
   _id: string;
@@ -54,8 +56,8 @@ export const DocumentsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Ingestion Mode: 'file' or 'link'
-  const [ingestMode, setIngestMode] = useState<'file' | 'link'>('file');
+  // Ingestion Mode: 'file', 'link', or 'text'
+  const [ingestMode, setIngestMode] = useState<'file' | 'link' | 'text'>('file');
 
   // File Upload state
   const [isUploading, setIsUploading] = useState(false);
@@ -71,6 +73,17 @@ export const DocumentsPage: React.FC = () => {
   const [isIndexingLink, setIsIndexingLink] = useState(false);
   const [linkMessage, setLinkMessage] = useState<string | null>(null);
   const [linkError, setLinkError] = useState<string | null>(null);
+
+  // Raw Text Ingestion & Instant Audio state
+  const [rawTextTitle, setRawTextTitle] = useState('');
+  const [rawTextContent, setRawTextContent] = useState('');
+  const [rawTextCategory, setRawTextCategory] = useState('Computer Science');
+  const [isSavingRawText, setIsSavingRawText] = useState(false);
+  const [rawTextMessage, setRawTextMessage] = useState<string | null>(null);
+  const [rawTextError, setRawTextError] = useState<string | null>(null);
+
+  // Document Audio Reader Modal state
+  const [activeAudioDoc, setActiveAudioDoc] = useState<DocItem | null>(null);
 
   // RAG Chat Modal / Drawer state
   const [activeRagDoc, setActiveRagDoc] = useState<DocItem | null>(null);
@@ -183,6 +196,41 @@ export const DocumentsPage: React.FC = () => {
       setLinkError(err.response?.data?.message || 'Failed to fetch transcript and index link.');
     } finally {
       setIsIndexingLink(false);
+    }
+  };
+
+  // Handle Raw Text / Note Submission
+  const handleRawTextSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rawTextContent.trim()) {
+      setRawTextError('Please enter some text or study notes.');
+      return;
+    }
+
+    setIsSavingRawText(true);
+    setRawTextMessage(null);
+    setRawTextError(null);
+
+    try {
+      const res = await API.post('/documents/text', {
+        title: rawTextTitle,
+        text: rawTextContent,
+        category: rawTextCategory,
+      });
+
+      if (res.data.success && res.data.document) {
+        setRawTextMessage(res.data.message || 'Text note created and indexed successfully!');
+        setRawTextTitle('');
+        setRawTextContent('');
+        await fetchDocs();
+        // Automatically open the audio player for this note
+        setActiveAudioDoc(res.data.document);
+        setTimeout(() => setRawTextMessage(null), 4000);
+      }
+    } catch (err: any) {
+      setRawTextError(err.response?.data?.message || 'Failed to save text document.');
+    } finally {
+      setIsSavingRawText(false);
     }
   };
 
@@ -342,10 +390,10 @@ export const DocumentsPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Ingestion Hub Card with Dual Tabs */}
+        {/* Ingestion Hub Card with 3 Tabs */}
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
           {/* Mode Selector Tabs */}
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200">
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200 flex-wrap">
             <button
               type="button"
               onClick={() => setIngestMode('file')}
@@ -371,13 +419,26 @@ export const DocumentsPage: React.FC = () => {
               <Youtube className="w-3.5 h-3.5" />
               <span>Index YouTube Link / Web</span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => setIngestMode('text')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                ingestMode === 'text'
+                  ? 'bg-emerald-700 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-emerald-50 hover:text-emerald-700'
+              }`}
+            >
+              <Headphones className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Paste Text & Listen Audio</span>
+            </button>
           </div>
 
           {/* Tab 1: File Upload Form */}
           {ingestMode === 'file' && (
             <div>
               <h2 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
-                <Upload className="w-4 h-4 text-green-600" /> Upload Course PDF or Notes for RAG
+                <Upload className="w-4 h-4 text-green-600" /> Upload Course PDF, Word or Notes (RAG & Audio Reader)
               </h2>
 
               {uploadMessage && (
@@ -442,7 +503,7 @@ export const DocumentsPage: React.FC = () => {
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Supported formats: <strong>.pdf</strong>, <strong>.docx</strong>, <strong>.txt</strong>, <strong>.md</strong>. Max size: 25MB.
+                  Supported formats: <strong>.pdf</strong>, <strong>.docx</strong>, <strong>.txt</strong>, <strong>.md</strong>. You can listen to full audio or query with RAG.
                 </p>
               </form>
             </div>
@@ -453,7 +514,7 @@ export const DocumentsPage: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                  <Youtube className="w-4 h-4 text-red-600" /> Index YouTube Lecture or Web Link for RAG
+                  <Youtube className="w-4 h-4 text-red-600" /> Index YouTube Lecture or Web Link (RAG & Audio Reader)
                 </h2>
                 {isYouTubeUrl(linkUrl) && (
                   <span className="text-[10px] font-bold bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-200 flex items-center gap-1">
@@ -529,8 +590,93 @@ export const DocumentsPage: React.FC = () => {
                   </div>
                 </div>
                 <p className="text-[11px] text-slate-400">
-                  Synexora automatically extracts the <strong>video transcript</strong>, subtitles, and topics to enable grounded Q&A.
+                  Synexora automatically extracts the <strong>video transcript</strong>, enabling audiobook listening and grounded Q&A.
                 </p>
+              </form>
+            </div>
+          )}
+
+          {/* Tab 3: Raw Text / Direct Note & Audio Form */}
+          {ingestMode === 'text' && (
+            <div>
+              <h2 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <Headphones className="w-4 h-4 text-emerald-600" /> Paste Any Study Text & Listen Immediately
+              </h2>
+
+              {rawTextMessage && (
+                <div className="mb-4 p-3 rounded-md bg-green-50 border border-green-200 text-green-800 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                  <span>{rawTextMessage}</span>
+                </div>
+              )}
+
+              {rawTextError && (
+                <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                  <span>{rawTextError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleRawTextSubmit} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                  <div className="sm:col-span-8">
+                    <input
+                      type="text"
+                      value={rawTextTitle}
+                      onChange={(e) => setRawTextTitle(e.target.value)}
+                      placeholder="Title (e.g. Chapter 4 Summary, Operating System Deadlocks)..."
+                      className="input-clean text-xs w-full"
+                    />
+                  </div>
+                  <div className="sm:col-span-4">
+                    <select
+                      value={rawTextCategory}
+                      onChange={(e) => setRawTextCategory(e.target.value)}
+                      className="input-clean text-xs w-full"
+                    >
+                      <option value="Computer Science">Computer Science</option>
+                      <option value="Mathematics">Mathematics</option>
+                      <option value="AI & Machine Learning">AI & Machine Learning</option>
+                      <option value="Biomedical">Biomedical</option>
+                      <option value="Economics">Economics</option>
+                      <option value="General Studies">General Studies</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <textarea
+                    rows={4}
+                    value={rawTextContent}
+                    onChange={(e) => setRawTextContent(e.target.value)}
+                    placeholder="Paste or type any article, study notes, lecture script, or textbook passage here to listen as audio..."
+                    required
+                    className="input-clean text-xs w-full resize-y"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] text-slate-400">
+                    Saves your text note with full paragraph chunking, audio narration, and RAG grounding.
+                  </p>
+                  <button
+                    type="submit"
+                    disabled={!rawTextContent.trim() || isSavingRawText}
+                    className="btn-primary text-xs py-2 px-4 gap-1.5 disabled:opacity-50 bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    {isSavingRawText ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>Indexing & Reading...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Headphones className="w-3.5 h-3.5" />
+                        <span>Save & Listen Audio</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </form>
             </div>
           )}
@@ -554,7 +700,7 @@ export const DocumentsPage: React.FC = () => {
               <span className="text-xs text-slate-500">{docs.length} materials indexed</span>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-600 uppercase">
                   <tr>
@@ -575,7 +721,7 @@ export const DocumentsPage: React.FC = () => {
                   ) : filteredDocs.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="p-8 text-center text-slate-400">
-                        No materials indexed yet. Upload a document or paste a YouTube link above to start querying with RAG.
+                        No materials indexed yet. Upload a document, paste a YouTube link, or type study notes above to listen and query.
                       </td>
                     </tr>
                   ) : (
@@ -625,7 +771,17 @@ export const DocumentsPage: React.FC = () => {
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
+                          <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                            {/* Listen Audio Button */}
+                            <button
+                              onClick={() => setActiveAudioDoc(doc)}
+                              className="text-xs py-1 px-2.5 gap-1 rounded-md font-semibold flex items-center bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 transition-colors shadow-xs"
+                              title="Listen to this document as audio"
+                            >
+                              <Headphones className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Listen Audio</span>
+                            </button>
+
                             <button
                               onClick={() => openRagAssistant(doc)}
                               className={`text-xs py-1 px-2.5 gap-1 shadow-sm rounded-md font-semibold flex items-center transition-colors ${
@@ -659,7 +815,7 @@ export const DocumentsPage: React.FC = () => {
           {activeRagDoc && (
             <div className="lg:col-span-6 bg-white border border-slate-200 rounded-lg flex flex-col h-[600px]">
               {/* Panel Header */}
-              <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 rounded-t-lg">
+              <div className="p-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 rounded-t-lg">
                 <div className="flex items-center gap-2 overflow-hidden">
                   <div className={`w-7 h-7 rounded flex items-center justify-center text-white shrink-0 ${
                     activeRagDoc.fileType === 'youtube' ? 'bg-red-600' : 'bg-green-600'
@@ -675,12 +831,24 @@ export const DocumentsPage: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setActiveRagDoc(null)}
-                  className="p-1 rounded text-slate-400 hover:text-slate-700"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+
+                <div className="flex items-center gap-1.5">
+                  <button
+                    onClick={() => setActiveAudioDoc(activeRagDoc)}
+                    className="text-[11px] font-semibold px-2 py-1 rounded bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 flex items-center gap-1 transition-colors"
+                    title="Listen to this whole document as audio"
+                  >
+                    <Headphones className="w-3 h-3 text-emerald-600" />
+                    <span className="hidden sm:inline">Listen Document</span>
+                  </button>
+
+                  <button
+                    onClick={() => setActiveRagDoc(null)}
+                    className="p-1 rounded text-slate-400 hover:text-slate-700"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
 
               {ragMemoryNotification && (
@@ -914,6 +1082,14 @@ export const DocumentsPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Document Audiobook & Audio Reader Modal */}
+      {activeAudioDoc && (
+        <DocumentAudioModal
+          doc={activeAudioDoc}
+          onClose={() => setActiveAudioDoc(null)}
+        />
+      )}
     </AppLayout>
   );
 };

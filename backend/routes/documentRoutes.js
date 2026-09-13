@@ -496,6 +496,61 @@ router.post('/link', async (req, res) => {
   }
 });
 
+// @route   POST /api/documents/text
+// @desc    Directly index raw text / study notes as a document for listening & RAG
+router.post('/text', async (req, res) => {
+  try {
+    const { title, text, category = 'General Studies' } = req.body;
+
+    if (!text || !text.trim()) {
+      return res.status(400).json({ success: false, message: 'Text content is required.' });
+    }
+
+    const cleanTitle = title && title.trim() ? title.trim() : `Study Note - ${new Date().toISOString().split('T')[0]}`;
+    const cleanText = text.trim();
+    const sizeKB = (Buffer.byteLength(cleanText, 'utf8') / 1024).toFixed(1);
+    const sizeStr = `${sizeKB} KB`;
+
+    let chunks = chunkText(cleanText);
+    if (chunks.length === 0) {
+      chunks = [{ chunkIndex: 0, text: cleanText }];
+    }
+
+    const document = await Document.create({
+      user: req.user._id,
+      name: cleanTitle.endsWith('.txt') ? cleanTitle : `${cleanTitle}.txt`,
+      category,
+      size: sizeStr,
+      fileType: 'txt',
+      extractedText: cleanText.slice(0, 500000),
+      chunks,
+      uploadDate: new Date().toISOString().split('T')[0],
+    });
+
+    console.log(`[Text Document Created] "${document.name}" with ${chunks.length} chunks.`);
+
+    return res.status(201).json({
+      success: true,
+      message: `Document note "${document.name}" created successfully! (${chunks.length} chunks indexed)`,
+      document: {
+        _id: document._id,
+        name: document.name,
+        category: document.category,
+        size: document.size,
+        fileType: document.fileType,
+        chunksCount: chunks.length,
+        uploadDate: document.uploadDate,
+      },
+    });
+  } catch (err) {
+    console.error('[Create Text Document Error]:', err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Failed to save text document.',
+    });
+  }
+});
+
 // @route   POST /api/documents/:id/query
 // @desc    Ask a question against an uploaded document or YouTube video using RAG
 router.post('/:id/query', async (req, res) => {
