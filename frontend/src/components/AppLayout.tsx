@@ -29,7 +29,7 @@ const navItems = [
   { name: 'Calendar', path: '/calendar', icon: Calendar },
   { name: 'Memory', path: '/memory', icon: Brain },
   { name: 'Timer & Alarm', path: '/timer', icon: Timer },
-  { name: 'Assessments', path: '/assessments', icon: Award },
+  { name: 'Evaluation', path: '/evaluation', icon: Award },
   { name: 'Progress', path: '/progress', icon: BarChart3 },
   { name: 'Profile', path: '/profile', icon: User },
   { name: 'Settings', path: '/settings', icon: Settings },

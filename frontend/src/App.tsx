@@ -9,7 +9,7 @@ import { NotesPage } from './pages/NotesPage';
 import { TasksPage } from './pages/TasksPage';
 import { CalendarPage } from './pages/CalendarPage';
 import { MemoryPage } from './pages/MemoryPage';
-import { AssessmentsPage } from './pages/AssessmentsPage';
+import { EvaluationPage } from './pages/EvaluationPage';
 import { ProgressPage } from './pages/ProgressPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
@@ -83,10 +83,18 @@ function App() {
           }
         />
         <Route
+          path="/evaluation"
+          element={
+            <ProtectedRoute>
+              <EvaluationPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/assessments"
           element={
             <ProtectedRoute>
-              <AssessmentsPage />
+              <EvaluationPage />
             </ProtectedRoute>
           }
         />

@@ -145,4 +145,94 @@ Instructions:
   }
 });
 
+// @route   POST /api/ai/generate-quiz
+// @desc    Generate interactive multiple-choice quiz questions on any user topic
+router.post('/generate-quiz', async (req, res) => {
+  const { topic, difficulty = 'medium', questionCount = 5, course = 'General' } = req.body;
+
+  if (!topic || !topic.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Topic is required to generate an evaluation quiz.',
+    });
+  }
+
+  const count = Math.min(Math.max(parseInt(questionCount, 10) || 5, 3), 10);
+
+  try {
+    const groq = getGroqClient();
+
+    const systemInstruction = `You are Synexora Evaluation & Assessment Engine.
+Your task is to generate high-quality, academic-grade multiple choice questions (MCQs) for university students based on the topic provided.
+Generate exactly ${count} questions of difficulty "${difficulty}".
+
+You MUST return ONLY a strict valid JSON array of question objects with no markdown code fences, no extra text, and no thought tags.
+Format of each question object in the JSON array:
+{
+  "q": "The question text clearly stated",
+  "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
+  "correct": 0,
+  "explanation": "Clear educational explanation of why the answer is correct and why other options are incorrect",
+  "keyConcept": "Core concept tested"
+}`;
+
+    const userPrompt = `TOPIC: "${topic.trim()}"
+COURSE / FIELD: "${course}"
+DIFFICULTY: "${difficulty}"
+NUMBER OF QUESTIONS: ${count}
+
+Generate the JSON array of ${count} questions now:`;
+
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [
+        { role: 'system', content: systemInstruction },
+        { role: 'user', content: userPrompt },
+      ],
+      model: 'qwen/qwen3.6-27b',
+      temperature: 0.4,
+      max_tokens: 1800,
+    });
+
+    let rawReply = chatCompletion.choices[0]?.message?.content || '[]';
+    if (rawReply.includes('</think>')) {
+      rawReply = rawReply.split('</think>')[1].trim();
+    }
+
+    // Clean markdown code blocks if returned
+    rawReply = rawReply.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+    let questions = [];
+    try {
+      questions = JSON.parse(rawReply);
+    } catch (parseErr) {
+      const match = rawReply.match(/\[\s*\{[\s\S]*\}\s*\]/);
+      if (match) {
+        questions = JSON.parse(match[0]);
+      } else {
+        throw new Error('Failed to parse quiz questions from AI model.');
+      }
+    }
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      throw new Error('No questions could be generated.');
+    }
+
+    return res.status(200).json({
+      success: true,
+      topic: topic.trim(),
+      difficulty,
+      course,
+      count: questions.length,
+      questions,
+    });
+  } catch (err) {
+    console.error('[Quiz Generation Error]', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to generate quiz with AI.',
+      error: err.message,
+    });
+  }
+});
+
 module.exports = router;
