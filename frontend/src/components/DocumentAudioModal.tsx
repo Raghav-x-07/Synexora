@@ -13,9 +13,12 @@ import {
   Loader2,
   Sparkles,
   Gauge,
+  Minimize2,
+  Maximize2,
+  User,
 } from 'lucide-react';
 
-interface DocItem {
+export interface DocItem {
   _id: string;
   name: string;
   category: string;
@@ -23,6 +26,8 @@ interface DocItem {
   fileType: string;
   url?: string;
   uploadDate: string;
+  extractedText?: string;
+  chunks?: { chunkIndex: number; text: string }[];
 }
 
 interface ChunkItem {
@@ -52,11 +57,18 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Minimized floating player bar state
+  const [isMinimized, setIsMinimized] = useState(false);
+
   // Playback state
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [currentChunkIndex, setCurrentChunkIndex] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(1.0);
+
+  // Available voices
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState<string>('');
 
   // Audio summary mode
   const [isSummaryMode, setIsSummaryMode] = useState(false);
@@ -64,11 +76,59 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
 
   const chunkRefs = useRef<Record<number, HTMLDivElement | null>>({});
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // Fetch full document data (with extracted text & chunks)
+  // Populate browser voices
+  useEffect(() => {
+    if (!('speechSynthesis' in window)) return;
+
+    const updateVoices = () => {
+      const available = window.speechSynthesis.getVoices().filter((v) => v.lang.startsWith('en'));
+      setVoices(available);
+      if (available.length > 0 && !selectedVoiceURI) {
+        const naturalVoice = available.find(
+          (v) =>
+            v.name.includes('Natural') ||
+            v.name.includes('Google') ||
+            v.name.includes('Samantha') ||
+            v.name.includes('Daniel')
+        );
+        setSelectedVoiceURI(naturalVoice ? naturalVoice.voiceURI : available[0].voiceURI);
+      }
+    };
+
+    updateVoices();
+    window.speechSynthesis.onvoiceschanged = updateVoices;
+  }, [selectedVoiceURI]);
+
+  // Fetch full document or load direct text
   useEffect(() => {
     if (!doc) return;
+
+    // Check if doc already contains extracted text or chunks (Direct Text Playback)
+    if (doc.extractedText || (doc.chunks && doc.chunks.length > 0)) {
+      const rawText = doc.extractedText || doc.name;
+      const chunks =
+        doc.chunks && doc.chunks.length > 0
+          ? doc.chunks
+          : rawText
+              .split(/\n\s*\n/)
+              .filter((p: string) => p.trim().length > 0)
+              .map((text: string, idx: number) => ({ chunkIndex: idx, text: text.trim() }));
+
+      setFullDoc({
+        _id: doc._id,
+        name: doc.name,
+        category: doc.category,
+        size: doc.size,
+        fileType: doc.fileType,
+        url: doc.url,
+        uploadDate: doc.uploadDate,
+        extractedText: rawText,
+        chunks: chunks.length > 0 ? chunks : [{ chunkIndex: 0, text: rawText }],
+      });
+      setIsLoading(false);
+      return;
+    }
 
     let isMounted = true;
     const fetchFullDoc = async () => {
@@ -78,7 +138,6 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
         const res = await API.get(`/documents/${doc._id}`);
         if (isMounted && res.data.success && res.data.document) {
           const fetched = res.data.document;
-          // Fallback if chunks are empty
           if (!fetched.chunks || fetched.chunks.length === 0) {
             const rawText = fetched.extractedText || fetched.name;
             const splitParagraphs = rawText
@@ -110,16 +169,16 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
 
   // Scroll active chunk into view
   useEffect(() => {
-    if (isPlaying && chunkRefs.current[currentChunkIndex]) {
+    if (isPlaying && chunkRefs.current[currentChunkIndex] && !isMinimized) {
       chunkRefs.current[currentChunkIndex]?.scrollIntoView({
         behavior: 'smooth',
         block: 'nearest',
       });
     }
-  }, [currentChunkIndex, isPlaying]);
+  }, [currentChunkIndex, isPlaying, isMinimized]);
 
   // Core Speech Synthesis Player for a given chunk index
-  const playChunk = (index: number, chunksArray?: ChunkItem[]) => {
+  const playChunk = (index: number, chunksArray?: ChunkItem[], customSpeed?: number) => {
     if (!('speechSynthesis' in window)) {
       setError('Text-to-Speech is not supported in this browser.');
       return;
@@ -127,7 +186,6 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
 
     const chunks = chunksArray || fullDoc?.chunks || [];
     if (!chunks || index >= chunks.length || index < 0) {
-      // Completed all chunks
       setIsPlaying(false);
       setIsPaused(false);
       setCurrentChunkIndex(0);
@@ -140,28 +198,18 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
     const cleaned = cleanTextForSpeech(currentText);
 
     if (!cleaned) {
-      // If empty chunk, skip to next
-      playChunk(index + 1, chunks);
+      playChunk(index + 1, chunks, customSpeed);
       return;
     }
 
     const utterance = new SpeechSynthesisUtterance(cleaned);
-    utterance.rate = playbackSpeed;
+    utterance.rate = customSpeed !== undefined ? customSpeed : playbackSpeed;
     utterance.pitch = 1.0;
     utterance.lang = 'en-US';
 
-    // Pick a natural sounding English voice if available
-    const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(
-      (v) =>
-        v.lang.startsWith('en') &&
-        (v.name.includes('Google') ||
-          v.name.includes('Natural') ||
-          v.name.includes('Samantha') ||
-          v.name.includes('Daniel'))
-    );
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
+    if (selectedVoiceURI) {
+      const chosenVoice = voices.find((v) => v.voiceURI === selectedVoiceURI);
+      if (chosenVoice) utterance.voice = chosenVoice;
     }
 
     utterance.onstart = () => {
@@ -172,8 +220,7 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
 
     utterance.onend = () => {
       if (index + 1 < chunks.length) {
-        // Automatically proceed to next chunk/paragraph
-        playChunk(index + 1, chunks);
+        playChunk(index + 1, chunks, customSpeed);
       } else {
         setIsPlaying(false);
         setIsPaused(false);
@@ -187,7 +234,6 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
       setIsPaused(false);
     };
 
-    utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
   };
 
@@ -204,6 +250,11 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
     utterance.pitch = 1.0;
     utterance.lang = 'en-US';
 
+    if (selectedVoiceURI) {
+      const chosenVoice = voices.find((v) => v.voiceURI === selectedVoiceURI);
+      if (chosenVoice) utterance.voice = chosenVoice;
+    }
+
     utterance.onstart = () => {
       setIsPlaying(true);
       setIsPaused(false);
@@ -217,7 +268,6 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
       setIsPaused(false);
     };
 
-    utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
   };
 
@@ -269,11 +319,10 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
   const handleSpeedChange = (speed: number) => {
     setPlaybackSpeed(speed);
     if (isPlaying) {
-      // Restart current chunk with new speed
       if (isSummaryMode && summaryText) {
         playSummaryAudio(summaryText);
       } else {
-        playChunk(currentChunkIndex);
+        playChunk(currentChunkIndex, fullDoc?.chunks, speed);
       }
     }
   };
@@ -286,7 +335,7 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
       setError(null);
       handleStop();
       const res = await API.post(`/documents/${fullDoc._id}/query`, {
-        question: 'Provide a concise, highly engaging 4-paragraph spoken audio summary of this entire material highlighting key takeaways, concepts, and conclusions.',
+        question: 'Provide a concise, engaging 4-paragraph spoken audio summary of this entire material highlighting key takeaways, concepts, and formulas.',
       });
       if (res.data.success && res.data.answer) {
         setSummaryText(res.data.answer);
@@ -306,6 +355,82 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
   const totalChunks = chunks.length;
   const progressPercent = totalChunks > 0 ? Math.round(((currentChunkIndex + 1) / totalChunks) * 100) : 0;
 
+  // Render Minimized Floating Dock
+  if (isMinimized) {
+    return (
+      <aside aria-label="Audio Playback Bar" className="fixed bottom-5 right-5 z-50 bg-slate-900/95 text-white backdrop-blur-md rounded-2xl shadow-2xl border border-emerald-500/40 p-3.5 flex items-center gap-3.5 max-w-md animate-fade-in ring-1 ring-emerald-500/30">
+        <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 shrink-0">
+          <Headphones className="w-5 h-5 animate-pulse" />
+        </div>
+
+        <div className="truncate flex-1">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            <p className="text-xs font-bold text-white truncate">{doc.name}</p>
+          </div>
+          <p className="text-[10px] text-emerald-300">
+            {isSummaryMode ? 'AI Summary' : `Paragraph ${currentChunkIndex + 1} of ${totalChunks}`} • {playbackSpeed}x
+          </p>
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            onClick={handlePrev}
+            disabled={isLoading || isSummaryMode || currentChunkIndex === 0}
+            className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-30"
+          >
+            <SkipBack className="w-3.5 h-3.5" />
+          </button>
+
+          {isPlaying ? (
+            <button
+              onClick={handlePause}
+              className="p-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-xs"
+            >
+              <Pause className="w-3.5 h-3.5" />
+            </button>
+          ) : (
+            <button
+              onClick={handleStartPlay}
+              disabled={isLoading}
+              className="p-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs disabled:opacity-50"
+            >
+              <Play className="w-3.5 h-3.5 fill-white" />
+            </button>
+          )}
+
+          <button
+            onClick={handleNext}
+            disabled={isLoading || isSummaryMode || currentChunkIndex >= totalChunks - 1}
+            className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-30"
+          >
+            <SkipForward className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={() => setIsMinimized(false)}
+            className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10"
+            title="Expand Full Reader"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+          </button>
+
+          <button
+            onClick={() => {
+              handleStop();
+              onClose();
+            }}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-white/10"
+            title="Close Player"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </aside>
+    );
+  }
+
+  // Render Full Audiobook & Document Modal
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-6 animate-fade-in">
       <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
@@ -318,7 +443,7 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
             <div>
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
-                  Audiobook & Audio Reader
+                  {doc.fileType === 'youtube' ? 'YouTube Audio Reader' : 'Document & Text Audiobook'}
                 </span>
                 <span className="text-xs text-slate-300">{doc.category}</span>
               </div>
@@ -327,15 +452,26 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
               </h2>
             </div>
           </div>
-          <button
-            onClick={() => {
-              handleStop();
-              onClose();
-            }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
-          >
-            <X className="w-5 h-5" />
-          </button>
+
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setIsMinimized(true)}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              title="Minimize to floating bottom player"
+            >
+              <Minimize2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => {
+                handleStop();
+                onClose();
+              }}
+              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              title="Close reader"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Dynamic Equalizer / Player Controls Bar */}
@@ -401,8 +537,8 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
             </div>
           )}
 
-          {/* Speed & Summary Actions */}
-          <div className="flex items-center gap-2 ml-auto">
+          {/* Speed & Voice & Summary Actions */}
+          <div className="flex items-center gap-2 ml-auto flex-wrap">
             {/* Speed Selector */}
             <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5 text-xs">
               <Gauge className="w-3.5 h-3.5 text-slate-400 ml-1.5" />
@@ -420,6 +556,33 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
                 </button>
               ))}
             </div>
+
+            {/* Voice picker if multiple voices exist */}
+            {voices.length > 1 && (
+              <div className="hidden md:flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-600">
+                <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                <select
+                  value={selectedVoiceURI}
+                  onChange={(e) => {
+                    setSelectedVoiceURI(e.target.value);
+                    if (isPlaying) {
+                      if (isSummaryMode && summaryText) {
+                        playSummaryAudio(summaryText);
+                      } else {
+                        playChunk(currentChunkIndex);
+                      }
+                    }
+                  }}
+                  className="bg-transparent text-[11px] text-slate-700 outline-none max-w-[110px] truncate"
+                >
+                  {voices.map((v) => (
+                    <option key={v.voiceURI} value={v.voiceURI}>
+                      {v.name.slice(0, 18)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
 
             {/* AI Summary Audio Generator */}
             <button
@@ -545,9 +708,15 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
 
         {/* Footer */}
         <div className="px-5 py-3 border-t border-slate-200 bg-white flex items-center justify-between text-xs shrink-0">
-          <span className="text-slate-500 text-[11px]">
-            Tip: Click any paragraph or section above to instantly listen from that point.
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setIsMinimized(true)}
+              className="text-xs text-emerald-700 hover:underline font-semibold flex items-center gap-1"
+            >
+              <Minimize2 className="w-3.5 h-3.5" />
+              <span>Minimize to Background Player</span>
+            </button>
+          </div>
           <button
             onClick={() => {
               handleStop();

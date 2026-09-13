@@ -29,6 +29,7 @@ import {
   Volume2,
   VolumeX,
   Headphones,
+  Play,
 } from 'lucide-react';
 import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
 import { DocumentAudioModal } from '../components/DocumentAudioModal';
@@ -41,6 +42,8 @@ interface DocItem {
   fileType: string;
   url?: string;
   uploadDate: string;
+  extractedText?: string;
+  chunks?: { chunkIndex: number; text: string }[];
 }
 
 interface RagMessage {
@@ -232,6 +235,33 @@ export const DocumentsPage: React.FC = () => {
     } finally {
       setIsSavingRawText(false);
     }
+  };
+
+  // Instant In-Memory Text Playback (without needing to save to DB first)
+  const handleInstantTextPlayback = () => {
+    if (!rawTextContent.trim()) {
+      setRawTextError('Please enter some text or study notes to listen.');
+      return;
+    }
+    setRawTextError(null);
+    const title = rawTextTitle.trim() || `Pasted Text (${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`;
+    const splitParagraphs = rawTextContent
+      .split(/\n\s*\n/)
+      .filter((p) => p.trim().length > 0)
+      .map((text, idx) => ({ chunkIndex: idx, text: text.trim() }));
+
+    const directDoc: DocItem = {
+      _id: 'direct-text-' + Date.now(),
+      name: title,
+      category: rawTextCategory,
+      size: `${(rawTextContent.length / 1024).toFixed(1)} KB`,
+      fileType: 'txt',
+      uploadDate: new Date().toISOString().split('T')[0],
+      extractedText: rawTextContent,
+      chunks: splitParagraphs.length > 0 ? splitParagraphs : [{ chunkIndex: 0, text: rawTextContent }],
+    };
+
+    setActiveAudioDoc(directDoc);
   };
 
   const handleDelete = async (id: string) => {
@@ -655,27 +685,40 @@ export const DocumentsPage: React.FC = () => {
                   />
                 </div>
 
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
                   <p className="text-[11px] text-slate-400">
-                    Saves your text note with full paragraph chunking, audio narration, and RAG grounding.
+                    Saves your text note with paragraph chunking, audio narration, and RAG grounding.
                   </p>
-                  <button
-                    type="submit"
-                    disabled={!rawTextContent.trim() || isSavingRawText}
-                    className="btn-primary text-xs py-2 px-4 gap-1.5 disabled:opacity-50 bg-emerald-600 hover:bg-emerald-700"
-                  >
-                    {isSavingRawText ? (
-                      <>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        <span>Indexing & Reading...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Headphones className="w-3.5 h-3.5" />
-                        <span>Save & Listen Audio</span>
-                      </>
-                    )}
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleInstantTextPlayback}
+                      disabled={!rawTextContent.trim() || isSavingRawText}
+                      className="px-3 py-2 rounded-md text-xs font-semibold flex items-center gap-1.5 bg-white text-emerald-700 border border-emerald-300 hover:bg-emerald-50 transition-colors disabled:opacity-50"
+                      title="Listen to this text immediately without saving"
+                    >
+                      <Play className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
+                      <span>Instant Playback</span>
+                    </button>
+
+                    <button
+                      type="submit"
+                      disabled={!rawTextContent.trim() || isSavingRawText}
+                      className="btn-primary text-xs py-2 px-4 gap-1.5 disabled:opacity-50 bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      {isSavingRawText ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Indexing & Reading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Headphones className="w-3.5 h-3.5" />
+                          <span>Save & Listen</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </form>
             </div>
