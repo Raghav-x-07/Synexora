@@ -13,6 +13,7 @@ import { AssessmentsPage } from './pages/AssessmentsPage';
 import { ProgressPage } from './pages/ProgressPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
+import { TimerPage } from './pages/TimerPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
@@ -110,6 +111,14 @@ function App() {
           element={
             <ProtectedRoute>
               <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/timer"
+          element={
+            <ProtectedRoute>
+              <TimerPage />
             </ProtectedRoute>
           }
         />

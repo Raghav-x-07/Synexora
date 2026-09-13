@@ -17,6 +17,7 @@ import {
   Menu,
   X,
   BookOpen,
+  Timer,
 } from 'lucide-react';
 
 const navItems = [
@@ -27,6 +28,7 @@ const navItems = [
   { name: 'Tasks', path: '/tasks', icon: CheckSquare },
   { name: 'Calendar', path: '/calendar', icon: Calendar },
   { name: 'Memory', path: '/memory', icon: Brain },
+  { name: 'Timer & Alarm', path: '/timer', icon: Timer },
   { name: 'Assessments', path: '/assessments', icon: Award },
   { name: 'Progress', path: '/progress', icon: BarChart3 },
   { name: 'Profile', path: '/profile', icon: User },
