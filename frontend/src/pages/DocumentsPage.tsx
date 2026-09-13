@@ -24,7 +24,12 @@ import {
   Globe,
   Link as LinkIcon,
   ExternalLink,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
 } from 'lucide-react';
+import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
 
 interface DocItem {
   _id: string;
@@ -78,6 +83,16 @@ export const DocumentsPage: React.FC = () => {
   const [savingRagMemoryId, setSavingRagMemoryId] = useState<string | null>(null);
   const [savedRagMemoryMap, setSavedRagMemoryMap] = useState<Record<string, boolean>>({});
   const [ragMemoryNotification, setRagMemoryNotification] = useState<string | null>(null);
+
+  // Voice input and audio output
+  const {
+    isListening,
+    micError,
+    startListening,
+    stopListening,
+    speakingId,
+    toggleSpeak,
+  } = useVoiceAssistant();
 
   const fetchDocs = async () => {
     try {
@@ -728,39 +743,67 @@ export const DocumentsPage: React.FC = () => {
                         </div>
                       )}
 
-                      <div className="mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between">
+                      <div className="mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between gap-2 flex-wrap">
                         <span className="text-[9px] text-slate-400">{msg.timestamp}</span>
 
-                        {/* Store to Memory button on RAG responses */}
-                        {msg.sender === 'ai' && msg.id !== '1' && (
-                          <button
-                            type="button"
-                            onClick={() => handleStoreRagToMemory(idx, msg)}
-                            disabled={savingRagMemoryId === msg.id || savedRagMemoryMap[msg.id]}
-                            className={`text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors ${
-                              savedRagMemoryMap[msg.id]
-                                ? 'bg-green-100 text-green-800 border-green-300 cursor-default'
-                                : 'bg-white text-slate-700 border-slate-300 hover:bg-green-50 hover:border-green-400 hover:text-green-700'
-                            }`}
-                          >
-                            {savingRagMemoryId === msg.id ? (
-                              <>
-                                <Loader2 className="w-3 h-3 animate-spin text-green-600" />
-                                <span>Saving...</span>
-                              </>
-                            ) : savedRagMemoryMap[msg.id] ? (
-                              <>
-                                <Check className="w-3 h-3 text-green-600" />
-                                <span>Stored in Memory</span>
-                              </>
-                            ) : (
-                              <>
-                                <Brain className="w-3 h-3 text-green-600" />
-                                <span>Store to Memory</span>
-                              </>
-                            )}
-                          </button>
-                        )}
+                        <div className="flex items-center gap-1.5 ml-auto">
+                          {/* Audio narration button for AI responses */}
+                          {msg.sender === 'ai' && (
+                            <button
+                              type="button"
+                              onClick={() => toggleSpeak(msg.text, msg.id)}
+                              className={`text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors ${
+                                speakingId === msg.id
+                                  ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                              }`}
+                              title={speakingId === msg.id ? 'Stop audio' : 'Listen to answer'}
+                            >
+                              {speakingId === msg.id ? (
+                                <>
+                                  <VolumeX className="w-3 h-3 text-amber-700 animate-pulse" />
+                                  <span>Stop Audio</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Volume2 className="w-3 h-3 text-slate-600" />
+                                  <span>Listen</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+
+                          {/* Store to Memory button on RAG responses */}
+                          {msg.sender === 'ai' && msg.id !== '1' && (
+                            <button
+                              type="button"
+                              onClick={() => handleStoreRagToMemory(idx, msg)}
+                              disabled={savingRagMemoryId === msg.id || savedRagMemoryMap[msg.id]}
+                              className={`text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors ${
+                                savedRagMemoryMap[msg.id]
+                                  ? 'bg-green-100 text-green-800 border-green-300 cursor-default'
+                                  : 'bg-white text-slate-700 border-slate-300 hover:bg-green-50 hover:border-green-400 hover:text-green-700'
+                              }`}
+                            >
+                              {savingRagMemoryId === msg.id ? (
+                                <>
+                                  <Loader2 className="w-3 h-3 animate-spin text-green-600" />
+                                  <span>Saving...</span>
+                                </>
+                              ) : savedRagMemoryMap[msg.id] ? (
+                                <>
+                                  <Check className="w-3 h-3 text-green-600" />
+                                  <span>Stored in Memory</span>
+                                </>
+                              ) : (
+                                <>
+                                  <Brain className="w-3 h-3 text-green-600" />
+                                  <span>Store to Memory</span>
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -773,6 +816,12 @@ export const DocumentsPage: React.FC = () => {
                   </div>
                 )}
               </div>
+
+              {micError && (
+                <div className="mx-3 text-[11px] text-red-600 bg-red-50 border border-red-200 p-1.5 rounded">
+                  {micError}
+                </div>
+              )}
 
               {/* Sample Suggestions */}
               <div className="px-3 py-1.5 border-t border-slate-100 bg-slate-50 flex items-center gap-2 overflow-x-auto text-[11px]">
@@ -819,6 +868,27 @@ export const DocumentsPage: React.FC = () => {
 
               {/* RAG Query Input */}
               <form onSubmit={handleAskRag} className="p-3 border-t border-slate-200 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isListening) {
+                      stopListening();
+                    } else {
+                      startListening((text) => setRagInput(text));
+                    }
+                  }}
+                  disabled={isQueryingRag}
+                  className={`px-2.5 py-1.5 rounded-md border flex items-center gap-1 text-xs transition-colors shrink-0 ${
+                    isListening
+                      ? 'bg-red-500 text-white border-red-600 animate-pulse'
+                      : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+                  }`}
+                  title={isListening ? 'Stop listening' : 'Voice input dictation'}
+                >
+                  {isListening ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                  <span className="hidden sm:inline">{isListening ? 'Listening...' : 'Voice'}</span>
+                </button>
+
                 <input
                   type="text"
                   value={ragInput}

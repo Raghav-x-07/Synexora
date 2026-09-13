@@ -1,8 +1,23 @@
 import React, { useState } from 'react';
 import { AppLayout } from '../components/AppLayout';
 import { useAuth } from '../context/AuthContext';
+import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
 import API from '../lib/api';
-import { Bot, Send, Trash2, Sparkles, User as UserIcon, AlertCircle, Brain, Check, Loader2 } from 'lucide-react';
+import {
+  Bot,
+  Send,
+  Trash2,
+  Sparkles,
+  User as UserIcon,
+  AlertCircle,
+  Brain,
+  Check,
+  Loader2,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+} from 'lucide-react';
 
 interface Message {
   id: string;
@@ -13,6 +28,15 @@ interface Message {
 
 export const LearningAIPage: React.FC = () => {
   const { user } = useAuth();
+  const {
+    isListening,
+    micError,
+    startListening,
+    stopListening,
+    speakingId,
+    toggleSpeak,
+  } = useVoiceAssistant();
+
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -196,39 +220,67 @@ export const LearningAIPage: React.FC = () => {
                 >
                   <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
 
-                  <div className="mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between text-xs">
+                  <div className="mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between text-xs flex-wrap gap-2">
                     <span className="text-[10px] text-slate-400">{msg.timestamp}</span>
 
-                    {/* Store to Memory button for AI responses */}
-                    {msg.sender === 'ai' && msg.id !== '1' && (
-                      <button
-                        type="button"
-                        onClick={() => handleStoreToMemory(idx, msg)}
-                        disabled={savingMemoryId === msg.id || savedMemoryMap[msg.id]}
-                        className={`text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors ${
-                          savedMemoryMap[msg.id]
-                            ? 'bg-green-100 text-green-800 border-green-300 cursor-default'
-                            : 'bg-white text-slate-700 border-slate-300 hover:bg-green-50 hover:border-green-400 hover:text-green-700'
-                        }`}
-                      >
-                        {savingMemoryId === msg.id ? (
-                          <>
-                            <Loader2 className="w-3 h-3 animate-spin text-green-600" />
-                            <span>Saving...</span>
-                          </>
-                        ) : savedMemoryMap[msg.id] ? (
-                          <>
-                            <Check className="w-3 h-3 text-green-600" />
-                            <span>Stored in Memory</span>
-                          </>
-                        ) : (
-                          <>
-                            <Brain className="w-3 h-3 text-green-600" />
-                            <span>Store to Memory</span>
-                          </>
-                        )}
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1.5">
+                      {/* Audio Narration button for AI responses */}
+                      {msg.sender === 'ai' && (
+                        <button
+                          type="button"
+                          onClick={() => toggleSpeak(msg.text, msg.id)}
+                          className={`text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors ${
+                            speakingId === msg.id
+                              ? 'bg-purple-100 text-purple-800 border-purple-300 animate-pulse'
+                              : 'bg-white text-slate-700 border-slate-300 hover:bg-purple-50 hover:text-purple-700'
+                          }`}
+                          title={speakingId === msg.id ? 'Stop listening' : 'Listen to audio response'}
+                        >
+                          {speakingId === msg.id ? (
+                            <>
+                              <VolumeX className="w-3 h-3 text-purple-600" />
+                              <span>Stop Audio</span>
+                            </>
+                          ) : (
+                            <>
+                              <Volume2 className="w-3 h-3 text-purple-600" />
+                              <span>Listen</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+
+                      {/* Store to Memory button for AI responses */}
+                      {msg.sender === 'ai' && msg.id !== '1' && (
+                        <button
+                          type="button"
+                          onClick={() => handleStoreToMemory(idx, msg)}
+                          disabled={savingMemoryId === msg.id || savedMemoryMap[msg.id]}
+                          className={`text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors ${
+                            savedMemoryMap[msg.id]
+                              ? 'bg-green-100 text-green-800 border-green-300 cursor-default'
+                              : 'bg-white text-slate-700 border-slate-300 hover:bg-green-50 hover:border-green-400 hover:text-green-700'
+                          }`}
+                        >
+                          {savingMemoryId === msg.id ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin text-green-600" />
+                              <span>Saving...</span>
+                            </>
+                          ) : savedMemoryMap[msg.id] ? (
+                            <>
+                              <Check className="w-3 h-3 text-green-600" />
+                              <span>Stored in Memory</span>
+                            </>
+                          ) : (
+                            <>
+                              <Brain className="w-3 h-3 text-green-600" />
+                              <span>Store to Memory</span>
+                            </>
+                          )}
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -242,13 +294,39 @@ export const LearningAIPage: React.FC = () => {
             )}
           </div>
 
+          {micError && (
+            <div className="px-4 py-2 bg-red-50 border-t border-red-200 text-red-700 text-xs flex items-center gap-2">
+              <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+              <span>{micError}</span>
+            </div>
+          )}
+
           {/* Prompt input */}
           <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-200 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (isListening) {
+                  stopListening();
+                } else {
+                  startListening((text) => setInputText(text));
+                }
+              }}
+              className={`p-2 rounded-md border transition-all flex items-center justify-center shrink-0 ${
+                isListening
+                  ? 'bg-red-50 text-red-600 border-red-300 animate-pulse ring-2 ring-red-400/40'
+                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+              }`}
+              title={isListening ? 'Listening... click to stop' : 'Speak question with microphone'}
+            >
+              {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+            </button>
+
             <input
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="Ask a question about your subject..."
+              placeholder={isListening ? 'Listening to your voice...' : 'Ask a question or speak your prompt...'}
               disabled={isTyping}
               className="input-clean flex-1 disabled:opacity-50"
             />
