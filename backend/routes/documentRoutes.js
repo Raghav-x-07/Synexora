@@ -597,15 +597,28 @@ Your task is to answer the student's question accurately, clearly, and helpfully
 
     const userPrompt = `MATERIAL CONTENT:\n${contextText}\n\nSTUDENT QUESTION:\n${question}`;
 
-    const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      model: 'qwen/qwen3.6-27b',
-      temperature: 0.3,
-      max_tokens: 800,
-    });
+    let chatCompletion;
+    const candidateModels = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
+    for (const model of candidateModels) {
+      try {
+        chatCompletion = await groq.chat.completions.create({
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          model,
+          temperature: 0.3,
+          max_tokens: 800,
+        });
+        if (chatCompletion) break;
+      } catch (err) {
+        console.warn(`[Document RAG Model ${model} Fallback Triggered]:`, err.message);
+      }
+    }
+
+    if (!chatCompletion) {
+      throw new Error('All AI models failed to process document inquiry.');
+    }
 
     let rawReply = chatCompletion.choices[0]?.message?.content || 'No response generated.';
     if (rawReply.includes('</think>')) {

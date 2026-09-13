@@ -11,6 +11,25 @@ const getGroqClient = () => {
   return new Groq({ apiKey });
 };
 
+// Helper: Call Groq with automated model fallback
+const callGroqWithFallback = async (groq, params) => {
+  const candidateModels = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
+  let lastError = null;
+  for (const model of candidateModels) {
+    try {
+      const response = await groq.chat.completions.create({
+        ...params,
+        model,
+      });
+      return { response, model };
+    } catch (err) {
+      console.warn(`[Groq Model ${model} Fallback Triggered]:`, err.message);
+      lastError = err;
+    }
+  }
+  throw lastError || new Error('All Groq AI models failed to respond.');
+};
+
 // @route   POST /api/ai/chat
 // @desc    Send a prompt to Groq AI tutor and return real-time reasoning response
 // @access  Public / Protected
@@ -50,11 +69,10 @@ router.post('/chat', async (req, res) => {
       { role: 'user', content: prompt },
     ];
 
-    const chatCompletion = await groq.chat.completions.create({
+    const { response: chatCompletion, model: usedModel } = await callGroqWithFallback(groq, {
       messages,
-      model: 'qwen/qwen3.6-27b',
       temperature: 0.6,
-      max_tokens: 600,
+      max_tokens: 800,
     });
 
     let rawReply = chatCompletion.choices[0]?.message?.content || 'I could not generate an answer at this time.';
@@ -67,7 +85,7 @@ router.post('/chat', async (req, res) => {
     return res.status(200).json({
       success: true,
       reply: rawReply,
-      model: 'qwen/qwen3.6-27b',
+      model: usedModel,
     });
   } catch (err) {
     console.error('[Groq AI Error]', err.message);
@@ -118,11 +136,10 @@ Instructions:
       { role: 'user', content: question.trim() },
     ];
 
-    const chatCompletion = await groq.chat.completions.create({
+    const { response: chatCompletion, model: usedModel } = await callGroqWithFallback(groq, {
       messages,
-      model: 'qwen/qwen3.6-27b',
       temperature: 0.5,
-      max_tokens: 700,
+      max_tokens: 800,
     });
 
     let rawReply = chatCompletion.choices[0]?.message?.content || 'I could not generate an answer for this doubt.';
@@ -133,7 +150,7 @@ Instructions:
     return res.status(200).json({
       success: true,
       reply: rawReply,
-      model: 'qwen/qwen3.6-27b',
+      model: usedModel,
     });
   } catch (err) {
     console.error('[Memory Doubt Error]', err.message);
@@ -163,37 +180,42 @@ router.post('/generate-quiz', async (req, res) => {
     const groq = getGroqClient();
 
     const systemInstruction = `You are Synexora Evaluation & Assessment Engine.
-Your task is to generate high-quality, academic-grade multiple choice questions (MCQs) for university students based on the topic provided.
+Your task is to generate high-quality, academic-grade multiple choice questions (MCQs) for university students based on the requested topic.
 Generate exactly ${count} questions of difficulty "${difficulty}".
 
-You MUST return ONLY a strict valid JSON array of question objects with no markdown code fences, no extra text, and no thought tags.
-Format of each question object in the JSON array:
+You MUST return a valid JSON object matching this exact schema:
 {
-  "q": "The question text clearly stated",
-  "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
-  "correct": 0,
-  "explanation": "Clear educational explanation of why the answer is correct and why other options are incorrect",
-  "keyConcept": "Core concept tested"
-}`;
+  "questions": [
+    {
+      "q": "The question text clearly stated",
+      "options": ["Option A text", "Option B text", "Option C text", "Option D text"],
+      "correct": 0,
+      "explanation": "Clear educational explanation of why the answer is correct and why other options are incorrect",
+      "keyConcept": "Core concept tested"
+    }
+  ]
+}
+
+Ensure "correct" is the 0-indexed number of the correct choice (0 for Option A, 1 for Option B, 2 for Option C, 3 for Option D).`;
 
     const userPrompt = `TOPIC: "${topic.trim()}"
 COURSE / FIELD: "${course}"
 DIFFICULTY: "${difficulty}"
 NUMBER OF QUESTIONS: ${count}
 
-Generate the JSON array of ${count} questions now:`;
+Generate the JSON object with the ${count} questions array now:`;
 
-    const chatCompletion = await groq.chat.completions.create({
+    const { response: chatCompletion, model: usedModel } = await callGroqWithFallback(groq, {
       messages: [
         { role: 'system', content: systemInstruction },
         { role: 'user', content: userPrompt },
       ],
-      model: 'qwen/qwen3.6-27b',
-      temperature: 0.4,
-      max_tokens: 1800,
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+      max_tokens: 2200,
     });
 
-    let rawReply = chatCompletion.choices[0]?.message?.content || '[]';
+    let rawReply = chatCompletion.choices[0]?.message?.content || '{}';
     if (rawReply.includes('</think>')) {
       rawReply = rawReply.split('</think>')[1].trim();
     }
@@ -201,35 +223,82 @@ Generate the JSON array of ${count} questions now:`;
     // Clean markdown code blocks if returned
     rawReply = rawReply.replace(/```json/gi, '').replace(/```/g, '').trim();
 
-    let questions = [];
+    let parsedData = {};
     try {
-      questions = JSON.parse(rawReply);
+      parsedData = JSON.parse(rawReply);
     } catch (parseErr) {
-      const match = rawReply.match(/\[\s*\{[\s\S]*\}\s*\]/);
+      const match = rawReply.match(/\{[\s\S]*\}/);
       if (match) {
-        questions = JSON.parse(match[0]);
+        parsedData = JSON.parse(match[0]);
       } else {
-        throw new Error('Failed to parse quiz questions from AI model.');
+        throw new Error('Failed to parse quiz response from AI model.');
       }
     }
 
-    if (!Array.isArray(questions) || questions.length === 0) {
-      throw new Error('No questions could be generated.');
+    let questionsRaw = [];
+    if (Array.isArray(parsedData)) {
+      questionsRaw = parsedData;
+    } else if (Array.isArray(parsedData.questions)) {
+      questionsRaw = parsedData.questions;
+    } else if (Array.isArray(parsedData.quiz)) {
+      questionsRaw = parsedData.quiz;
+    } else if (Array.isArray(parsedData.data)) {
+      questionsRaw = parsedData.data;
+    } else {
+      const firstArray = Object.values(parsedData).find((v) => Array.isArray(v));
+      if (firstArray) questionsRaw = firstArray;
     }
+
+    if (!questionsRaw || questionsRaw.length === 0) {
+      throw new Error('No quiz questions were returned by the AI model.');
+    }
+
+    // Normalize question objects to guarantee strict UI safety
+    const normalizedQuestions = questionsRaw.map((item, index) => {
+      const q = item.q || item.question || item.title || `Question ${index + 1} on ${topic.trim()}`;
+      let options = Array.isArray(item.options) ? item.options.map(String) : [];
+      if (options.length < 2) {
+        options = ['Option A', 'Option B', 'Option C', 'Option D'];
+      }
+
+      let correct = 0;
+      if (typeof item.correct === 'number') {
+        correct = item.correct;
+      } else if (typeof item.correctAnswer === 'number') {
+        correct = item.correctAnswer;
+      } else if (typeof item.answer === 'number') {
+        correct = item.answer;
+      } else if (typeof item.answer === 'string') {
+        const foundIdx = options.findIndex((o) => o.toLowerCase().trim() === item.answer.toLowerCase().trim());
+        if (foundIdx !== -1) correct = foundIdx;
+      }
+
+      // Bound check
+      correct = Math.max(0, Math.min(correct, options.length - 1));
+
+      return {
+        q,
+        options,
+        correct,
+        explanation: item.explanation || item.reason || `Option ${String.fromCharCode(65 + correct)} is the correct answer based on ${topic.trim()} principles.`,
+        keyConcept: item.keyConcept || item.concept || item.topic || topic.trim(),
+      };
+    });
 
     return res.status(200).json({
       success: true,
       topic: topic.trim(),
       difficulty,
       course,
-      count: questions.length,
-      questions,
+      count: normalizedQuestions.length,
+      questions: normalizedQuestions,
+      model: usedModel,
     });
   } catch (err) {
     console.error('[Quiz Generation Error]', err.message);
     return res.status(500).json({
       success: false,
-      message: 'Failed to generate quiz with AI.',
+      message: 'Failed to generate quiz with AI: ' + (err.message || 'Unknown error'),
       error: err.message,
     });
   }
