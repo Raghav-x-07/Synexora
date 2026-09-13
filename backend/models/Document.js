@@ -26,6 +26,10 @@ const documentSchema = new mongoose.Schema(
       type: String,
       default: 'pdf',
     },
+    url: {
+      type: String,
+      default: '',
+    },
     uploadDate: {
       type: String,
       default: () => new Date().toISOString().split('T')[0],

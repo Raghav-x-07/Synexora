@@ -3,6 +3,8 @@ const multer = require('multer');
 const pdfParse = require('pdf-parse');
 const PDFParser = require('pdf2json');
 const mammoth = require('mammoth');
+const axios = require('axios');
+const { YoutubeTranscript } = require('youtube-transcript');
 const Groq = require('groq-sdk');
 const { protect } = require('../middleware/authMiddleware');
 const Document = require('../models/Document');
@@ -205,14 +207,128 @@ const retrieveRelevantChunks = (query, chunks, topK = 5) => {
     return { ...chunk, score };
   });
 
-  scoredChunks.sort((a, b) => b.score - a.score);
+  return chunks.slice(0, topK);
+};
 
-  const topMatches = scoredChunks.filter((c) => c.score > 0);
-  if (topMatches.length > 0) {
-    return topMatches.slice(0, topK);
+// Helper: Extract YouTube Video ID from any standard or shortened URL
+const getYouTubeVideoId = (url) => {
+  if (!url) return null;
+  const regExp = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([^"&?\/\s]{11})/i;
+  const match = url.match(regExp);
+  return match ? match[1] : null;
+};
+
+// Helper: Fetch YouTube metadata and transcripts
+const fetchYouTubeData = async (url, videoId) => {
+  let title = `YouTube Video (${videoId})`;
+  let channel = '';
+  let transcriptText = '';
+
+  // 1. Fetch metadata via YouTube oEmbed
+  try {
+    const oembedRes = await axios.get(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+      { timeout: 8000 }
+    );
+    if (oembedRes.data) {
+      title = oembedRes.data.title || title;
+      channel = oembedRes.data.author_name || '';
+    }
+  } catch (err) {
+    console.warn('[YouTube oEmbed Warning]:', err.message);
   }
 
-  return chunks.slice(0, topK);
+  // 2. Fetch transcript via youtube-transcript
+  try {
+    const transcriptItems = await YoutubeTranscript.fetchTranscript(videoId);
+    if (transcriptItems && transcriptItems.length > 0) {
+      transcriptText = transcriptItems
+        .map((item) => item.text)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+      console.log(`[YouTube Parser] Extracted ${transcriptText.length} chars transcript for "${title}"`);
+    }
+  } catch (tErr) {
+    console.warn(`[YouTube Transcript Warning for ${videoId}]:`, tErr.message);
+  }
+
+  // If transcript is not publicly open, scrape page metadata for context
+  if (!transcriptText || transcriptText.length < 20) {
+    try {
+      const pageRes = await axios.get(`https://www.youtube.com/watch?v=${videoId}`, {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        timeout: 10000,
+      });
+      const html = pageRes.data || '';
+      const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+      if (titleMatch) {
+        title = titleMatch[1].replace('- YouTube', '').trim() || title;
+      }
+      const descMatch = html.match(/<meta name="description" content="([^"]+)"/i);
+      const desc = descMatch ? descMatch[1] : '';
+
+      transcriptText = `Title: ${title}\nChannel: ${channel}\nDescription & Summary:\n${desc}\nNote: Closed captions were not directly available for this video, but video context and overview are indexed for RAG answering.`;
+    } catch (pageErr) {
+      console.warn('[YouTube Page Scrape Warning]:', pageErr.message);
+      transcriptText = `YouTube Video: ${title}\nChannel: ${channel}\nURL: ${url}`;
+    }
+  }
+
+  return { title, channel, text: transcriptText };
+};
+
+// Helper: Fetch Web Article Page content
+const fetchWebPageData = async (url) => {
+  let title = 'Web Article';
+  let cleanText = '';
+
+  try {
+    const res = await axios.get(url, {
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.9',
+      },
+      timeout: 12000,
+    });
+
+    const html = res.data || '';
+
+    // Extract title
+    const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
+    if (titleMatch) {
+      title = titleMatch[1].trim();
+    }
+
+    // Strip scripts, styles, and tags
+    let body = html
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ' ')
+      .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, ' ')
+      .replace(/<nav\b[^<]*(?:(?!<\/nav>)<[^<]*)*<\/nav>/gi, ' ')
+      .replace(/<footer\b[^<]*(?:(?!<\/footer>)<[^<]*)*<\/footer>/gi, ' ')
+      .replace(/<header\b[^<]*(?:(?!<\/header>)<[^<]*)*<\/header>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    cleanText = body.slice(0, 100000);
+  } catch (err) {
+    console.error('[Web Page Fetch Error]:', err.message);
+    throw new Error(`Failed to fetch web link content: ${err.message}`);
+  }
+
+  return { title, text: cleanText };
 };
 
 // Apply JWT authentication to all document routes
@@ -307,8 +423,81 @@ router.post('/upload', upload.single('file'), async (req, res) => {
   }
 });
 
+// @route   POST /api/documents/link
+// @desc    Index a YouTube video or web article URL for RAG
+router.post('/link', async (req, res) => {
+  try {
+    const { url, category = 'General Studies' } = req.body;
+
+    if (!url || !url.trim()) {
+      return res.status(400).json({ success: false, message: 'URL is required.' });
+    }
+
+    const cleanUrl = url.trim();
+    const ytVideoId = getYouTubeVideoId(cleanUrl);
+    let name = '';
+    let extractedText = '';
+    let fileType = 'link';
+    let sizeStr = 'Web Link';
+
+    if (ytVideoId) {
+      fileType = 'youtube';
+      const ytData = await fetchYouTubeData(cleanUrl, ytVideoId);
+      name = ytData.title || `YouTube Video (${ytVideoId})`;
+      extractedText = ytData.text;
+      sizeStr = `YouTube Video`;
+    } else {
+      const webData = await fetchWebPageData(cleanUrl);
+      name = webData.title || cleanUrl;
+      extractedText = webData.text;
+      const sizeKB = (Buffer.byteLength(extractedText, 'utf8') / 1024).toFixed(1);
+      sizeStr = `${sizeKB} KB Web`;
+    }
+
+    let chunks = chunkText(extractedText);
+    if (chunks.length === 0) {
+      chunks = [{ chunkIndex: 0, text: extractedText || name }];
+    }
+
+    const document = await Document.create({
+      user: req.user._id,
+      name,
+      category,
+      size: sizeStr,
+      fileType,
+      url: cleanUrl,
+      extractedText: extractedText.slice(0, 500000),
+      chunks,
+      uploadDate: new Date().toISOString().split('T')[0],
+    });
+
+    console.log(`[Link Document Created] "${document.name}" (${fileType}) with ${chunks.length} chunks.`);
+
+    return res.status(201).json({
+      success: true,
+      message: `${fileType === 'youtube' ? 'YouTube video transcript' : 'Web article'} indexed successfully! (${chunks.length} chunks indexed)`,
+      document: {
+        _id: document._id,
+        name: document.name,
+        category: document.category,
+        size: document.size,
+        fileType: document.fileType,
+        url: document.url,
+        chunksCount: chunks.length,
+        uploadDate: document.uploadDate,
+      },
+    });
+  } catch (err) {
+    console.error('[Index Link Error]:', err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Failed to index link.',
+    });
+  }
+});
+
 // @route   POST /api/documents/:id/query
-// @desc    Ask a question against an uploaded document using RAG
+// @desc    Ask a question against an uploaded document or YouTube video using RAG
 router.post('/:id/query', async (req, res) => {
   const { question } = req.body;
 
@@ -329,25 +518,29 @@ router.post('/:id/query', async (req, res) => {
     const relevantChunks = retrieveRelevantChunks(question, chunks, 6);
     let contextText = '';
 
-    // If document is short/medium (< 12,000 chars), include entire document text so nothing is missed
-    if (fullDocText.length > 0 && fullDocText.length <= 12000) {
-      contextText = `FULL DOCUMENT CONTENT:\n${fullDocText}`;
+    // If document is short/medium (< 14,000 chars), include entire text so nothing is missed
+    if (fullDocText.length > 0 && fullDocText.length <= 14000) {
+      contextText = `FULL ${document.fileType === 'youtube' ? 'YOUTUBE TRANSCRIPT / CONTENT' : 'DOCUMENT CONTENT'}:\n${fullDocText}`;
     } else {
       contextText = relevantChunks.map((c, i) => `[Excerpt ${i + 1}]:\n${c.text}`).join('\n\n');
     }
 
     // Query Groq AI with grounded context
     const groq = getGroqClient();
+    const isYouTube = document.fileType === 'youtube';
 
-    const systemPrompt = `You are Synexora Document Intelligence AI.
-You have full access to the student's uploaded document "${document.name}".
-Your task is to answer the student's question accurately and helpfully using the provided document content.
-- If the student asks for specific facts (like their Name, CGPA, University, Email, Skills, Projects, Conclusions), find and present them clearly.
-- If the student asks for a summary or key takeaways, provide a structured breakdown.
+    const systemPrompt = `You are Synexora Document & Media Intelligence AI.
+You have full grounded access to the student's indexed ${isYouTube ? 'YouTube video transcript' : 'document'} "${document.name}".
+Your task is to answer the student's question accurately, clearly, and helpfully using the provided content.
+- If this is a YouTube video:
+  - Treat the text as spoken dialogue, lectures, or video explanations.
+  - Explain what the speaker explained, taught, or demonstrated.
+  - Extract key formulas, coding examples, or step-by-step points mentioned in the video.
+- If the student asks for a summary or key takeaways, provide a structured breakdown with bullet points.
 - If the student asks for practice questions, generate 3 relevant questions based on the content.
-- Be concise, professional, and clear.`;
+- Be concise, educational, and grounded directly in the provided material.`;
 
-    const userPrompt = `DOCUMENT CONTENT:\n${contextText}\n\nSTUDENT QUESTION:\n${question}`;
+    const userPrompt = `MATERIAL CONTENT:\n${contextText}\n\nSTUDENT QUESTION:\n${question}`;
 
     const chatCompletion = await groq.chat.completions.create({
       messages: [
@@ -368,6 +561,7 @@ Your task is to answer the student's question accurately and helpfully using the
       success: true,
       answer: rawReply,
       documentName: document.name,
+      fileType: document.fileType,
       sourcesCount: relevantChunks.length,
       retrievedExcerpts: relevantChunks.map((c) => c.text || ''),
     });

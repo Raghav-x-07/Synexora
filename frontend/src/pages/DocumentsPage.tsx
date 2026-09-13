@@ -20,6 +20,10 @@ import {
   ChevronUp,
   Brain,
   Check,
+  Youtube,
+  Globe,
+  Link as LinkIcon,
+  ExternalLink,
 } from 'lucide-react';
 
 interface DocItem {
@@ -28,6 +32,7 @@ interface DocItem {
   category: string;
   size: string;
   fileType: string;
+  url?: string;
   uploadDate: string;
 }
 
@@ -44,13 +49,23 @@ export const DocumentsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Upload state
+  // Ingestion Mode: 'file' or 'link'
+  const [ingestMode, setIngestMode] = useState<'file' | 'link'>('file');
+
+  // File Upload state
   const [isUploading, setIsUploading] = useState(false);
   const [uploadCategory, setUploadCategory] = useState('Computer Science');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadMessage, setUploadMessage] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Link / YouTube Ingestion state
+  const [linkUrl, setLinkUrl] = useState('');
+  const [linkCategory, setLinkCategory] = useState('Computer Science');
+  const [isIndexingLink, setIsIndexingLink] = useState(false);
+  const [linkMessage, setLinkMessage] = useState<string | null>(null);
+  const [linkError, setLinkError] = useState<string | null>(null);
 
   // RAG Chat Modal / Drawer state
   const [activeRagDoc, setActiveRagDoc] = useState<DocItem | null>(null);
@@ -125,6 +140,37 @@ export const DocumentsPage: React.FC = () => {
     }
   };
 
+  // Handle Link / YouTube Indexing
+  const handleLinkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!linkUrl.trim()) {
+      setLinkError('Please enter a YouTube video URL or web link.');
+      return;
+    }
+
+    setIsIndexingLink(true);
+    setLinkMessage(null);
+    setLinkError(null);
+
+    try {
+      const res = await API.post('/documents/link', {
+        url: linkUrl.trim(),
+        category: linkCategory,
+      });
+
+      if (res.data.success) {
+        setLinkMessage(res.data.message || 'Link & transcript indexed successfully!');
+        setLinkUrl('');
+        fetchDocs();
+        setTimeout(() => setLinkMessage(null), 4000);
+      }
+    } catch (err: any) {
+      setLinkError(err.response?.data?.message || 'Failed to fetch transcript and index link.');
+    } finally {
+      setIsIndexingLink(false);
+    }
+  };
+
   const handleDelete = async (id: string) => {
     try {
       const res = await API.delete(`/documents/${id}`);
@@ -139,14 +185,17 @@ export const DocumentsPage: React.FC = () => {
     }
   };
 
-  // Open RAG Assistant for a selected document
+  // Open RAG Assistant for a selected document or YouTube video
   const openRagAssistant = (doc: DocItem) => {
     setActiveRagDoc(doc);
+    const isYt = doc.fileType === 'youtube';
     setRagMessages([
       {
         id: '1',
         sender: 'ai',
-        text: `Document "${doc.name}" is loaded into the RAG context. Ask me anything about its contents, definitions, or summaries!`,
+        text: isYt
+          ? `YouTube video transcript for "${doc.name}" is loaded into the RAG context. Ask me to summarize the video, explain specific concepts discussed, or extract key formulas!`
+          : `Document "${doc.name}" is loaded into the RAG context. Ask me anything about its contents, definitions, or summaries!`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ]);
@@ -240,16 +289,22 @@ export const DocumentsPage: React.FC = () => {
     setShowSources((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const isYouTubeUrl = (url: string) => {
+    return /(?:youtube\.com|youtu\.be)/i.test(url);
+  };
+
   const filteredDocs = docs.filter(
     (d) =>
       d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       d.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const getFileIcon = (ext: string) => {
-    if (ext === 'pdf') return <FileText className="w-5 h-5 text-red-600" />;
-    if (ext === 'docx' || ext === 'doc') return <BookOpen className="w-5 h-5 text-blue-600" />;
-    if (ext === 'md' || ext === 'txt') return <FileCode className="w-5 h-5 text-emerald-600" />;
+  const getFileIcon = (fileType: string) => {
+    if (fileType === 'youtube') return <Youtube className="w-5 h-5 text-red-600" />;
+    if (fileType === 'link') return <Globe className="w-5 h-5 text-blue-600" />;
+    if (fileType === 'pdf') return <FileText className="w-5 h-5 text-red-600" />;
+    if (fileType === 'docx' || fileType === 'doc') return <BookOpen className="w-5 h-5 text-blue-600" />;
+    if (fileType === 'md' || fileType === 'txt') return <FileCode className="w-5 h-5 text-emerald-600" />;
     return <File className="w-5 h-5 text-slate-600" />;
   };
 
@@ -261,88 +316,209 @@ export const DocumentsPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <FileText className="w-5 h-5 text-green-600" />
-              <span>Documents & RAG Knowledge Hub</span>
+              <span>Documents & YouTube RAG Intelligence Hub</span>
             </h1>
             <span className="text-[10px] font-bold bg-green-50 text-green-700 px-2 py-0.5 rounded border border-green-200">
               RAG Active
             </span>
           </div>
           <p className="text-xs text-slate-500 mt-1">
-            Upload course PDFs, notes, or syllabi and ask AI questions grounded directly in your files.
+            Upload PDFs, notes, or index YouTube video lectures to chat with AI grounded directly in the content.
           </p>
         </div>
 
-        {/* Upload Card */}
+        {/* Ingestion Hub Card with Dual Tabs */}
         <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
-          <h2 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
-            <Upload className="w-4 h-4 text-green-600" /> Upload New Document for RAG Indexing
-          </h2>
+          {/* Mode Selector Tabs */}
+          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200">
+            <button
+              type="button"
+              onClick={() => setIngestMode('file')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                ingestMode === 'file'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+              }`}
+            >
+              <Upload className="w-3.5 h-3.5 text-green-400" />
+              <span>Upload Document Files</span>
+            </button>
 
-          {uploadMessage && (
-            <div className="mb-4 p-3 rounded-md bg-green-50 border border-green-200 text-green-800 text-xs flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
-              <span>{uploadMessage}</span>
+            <button
+              type="button"
+              onClick={() => setIngestMode('link')}
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+                ingestMode === 'link'
+                  ? 'bg-red-600 text-white shadow-sm'
+                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-red-50 hover:text-red-700'
+              }`}
+            >
+              <Youtube className="w-3.5 h-3.5" />
+              <span>Index YouTube Link / Web</span>
+            </button>
+          </div>
+
+          {/* Tab 1: File Upload Form */}
+          {ingestMode === 'file' && (
+            <div>
+              <h2 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <Upload className="w-4 h-4 text-green-600" /> Upload Course PDF or Notes for RAG
+              </h2>
+
+              {uploadMessage && (
+                <div className="mb-4 p-3 rounded-md bg-green-50 border border-green-200 text-green-800 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                  <span>{uploadMessage}</span>
+                </div>
+              )}
+
+              {uploadError && (
+                <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                  <span>{uploadError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleUploadSubmit} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                  <div className="sm:col-span-7">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept=".pdf,.docx,.txt,.md,.csv,.json"
+                      onChange={handleFileChange}
+                      className="block w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700 cursor-pointer"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-3">
+                    <select
+                      value={uploadCategory}
+                      onChange={(e) => setUploadCategory(e.target.value)}
+                      className="input-clean text-xs"
+                    >
+                      <option value="Computer Science">Computer Science</option>
+                      <option value="Mathematics">Mathematics</option>
+                      <option value="AI & Machine Learning">AI & Machine Learning</option>
+                      <option value="Biomedical">Biomedical</option>
+                      <option value="Economics">Economics</option>
+                      <option value="General Studies">General Studies</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <button
+                      type="submit"
+                      disabled={!selectedFile || isUploading}
+                      className="w-full btn-primary text-xs py-2 gap-1.5 disabled:opacity-50"
+                    >
+                      {isUploading ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Parsing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="w-3.5 h-3.5" />
+                          <span>Upload & Index</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Supported formats: <strong>.pdf</strong>, <strong>.docx</strong>, <strong>.txt</strong>, <strong>.md</strong>. Max size: 25MB.
+                </p>
+              </form>
             </div>
           )}
 
-          {uploadError && (
-            <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
-              <span>{uploadError}</span>
+          {/* Tab 2: YouTube / Web Link Form */}
+          {ingestMode === 'link' && (
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <Youtube className="w-4 h-4 text-red-600" /> Index YouTube Lecture or Web Link for RAG
+                </h2>
+                {isYouTubeUrl(linkUrl) && (
+                  <span className="text-[10px] font-bold bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-200 flex items-center gap-1">
+                    <Youtube className="w-3 h-3 text-red-600" />
+                    <span>YouTube Video Detected</span>
+                  </span>
+                )}
+              </div>
+
+              {linkMessage && (
+                <div className="mb-4 p-3 rounded-md bg-green-50 border border-green-200 text-green-800 text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                  <span>{linkMessage}</span>
+                </div>
+              )}
+
+              {linkError && (
+                <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+                  <span>{linkError}</span>
+                </div>
+              )}
+
+              <form onSubmit={handleLinkSubmit} className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
+                  <div className="sm:col-span-7">
+                    <div className="relative">
+                      <LinkIcon className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <input
+                        type="url"
+                        value={linkUrl}
+                        onChange={(e) => setLinkUrl(e.target.value)}
+                        placeholder="https://www.youtube.com/watch?v=... or article URL"
+                        required
+                        className="input-clean text-xs pl-9"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-3">
+                    <select
+                      value={linkCategory}
+                      onChange={(e) => setLinkCategory(e.target.value)}
+                      className="input-clean text-xs"
+                    >
+                      <option value="Computer Science">Computer Science</option>
+                      <option value="Mathematics">Mathematics</option>
+                      <option value="AI & Machine Learning">AI & Machine Learning</option>
+                      <option value="Biomedical">Biomedical</option>
+                      <option value="Economics">Economics</option>
+                      <option value="General Studies">General Studies</option>
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <button
+                      type="submit"
+                      disabled={!linkUrl.trim() || isIndexingLink}
+                      className="w-full btn-primary text-xs py-2 gap-1.5 disabled:opacity-50 bg-red-600 hover:bg-red-700"
+                    >
+                      {isIndexingLink ? (
+                        <>
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          <span>Extracting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Youtube className="w-3.5 h-3.5" />
+                          <span>Fetch & Index</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  Synexora automatically extracts the <strong>video transcript</strong>, subtitles, and topics to enable grounded Q&A.
+                </p>
+              </form>
             </div>
           )}
-
-          <form onSubmit={handleUploadSubmit} className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
-              <div className="sm:col-span-7">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".pdf,.docx,.txt,.md,.csv,.json"
-                  onChange={handleFileChange}
-                  className="block w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700 cursor-pointer"
-                />
-              </div>
-
-              <div className="sm:col-span-3">
-                <select
-                  value={uploadCategory}
-                  onChange={(e) => setUploadCategory(e.target.value)}
-                  className="input-clean text-xs"
-                >
-                  <option value="Computer Science">Computer Science</option>
-                  <option value="Mathematics">Mathematics</option>
-                  <option value="AI & Machine Learning">AI & Machine Learning</option>
-                  <option value="Biomedical">Biomedical</option>
-                  <option value="Economics">Economics</option>
-                  <option value="General Studies">General Studies</option>
-                </select>
-              </div>
-
-              <div className="sm:col-span-2">
-                <button
-                  type="submit"
-                  disabled={!selectedFile || isUploading}
-                  className="w-full btn-primary text-xs py-2 gap-1.5 disabled:opacity-50"
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      <span>Parsing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-3.5 h-3.5" />
-                      <span>Upload & Index</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-            <p className="text-[11px] text-slate-400">
-              Supported formats: <strong>.pdf</strong>, <strong>.docx</strong>, <strong>.txt</strong>, <strong>.md</strong>. Max size: 25MB.
-            </p>
-          </form>
         </div>
 
         {/* Main Document Grid & RAG Split View */}
@@ -356,20 +532,20 @@ export const DocumentsPage: React.FC = () => {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter uploaded documents..."
+                  placeholder="Filter uploaded documents and YouTube videos..."
                   className="input-clean pl-9 text-xs"
                 />
               </div>
-              <span className="text-xs text-slate-500">{docs.length} documents stored</span>
+              <span className="text-xs text-slate-500">{docs.length} materials indexed</span>
             </div>
 
             <div className="bg-white border border-slate-200 rounded-lg overflow-hidden">
               <table className="w-full text-left text-xs">
                 <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-600 uppercase">
                   <tr>
-                    <th className="px-4 py-3">Document</th>
+                    <th className="px-4 py-3">Material / Lecture</th>
                     <th className="px-3 py-3 hidden sm:table-cell">Category</th>
-                    <th className="px-3 py-3 hidden md:table-cell">Size</th>
+                    <th className="px-3 py-3 hidden md:table-cell">Type / Size</th>
                     <th className="px-4 py-3 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -378,13 +554,13 @@ export const DocumentsPage: React.FC = () => {
                     <tr>
                       <td colSpan={4} className="p-8 text-center text-slate-400">
                         <Loader2 className="w-4 h-4 animate-spin text-green-600 mx-auto mb-2" />
-                        <span>Loading documents...</span>
+                        <span>Loading indexed materials...</span>
                       </td>
                     </tr>
                   ) : filteredDocs.length === 0 ? (
                     <tr>
                       <td colSpan={4} className="p-8 text-center text-slate-400">
-                        No documents found. Upload a file above to start querying with RAG.
+                        No materials indexed yet. Upload a document or paste a YouTube link above to start querying with RAG.
                       </td>
                     </tr>
                   ) : (
@@ -398,9 +574,24 @@ export const DocumentsPage: React.FC = () => {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2.5">
                             {getFileIcon(doc.fileType)}
-                            <div className="truncate max-w-[200px]">
-                              <p className="font-semibold text-slate-900 truncate">{doc.name}</p>
-                              <p className="text-[10px] text-slate-400 sm:hidden">{doc.category} • {doc.size}</p>
+                            <div className="truncate max-w-[220px]">
+                              <div className="flex items-center gap-1.5">
+                                <p className="font-semibold text-slate-900 truncate">{doc.name}</p>
+                                {doc.url && (
+                                  <a
+                                    href={doc.url}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="text-slate-400 hover:text-red-600 shrink-0"
+                                    title="Open link in new tab"
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                )}
+                              </div>
+                              <p className="text-[10px] text-slate-400 sm:hidden">
+                                {doc.category} • {doc.size}
+                              </p>
                             </div>
                           </div>
                         </td>
@@ -409,13 +600,25 @@ export const DocumentsPage: React.FC = () => {
                             {doc.category}
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-slate-500 hidden md:table-cell">{doc.size}</td>
+                        <td className="px-3 py-3 text-slate-500 hidden md:table-cell">
+                          {doc.fileType === 'youtube' ? (
+                            <span className="text-[10px] font-semibold text-red-700 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
+                              YouTube
+                            </span>
+                          ) : (
+                            doc.size
+                          )}
+                        </td>
                         <td className="px-4 py-3 text-right">
                           <div className="flex items-center justify-end gap-1.5">
                             <button
                               onClick={() => openRagAssistant(doc)}
-                              className="btn-primary text-xs py-1 px-2.5 gap-1 shadow-sm"
-                              title="Ask AI questions about this document"
+                              className={`text-xs py-1 px-2.5 gap-1 shadow-sm rounded-md font-semibold flex items-center transition-colors ${
+                                doc.fileType === 'youtube'
+                                  ? 'bg-red-600 hover:bg-red-700 text-white'
+                                  : 'btn-primary'
+                              }`}
+                              title="Ask AI questions grounded in this material"
                             >
                               <Bot className="w-3.5 h-3.5" />
                               <span>Ask RAG</span>
@@ -423,7 +626,7 @@ export const DocumentsPage: React.FC = () => {
                             <button
                               onClick={() => handleDelete(doc._id)}
                               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
-                              title="Delete document"
+                              title="Delete material"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -443,12 +646,18 @@ export const DocumentsPage: React.FC = () => {
               {/* Panel Header */}
               <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50 rounded-t-lg">
                 <div className="flex items-center gap-2 overflow-hidden">
-                  <div className="w-7 h-7 rounded bg-green-600 flex items-center justify-center text-white shrink-0">
-                    <Bot className="w-4 h-4" />
+                  <div className={`w-7 h-7 rounded flex items-center justify-center text-white shrink-0 ${
+                    activeRagDoc.fileType === 'youtube' ? 'bg-red-600' : 'bg-green-600'
+                  }`}>
+                    {activeRagDoc.fileType === 'youtube' ? <Youtube className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                   </div>
                   <div className="truncate">
                     <h3 className="text-xs font-bold text-slate-900 truncate">{activeRagDoc.name}</h3>
-                    <p className="text-[10px] text-slate-500">Retrieval-Augmented Generation Grounded Chat</p>
+                    <p className="text-[10px] text-slate-500">
+                      {activeRagDoc.fileType === 'youtube'
+                        ? 'YouTube Video Transcript Grounded Chat'
+                        : 'Retrieval-Augmented Generation Grounded Chat'}
+                    </p>
                   </div>
                 </div>
                 <button
@@ -475,7 +684,11 @@ export const DocumentsPage: React.FC = () => {
                   >
                     <div
                       className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 ${
-                        msg.sender === 'user' ? 'bg-slate-800 text-white' : 'bg-green-600 text-white'
+                        msg.sender === 'user'
+                          ? 'bg-slate-800 text-white'
+                          : activeRagDoc.fileType === 'youtube'
+                          ? 'bg-red-600 text-white'
+                          : 'bg-green-600 text-white'
                       }`}
                     >
                       {msg.sender === 'user' ? 'U' : 'AI'}
@@ -556,7 +769,7 @@ export const DocumentsPage: React.FC = () => {
                 {isQueryingRag && (
                   <div className="flex items-center gap-2 text-xs text-slate-500 italic p-2">
                     <Sparkles className="w-3.5 h-3.5 text-green-600 animate-spin" />
-                    <span>Searching document chunks and reasoning with Groq...</span>
+                    <span>Searching transcript chunks and reasoning with Groq...</span>
                   </div>
                 )}
               </div>
@@ -565,24 +778,42 @@ export const DocumentsPage: React.FC = () => {
               <div className="px-3 py-1.5 border-t border-slate-100 bg-slate-50 flex items-center gap-2 overflow-x-auto text-[11px]">
                 <button
                   type="button"
-                  onClick={() => setRagInput('Summarize the key points in this document')}
+                  onClick={() =>
+                    setRagInput(
+                      activeRagDoc.fileType === 'youtube'
+                        ? 'Summarize the key points in this video'
+                        : 'Summarize the key points in this document'
+                    )
+                  }
                   className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 shrink-0"
                 >
-                  Summarize Document
+                  {activeRagDoc.fileType === 'youtube' ? 'Summarize Video' : 'Summarize Document'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setRagInput('What are the main formulas or algorithms described?')}
+                  onClick={() =>
+                    setRagInput(
+                      activeRagDoc.fileType === 'youtube'
+                        ? 'What core formulas, algorithms, or theories are explained?'
+                        : 'What are the main formulas or algorithms described?'
+                    )
+                  }
                   className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 shrink-0"
                 >
-                  Key Formulas
+                  Key Formulas & Topics
                 </button>
                 <button
                   type="button"
-                  onClick={() => setRagInput('Generate 3 practice questions based on this text')}
+                  onClick={() =>
+                    setRagInput(
+                      activeRagDoc.fileType === 'youtube'
+                        ? 'Generate 3 practice questions based on this video lecture'
+                        : 'Generate 3 practice questions based on this text'
+                    )
+                  }
                   className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 shrink-0"
                 >
-                  Generate Practice Questions
+                  Practice Questions
                 </button>
               </div>
 
@@ -599,7 +830,11 @@ export const DocumentsPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={!ragInput.trim() || isQueryingRag}
-                  className="btn-primary text-xs px-3 gap-1 disabled:opacity-50"
+                  className={`text-xs px-3 gap-1 disabled:opacity-50 rounded-md font-semibold text-white flex items-center ${
+                    activeRagDoc.fileType === 'youtube'
+                      ? 'bg-red-600 hover:bg-red-700'
+                      : 'bg-green-600 hover:bg-green-700'
+                  }`}
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>Ask</span>
