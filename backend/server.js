@@ -13,6 +13,7 @@ const eventRoutes = require('./routes/eventRoutes');
 const memoryRoutes = require('./routes/memoryRoutes');
 const assessmentRoutes = require('./routes/assessmentRoutes');
 const progressRoutes = require('./routes/progressRoutes');
+const classroomRoutes = require('./routes/classroomRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -51,6 +52,7 @@ app.use('/api/events', eventRoutes);
 app.use('/api/memory', memoryRoutes);
 app.use('/api/assessments', assessmentRoutes);
 app.use('/api/progress', progressRoutes);
+app.use('/api/classrooms', classroomRoutes);
 
 // 404 Handler
 app.use((req, res) => {

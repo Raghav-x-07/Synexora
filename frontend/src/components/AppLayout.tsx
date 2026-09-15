@@ -18,10 +18,12 @@ import {
   X,
   BookOpen,
   Timer,
+  GraduationCap,
 } from 'lucide-react';
 
 const navItems = [
   { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
+  { name: 'Classroom', path: '/classroom', icon: GraduationCap },
   { name: 'Learning AI', path: '/learning-ai', icon: Bot },
   { name: 'Documents', path: '/documents', icon: FileText },
   { name: 'Notes', path: '/notes', icon: StickyNote },

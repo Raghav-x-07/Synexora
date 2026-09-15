@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import jsPDF from 'jspdf';
 import { AppLayout } from '../components/AppLayout';
 import API from '../lib/api';
 import {
@@ -30,6 +31,7 @@ import {
   VolumeX,
   Headphones,
   Play,
+  FileDown,
 } from 'lucide-react';
 import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
 import { DocumentAudioModal } from '../components/DocumentAudioModal';
@@ -276,6 +278,89 @@ export const DocumentsPage: React.FC = () => {
     } catch (err) {
       console.error('Delete doc error:', err);
     }
+  };
+
+  // Download indexed document / transcript / study note as PDF
+  const handleDownloadDocPdf = (docItem: DocItem) => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const maxContentWidth = pageWidth - margin * 2;
+
+    doc.setFillColor(16, 185, 129); // Synexora Emerald
+    doc.rect(0, 0, pageWidth, 18, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SYNEXORA — STUDY DOCUMENT & MEDIA NOTES', margin, 12);
+
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(
+      `Type: ${docItem.fileType.toUpperCase()}  |  Category: ${docItem.category}  |  Date: ${new Date(
+        docItem.uploadDate || Date.now()
+      ).toLocaleDateString()}`,
+      margin,
+      24
+    );
+
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.4);
+    doc.line(margin, 27, pageWidth - margin, 27);
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    const splitTitle = doc.splitTextToSize(docItem.name, maxContentWidth);
+    doc.text(splitTitle, margin, 36);
+
+    let currentY = 36 + splitTitle.length * 6 + 4;
+
+    doc.setTextColor(71, 85, 105);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('INDEXED CONTENT & KNOWLEDGE BASE:', margin, currentY);
+    currentY += 6;
+
+    const fullContent =
+      docItem.extractedText ||
+      (docItem.chunks && docItem.chunks.map((c) => c.text).join('\n\n')) ||
+      'No extracted text available.';
+
+    const splitContent = doc.splitTextToSize(fullContent, maxContentWidth);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(8.5);
+
+    for (let i = 0; i < splitContent.length; i++) {
+      if (currentY + 4.5 > pageHeight - 16) {
+        doc.setDrawColor(226, 232, 240);
+        doc.line(margin, pageHeight - 14, pageWidth - margin, pageHeight - 14);
+        doc.setTextColor(148, 163, 184);
+        doc.setFontSize(8);
+        doc.text(`Page ${doc.getNumberOfPages()} — Synexora Knowledge Base`, margin, pageHeight - 9);
+
+        doc.addPage();
+        currentY = 20;
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(30, 41, 59);
+        doc.setFontSize(8.5);
+      }
+      doc.text(splitContent[i], margin, currentY);
+      currentY += 4.5;
+    }
+
+    const safeName = docItem.name.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30);
+    doc.save(`Synexora_Material_${safeName}.pdf`);
   };
 
   // Open RAG Assistant for a selected document or YouTube video
@@ -837,6 +922,15 @@ export const DocumentsPage: React.FC = () => {
                               <Bot className="w-3.5 h-3.5" />
                               <span>Ask RAG</span>
                             </button>
+                            {/* Download PDF Button */}
+                            <button
+                              onClick={() => handleDownloadDocPdf(doc)}
+                              className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded transition-colors"
+                              title="Download study notes / transcript as PDF"
+                            >
+                              <FileDown className="w-3.5 h-3.5 text-emerald-600" />
+                            </button>
+
                             <button
                               onClick={() => handleDelete(doc._id)}
                               className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"

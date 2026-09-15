@@ -14,6 +14,7 @@ import { ProgressPage } from './pages/ProgressPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TimerPage } from './pages/TimerPage';
+import { ClassroomPage } from './pages/ClassroomPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
 function App() {
@@ -31,6 +32,22 @@ function App() {
           element={
             <ProtectedRoute>
               <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/classroom"
+          element={
+            <ProtectedRoute>
+              <ClassroomPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/classroom/:id"
+          element={
+            <ProtectedRoute>
+              <ClassroomPage />
             </ProtectedRoute>
           }
         />

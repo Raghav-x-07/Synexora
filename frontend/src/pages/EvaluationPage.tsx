@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import jsPDF from 'jspdf';
 import { AppLayout } from '../components/AppLayout';
 import API from '../lib/api';
 import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
@@ -16,6 +17,7 @@ import {
   Volume2,
   VolumeX,
   TrendingUp,
+  FileDown,
 } from 'lucide-react';
 
 interface AssessmentRecord {
@@ -194,6 +196,267 @@ export const EvaluationPage: React.FC = () => {
     } catch (err) {
       console.error('Delete assessment error:', err);
     }
+  };
+
+  // Download official evaluation scorecard / assessment record as PDF
+  const handleDownloadRecordPdf = (record: AssessmentRecord) => {
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const maxContentWidth = pageWidth - margin * 2;
+
+    // Header bar
+    doc.setFillColor(16, 185, 129); // Synexora Emerald Green
+    doc.rect(0, 0, pageWidth, 18, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SYNEXORA — ACADEMIC EVALUATION REPORT', margin, 12);
+
+    // Meta Header
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Official Academic Knowledge & Skill Diagnostic Report`, margin, 24);
+
+    // Divider
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.4);
+    doc.line(margin, 27, pageWidth - margin, 27);
+
+    // Topic Title
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    const splitTitle = doc.splitTextToSize(record.title, maxContentWidth);
+    doc.text(splitTitle, margin, 36);
+
+    let currentY = 36 + splitTitle.length * 6 + 4;
+
+    // Details Grid Card
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(margin, currentY, maxContentWidth, 34, 3, 3, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(margin, currentY, maxContentWidth, 34, 3, 3, 'D');
+
+    doc.setTextColor(71, 85, 105);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('COURSE / FIELD:', margin + 6, currentY + 9);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(15, 23, 42);
+    doc.text(record.course || 'General', margin + 45, currentY + 9);
+
+    doc.setTextColor(71, 85, 105);
+    doc.setFont('helvetica', 'bold');
+    doc.text('EVALUATION DATE:', margin + 6, currentY + 17);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(15, 23, 42);
+    doc.text(record.date || new Date().toLocaleDateString(), margin + 45, currentY + 17);
+
+    doc.setTextColor(71, 85, 105);
+    doc.setFont('helvetica', 'bold');
+    doc.text('STATUS:', margin + 6, currentY + 25);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(16, 185, 129);
+    doc.text('Completed & Verified', margin + 45, currentY + 25);
+
+    // Score Badge in Card
+    doc.setFillColor(16, 185, 129);
+    doc.roundedRect(pageWidth - margin - 46, currentY + 5, 40, 24, 2, 2, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('EVALUATION SCORE', pageWidth - margin - 26, currentY + 11, { align: 'center' });
+    doc.setFontSize(13);
+    doc.text(record.score, pageWidth - margin - 26, currentY + 21, { align: 'center' });
+
+    currentY += 42;
+
+    // Performance Tier Analysis
+    const numScore = parseInt(record.score, 10) || 0;
+    let tierTitle = 'Proficient Knowledge Retention';
+    let tierDesc = 'Demonstrated solid grasp of key terminology, core mechanisms, and application principles.';
+    if (numScore >= 85) {
+      tierTitle = 'Advanced Academic Mastery';
+      tierDesc = 'Excellent command over foundational concepts, edge cases, and theoretical problem solving.';
+    } else if (numScore < 60) {
+      tierTitle = 'Concept Review Recommended';
+      tierDesc = 'Identified key knowledge gaps. Reviewing weak concepts and retaking diagnostic quizzes is recommended.';
+    }
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(10.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('DIAGNOSTIC PERFORMANCE BREAKDOWN:', margin, currentY);
+    currentY += 6;
+
+    doc.setTextColor(51, 65, 85);
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Performance Tier: ${tierTitle}`, margin, currentY);
+    currentY += 5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(71, 85, 105);
+    const splitDesc = doc.splitTextToSize(tierDesc, maxContentWidth);
+    doc.text(splitDesc, margin, currentY);
+    currentY += splitDesc.length * 5 + 8;
+
+    // Synexora AI Learning Advice
+    doc.setFillColor(241, 245, 249);
+    doc.roundedRect(margin, currentY, maxContentWidth, 26, 2, 2, 'F');
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SYNEXORA AI TUTOR RECOMMENDATION:', margin + 5, currentY + 7);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(71, 85, 105);
+    const adviceText = `To reinforce retention, sync missed topics with Synexora Memory Recall flashcards and ask grounded RAG doubts in the Documents workspace.`;
+    const splitAdvice = doc.splitTextToSize(adviceText, maxContentWidth - 10);
+    doc.text(splitAdvice, margin + 5, currentY + 14);
+
+    // Footer
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, pageHeight - 14, pageWidth - margin, pageHeight - 14);
+    doc.setTextColor(148, 163, 184);
+    doc.setFontSize(8);
+    doc.text(`Generated by Synexora AI Adaptive Learning Platform — ${new Date().toLocaleDateString()}`, margin, pageHeight - 9);
+
+    const safeTitle = record.title.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30);
+    doc.save(`Synexora_Evaluation_${safeTitle}.pdf`);
+  };
+
+  // Download full active quiz question-by-question evaluation report as PDF
+  const handleDownloadActiveQuizPdf = () => {
+    if (quizQuestions.length === 0) return;
+
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const maxContentWidth = pageWidth - margin * 2;
+
+    // Header bar
+    doc.setFillColor(16, 185, 129);
+    doc.rect(0, 0, pageWidth, 18, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SYNEXORA — AI QUIZ EVALUATION & SOLUTIONS', margin, 12);
+
+    // Meta Header
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`Topic: ${activeQuizTopic}  |  Course: ${activeQuizCourse}  |  Score: ${quizScore !== null ? `${quizScore}%` : 'N/A'}  |  Date: ${new Date().toLocaleDateString()}`, margin, 24);
+
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.4);
+    doc.line(margin, 27, pageWidth - margin, 27);
+
+    let currentY = 34;
+
+    quizQuestions.forEach((q, idx) => {
+      const isSelected = selectedAnswers[idx] !== undefined;
+      const isCorrect = selectedAnswers[idx] === q.correct;
+      const studentChoice = isSelected ? q.options[selectedAnswers[idx]] : 'Unanswered';
+
+      // Check if we need a new page
+      if (currentY > pageHeight - 65) {
+        doc.addPage();
+        currentY = 20;
+      }
+
+      // Question Title
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      const splitQ = doc.splitTextToSize(`Q${idx + 1}. ${q.q}`, maxContentWidth);
+      doc.text(splitQ, margin, currentY);
+      currentY += splitQ.length * 4.8 + 2.5;
+
+      // Status badge
+      doc.setFontSize(8);
+      if (isCorrect) {
+        doc.setTextColor(16, 185, 129);
+        doc.text(`Result: Correct (+1)`, margin, currentY);
+      } else {
+        doc.setTextColor(220, 38, 38);
+        doc.text(`Result: Incorrect (Selected: "${studentChoice}")`, margin, currentY);
+      }
+      currentY += 4.5;
+
+      // Options
+      doc.setFontSize(8);
+      q.options.forEach((opt, optIdx) => {
+        const isOptCorrect = optIdx === q.correct;
+        const isOptSelected = selectedAnswers[idx] === optIdx;
+
+        let optPrefix = `${String.fromCharCode(65 + optIdx)}. ${opt}`;
+        if (isOptCorrect && isOptSelected) {
+          doc.setTextColor(16, 185, 129);
+          optPrefix += '  [✓ Correct - Selected]';
+        } else if (isOptCorrect) {
+          doc.setTextColor(16, 185, 129);
+          optPrefix += '  [✓ Correct Answer]';
+        } else if (isOptSelected) {
+          doc.setTextColor(220, 38, 38);
+          optPrefix += '  [✗ Your Choice]';
+        } else {
+          doc.setTextColor(71, 85, 105);
+        }
+
+        doc.setFont('helvetica', isOptCorrect ? 'bold' : 'normal');
+        const splitOpt = doc.splitTextToSize(optPrefix, maxContentWidth - 6);
+        doc.text(splitOpt, margin + 3, currentY);
+        currentY += splitOpt.length * 4;
+      });
+
+      currentY += 2;
+
+      // Explanation Box
+      doc.setFillColor(248, 250, 252);
+      const splitExp = doc.splitTextToSize(`Explanation: ${q.explanation}`, maxContentWidth - 8);
+      const boxHeight = splitExp.length * 4 + 6;
+
+      if (currentY + boxHeight > pageHeight - 20) {
+        doc.addPage();
+        currentY = 20;
+      }
+
+      doc.roundedRect(margin, currentY, maxContentWidth, boxHeight, 1.5, 1.5, 'F');
+      doc.setTextColor(51, 65, 85);
+      doc.setFontSize(7.8);
+      doc.setFont('helvetica', 'normal');
+      doc.text(splitExp, margin + 4, currentY + 4.5);
+
+      currentY += boxHeight + 6;
+    });
+
+    // Footer on last page
+    doc.setDrawColor(226, 232, 240);
+    doc.line(margin, pageHeight - 14, pageWidth - margin, pageHeight - 14);
+    doc.setTextColor(148, 163, 184);
+    doc.setFontSize(8);
+    doc.text(`Synexora AI Diagnostic Engine — Downloaded on ${new Date().toLocaleDateString()}`, margin, pageHeight - 9);
+
+    const safeTopic = activeQuizTopic.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30);
+    doc.save(`Synexora_Quiz_${safeTopic}.pdf`);
   };
 
   const currentQ = quizQuestions[currentQIndex];
@@ -677,18 +940,30 @@ export const EvaluationPage: React.FC = () => {
                   })}
                 </div>
 
-                {/* Retake / New Topic Actions */}
-                <div className="flex items-center justify-between pt-4 border-t border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsTakingQuiz(false);
-                      setQuizQuestions([]);
-                    }}
-                    className="btn-secondary text-xs py-2 px-4"
-                  >
-                    Evaluate Another Topic
-                  </button>
+                {/* Retake / New Topic / Download PDF Actions */}
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsTakingQuiz(false);
+                        setQuizQuestions([]);
+                      }}
+                      className="btn-secondary text-xs py-2 px-4"
+                    >
+                      Evaluate Another Topic
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadActiveQuizPdf}
+                      className="btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100 border-emerald-300 font-semibold shadow-xs"
+                      title="Download full quiz questions, answers, and solutions as a PDF"
+                    >
+                      <FileDown className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>Download Quiz PDF Report</span>
+                    </button>
+                  </div>
 
                   <button
                     type="button"
@@ -772,13 +1047,22 @@ export const EvaluationPage: React.FC = () => {
                     </td>
                     <td className="px-3 py-3.5 text-slate-500 hidden md:table-cell">{a.date}</td>
                     <td className="px-4 py-3.5 text-right">
-                      <button
-                        onClick={() => handleDeleteAssessment(a._id)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50"
-                        title="Delete record"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        <button
+                          onClick={() => handleDownloadRecordPdf(a)}
+                          className="p-1.5 text-slate-500 hover:text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors"
+                          title="Download Evaluation Report as PDF"
+                        >
+                          <FileDown className="w-4 h-4 text-emerald-600" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAssessment(a._id)}
+                          className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                          title="Delete record"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))
