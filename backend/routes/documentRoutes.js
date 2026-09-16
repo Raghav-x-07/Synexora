@@ -587,18 +587,30 @@ router.post('/:id/query', async (req, res) => {
     const systemPrompt = `You are Synexora Document & Media Intelligence AI.
 You have full grounded access to the student's indexed ${isYouTube ? 'YouTube video transcript' : 'document'} "${document.name}".
 Your task is to answer the student's question accurately, clearly, and helpfully using the provided content.
-- If this is a YouTube video:
-  - Treat the text as spoken dialogue, lectures, or video explanations.
-  - Explain what the speaker explained, taught, or demonstrated.
-  - Extract key formulas, coding examples, or step-by-step points mentioned in the video.
-- If the student asks for a summary or key takeaways, provide a structured breakdown with bullet points.
-- If the student asks for practice questions, generate 3 relevant questions based on the content.
-- Be concise, educational, and grounded directly in the provided material.`;
+
+Format your response in a neatly aligned, structured layout using these exact standard sections:
+
+### 📖 Concept Definition
+Provide a precise, grounded 1-2 sentence core definition or summary directly answering the student's question based on the material.
+
+### 💡 Step-by-Step Solution & Explanation
+Break down the explanation or evidence into clear steps:
+- **Step 1:** Key principle or direct answer from the document.
+- **Step 2:** Step-by-step points, formulas, evidence, or citations from the material.
+- **Step 3:** Detailed synthesis or practical mechanics.
+
+### 🎯 Key Takeaway & Example
+A concise practical takeaway, key application, or summary bullet grounded in the material.
+
+Formatting Rules:
+- Keep the presentation clean, structured, and readable.
+- Use bold text for key terms and inline \`code\` for formulas, variables, and timestamps.
+- Ground all facts strictly in the provided material.`;
 
     const userPrompt = `MATERIAL CONTENT:\n${contextText}\n\nSTUDENT QUESTION:\n${question}`;
 
     let chatCompletion;
-    const candidateModels = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
+    const candidateModels = ['qwen/qwen3.8-27b', 'groq/compound', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b'];
     for (const model of candidateModels) {
       try {
         chatCompletion = await groq.chat.completions.create({

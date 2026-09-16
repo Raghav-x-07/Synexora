@@ -13,7 +13,13 @@ const getGroqClient = () => {
 
 // Helper: Call Groq with automated model fallback
 const callGroqWithFallback = async (groq, params) => {
-  const candidateModels = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
+  const candidateModels = [
+    'qwen/qwen3.8-27b',
+    'groq/compound',
+    'openai/gpt-oss-120b',
+    'openai/gpt-oss-20b',
+    'groq/compound-mini',
+  ];
   let lastError = null;
   for (const model of candidateModels) {
     try {
@@ -46,18 +52,28 @@ router.post('/chat', async (req, res) => {
   try {
     const groq = getGroqClient();
 
-    let systemInstruction = `You are Synexora AI, an intelligent, concise, and helpful academic tutor for university students. Keep your answers clear, educational, well-structured, and helpful.`;
+    let systemInstruction = `You are Synexora AI, an intelligent, crystal-clear academic tutor.
+When a student asks any concept question, doubt, or problem, you MUST format your response in a neatly aligned, structured, and visually organized layout using these exact standard sections:
 
-    if (learningStyle === 'socratic') {
-      systemInstruction += ` Guide the student step-by-step with intuitive explanations and first-principles reasoning.`;
-    } else if (learningStyle === 'hands-on') {
-      systemInstruction += ` Provide concrete examples, code, or practical applications.`;
-    } else {
-      systemInstruction += ` Provide concise bullet points, core formulas, and key summaries.`;
-    }
+### 📖 Concept Definition
+Provide a precise, crystal-clear 1-3 sentence formal definition and foundational summary of the concept.
+
+### 💡 Step-by-Step Solution & Explanation
+Break down the solution or mechanism into clear, logically ordered steps:
+- **Step 1: [Core Principle]** - Intuitive explanation, formula, or initial state.
+- **Step 2: [Mechanics & Process]** - Step-by-step logic, proof, operations, or code snippet.
+- **Step 3: [Result & Validation]** - Final result, edge cases, or key outcome.
+
+### 🎯 Key Takeaway & Example
+Provide a concrete real-world example, practical application, or core memory takeaway.
+
+Formatting Rules:
+- Keep the presentation clean, aligned, and readable.
+- Use bold **terms** for emphasis and inline \`code\` for formulas, variables, and syntax.
+- Maintain a helpful, encouraging academic tone suitable for ${learningStyle} learning.`;
 
     if (subject) {
-      systemInstruction += ` Focus on the context of: ${subject}.`;
+      systemInstruction += `\nSubject Domain: ${subject}.`;
     }
 
     const messages = [
@@ -121,11 +137,18 @@ Source Notes & Definition:
 ${definition}
 ==============================
 
-Instructions:
-1. Ground your answer in the provided study note context above.
-2. Directly answer the student's doubt with clear explanation, intuitive analogies, or step-by-step breakdowns.
-3. If they ask for examples, formula derivations, edge cases, or quiz questions, provide them clearly.
-4. Keep the response well-structured, educational, and easy to understand.`;
+You MUST format your response using these exact standard sections:
+
+### 📖 Concept Definition
+Direct, clear 1-2 sentence definition or resolution to the student's doubt grounded in the note context.
+
+### 💡 Step-by-Step Solution & Explanation
+- **Step 1:** Core intuition, rule, or formula grounded in the concept.
+- **Step 2:** Step-by-step resolution of the student's specific doubt.
+- **Step 3:** Detailed proof, mechanics, or nuance.
+
+### 🎯 Key Takeaway & Example
+Concrete takeaway, memory mnemonic, or quick practical example to remember this concept easily.`;
 
     const messages = [
       { role: 'system', content: systemInstruction },
@@ -302,6 +325,78 @@ Generate the JSON object with the ${count} questions array now:`;
       error: err.message,
     });
   }
+});
+
+// @route   POST /api/ai/visualize
+// @desc    Generate an AI educational concept illustration / diagram for a topic
+// @access  Public / Protected
+router.post('/visualize', async (req, res) => {
+  const { topic, context = '', style = 'scientific-infographic' } = req.body;
+
+  if (!topic || !topic.trim()) {
+    return res.status(400).json({
+      success: false,
+      message: 'Topic is required to generate a visualization.',
+    });
+  }
+
+  const cleanTopic = topic.trim();
+  let visualPrompt = `${cleanTopic}, detailed educational scientific illustration, 3D anatomical render, crystal clear structure, high definition 8k, modern aesthetic, vivid colors, infographic elements`;
+  let caption = `AI-generated conceptual visualization for ${cleanTopic}.`;
+
+  try {
+    const groq = getGroqClient();
+
+    const systemPrompt = `You are Synexora Visual AI. Your task is to generate a descriptive, vivid, high-resolution visual art prompt for an educational AI image generator based on a study topic.
+Return ONLY a valid JSON object in this format:
+{
+  "visualPrompt": "Detailed English image generation prompt (max 60 words, describing key visual elements, composition, lighting, 3D render, infographic style, crisp background, vibrant colors)",
+  "caption": "Short 1-2 sentence educational description of what this diagram/image visualizes."
+}`;
+
+    const userContent = `Topic: "${cleanTopic}"
+Context: "${context.slice(0, 300)}"
+Preferred Style: "${style}"
+
+Generate the visual image prompt and caption.`;
+
+    const { response } = await callGroqWithFallback(groq, {
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userContent },
+      ],
+      temperature: 0.7,
+      max_tokens: 300,
+      response_format: { type: 'json_object' },
+    });
+
+    const raw = response.choices[0]?.message?.content || '{}';
+    const parsed = JSON.parse(raw);
+
+    if (parsed.visualPrompt && parsed.visualPrompt.trim()) {
+      visualPrompt = parsed.visualPrompt.trim();
+    }
+    if (parsed.caption && parsed.caption.trim()) {
+      caption = parsed.caption.trim();
+    }
+  } catch (err) {
+    console.warn('[Visual Prompt Enhancement Fallback]:', err.message);
+    visualPrompt = `${cleanTopic}, educational infographic, 3D conceptual scientific illustration, ultra sharp focus, volumetric lighting, clear diagrammatic view, 8k resolution`;
+  }
+
+  const seed = Math.floor(Math.random() * 900000) + 100000;
+  const encodedPrompt = encodeURIComponent(visualPrompt.slice(0, 400));
+  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&seed=${seed}&nologo=true&model=flux`;
+
+  return res.status(200).json({
+    success: true,
+    topic: cleanTopic,
+    caption,
+    visualPrompt,
+    imageUrl,
+    seed,
+    style,
+  });
 });
 
 module.exports = router;

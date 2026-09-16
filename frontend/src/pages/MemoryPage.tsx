@@ -23,6 +23,11 @@ import {
   MicOff,
   Volume2,
   VolumeX,
+  BookOpen,
+  Lightbulb,
+  Target,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
 
@@ -43,6 +48,347 @@ interface DoubtMessage {
   text: string;
   timestamp: string;
 }
+
+// Inline Markdown & Code Formatter
+const renderInlineMarkdown = (text: string) => {
+  const parts = text.split(/(\*\*.*?\*\*|`.*?`)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={index} className="font-bold text-slate-900">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code key={index} className="font-mono text-[11px] bg-slate-200/80 text-emerald-800 px-1 py-0.5 rounded font-semibold">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return part;
+  });
+};
+
+// Formatted AI / Memory Message with cleanly aligned Concept Definition, Solution Steps, and Takeaways
+const FormattedMemoryContent: React.FC<{ text: string }> = ({ text }) => {
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const handleCopy = (codeText: string) => {
+    navigator.clipboard.writeText(codeText);
+    setCopiedCode(codeText);
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
+
+  const lines = text.split('\n');
+  const blocks: Array<{
+    type: 'definition-card' | 'solution-card' | 'takeaway-card' | 'header' | 'paragraph';
+    title?: string;
+    content: string[];
+  }> = [];
+
+  let currentSection: 'definition' | 'solution' | 'takeaway' | 'none' = 'none';
+  let currentLines: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      if (currentLines.length > 0 && currentSection === 'none') {
+        blocks.push({ type: 'paragraph', content: currentLines });
+        currentLines = [];
+      }
+      continue;
+    }
+
+    // Check for standard structured sections
+    if (
+      trimmed.includes('Concept Definition') ||
+      trimmed.startsWith('### 📖') ||
+      trimmed.startsWith('### Concept') ||
+      trimmed.startsWith('**Concept Definition:**')
+    ) {
+      if (currentLines.length > 0) {
+        blocks.push({
+          type: currentSection === 'definition' ? 'definition-card' : currentSection === 'solution' ? 'solution-card' : currentSection === 'takeaway' ? 'takeaway-card' : 'paragraph',
+          content: currentLines,
+        });
+        currentLines = [];
+      }
+      currentSection = 'definition';
+      continue;
+    } else if (
+      trimmed.includes('Step-by-Step Solution') ||
+      trimmed.includes('Solution & Explanation') ||
+      trimmed.startsWith('### 💡') ||
+      trimmed.startsWith('### Solution') ||
+      trimmed.startsWith('**Step-by-Step Solution:**')
+    ) {
+      if (currentLines.length > 0) {
+        blocks.push({
+          type: currentSection === 'definition' ? 'definition-card' : currentSection === 'solution' ? 'solution-card' : currentSection === 'takeaway' ? 'takeaway-card' : 'paragraph',
+          content: currentLines,
+        });
+        currentLines = [];
+      }
+      currentSection = 'solution';
+      continue;
+    } else if (
+      trimmed.includes('Key Takeaway') ||
+      trimmed.includes('Takeaway & Example') ||
+      trimmed.startsWith('### 🎯') ||
+      trimmed.startsWith('### Key Takeaway') ||
+      trimmed.startsWith('**Key Takeaway:**')
+    ) {
+      if (currentLines.length > 0) {
+        blocks.push({
+          type: currentSection === 'definition' ? 'definition-card' : currentSection === 'solution' ? 'solution-card' : currentSection === 'takeaway' ? 'takeaway-card' : 'paragraph',
+          content: currentLines,
+        });
+        currentLines = [];
+      }
+      currentSection = 'takeaway';
+      continue;
+    } else if (trimmed.startsWith('### ')) {
+      if (currentLines.length > 0) {
+        blocks.push({
+          type: currentSection === 'definition' ? 'definition-card' : currentSection === 'solution' ? 'solution-card' : currentSection === 'takeaway' ? 'takeaway-card' : 'paragraph',
+          content: currentLines,
+        });
+        currentLines = [];
+      }
+      currentSection = 'none';
+      blocks.push({ type: 'header', content: [trimmed.replace(/^###\s*/, '')] });
+      continue;
+    }
+
+    currentLines.push(trimmed);
+  }
+
+  if (currentLines.length > 0) {
+    blocks.push({
+      type: currentSection === 'definition' ? 'definition-card' : currentSection === 'solution' ? 'solution-card' : currentSection === 'takeaway' ? 'takeaway-card' : 'paragraph',
+      content: currentLines,
+    });
+  }
+
+  // Fallback cleanly if no section card was explicitly formatted
+  if (!blocks.some((b) => b.type === 'definition-card' || b.type === 'solution-card' || b.type === 'takeaway-card')) {
+    return (
+      <div className="space-y-2 text-slate-800 text-xs leading-relaxed">
+        {lines.map((l, idx) => {
+          const t = l.trim();
+          if (!t) return <div key={idx} className="h-1" />;
+          if (t.startsWith('- ') || t.startsWith('* ') || t.startsWith('• ')) {
+            return (
+              <div key={idx} className="flex items-start gap-2 pl-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                <div className="flex-1">{renderInlineMarkdown(t.replace(/^[-*•]\s*/, ''))}</div>
+              </div>
+            );
+          }
+          if (/^\d+\.\s/.test(t)) {
+            const num = t.match(/^(\d+)\.\s/)?.[1];
+            return (
+              <div key={idx} className="flex items-start gap-2 pl-1">
+                <span className="text-[10px] font-bold font-mono bg-emerald-100 text-emerald-800 px-1.5 py-0.2 rounded shrink-0">
+                  {num}
+                </span>
+                <div className="flex-1">{renderInlineMarkdown(t.replace(/^\d+\.\s*/, ''))}</div>
+              </div>
+            );
+          }
+          if (t.startsWith('### ')) {
+            return (
+              <h4 key={idx} className="font-bold text-slate-900 text-xs mt-2 mb-1 border-b border-slate-200 pb-1 flex items-center gap-1.5">
+                {t.replace(/^###\s*/, '')}
+              </h4>
+            );
+          }
+          return <p key={idx}>{renderInlineMarkdown(t)}</p>;
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5 text-xs text-slate-800">
+      {blocks.map((block, idx) => {
+        if (block.type === 'definition-card') {
+          return (
+            <div
+              key={idx}
+              className="bg-emerald-50/80 border-l-3 border-emerald-500 rounded-r-md p-2.5 shadow-2xs space-y-1"
+            >
+              <div className="flex items-center gap-1 text-[11px] font-bold text-emerald-900 uppercase tracking-wide">
+                <BookOpen className="w-3 h-3 text-emerald-600" />
+                <span>Concept Definition</span>
+              </div>
+              <div className="text-slate-800 leading-relaxed space-y-1">
+                {block.content.map((line, lIdx) => (
+                  <p key={lIdx}>{renderInlineMarkdown(line)}</p>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
+        if (block.type === 'solution-card') {
+          return (
+            <div
+              key={idx}
+              className="bg-white border border-slate-200 rounded-md p-2.5 shadow-xs space-y-1.5"
+            >
+              <div className="flex items-center gap-1 text-[11px] font-bold text-slate-900 uppercase tracking-wide border-b border-slate-100 pb-1">
+                <Lightbulb className="w-3 h-3 text-amber-500" />
+                <span>Step-by-Step Solution & Explanation</span>
+              </div>
+              <div className="space-y-1.5 text-slate-700 leading-relaxed">
+                {block.content.map((line, lIdx) => {
+                  const isStep =
+                    line.startsWith('- **Step') ||
+                    line.startsWith('**Step') ||
+                    /^\d+\./.test(line) ||
+                    line.startsWith('- ') ||
+                    line.startsWith('• ');
+
+                  if (isStep) {
+                    return (
+                      <div
+                        key={lIdx}
+                        className="bg-slate-50 border border-slate-200/80 rounded p-2 flex items-start gap-2"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div className="flex-1">{renderInlineMarkdown(line.replace(/^[-*•]\s*/, ''))}</div>
+                      </div>
+                    );
+                  }
+
+                  if (line.startsWith('```')) {
+                    const code = line.replace(/```[a-z]*/g, '').trim();
+                    return (
+                      <div key={lIdx} className="relative group my-1">
+                        <pre className="p-2.5 bg-slate-900 text-emerald-400 font-mono text-[11px] rounded overflow-x-auto">
+                          <code>{code}</code>
+                        </pre>
+                        <button
+                          onClick={() => handleCopy(code)}
+                          className="absolute top-1.5 right-1.5 p-1 rounded bg-slate-800 text-slate-300 hover:text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
+                          title="Copy Code"
+                        >
+                          {copiedCode === code ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return <p key={lIdx}>{renderInlineMarkdown(line)}</p>;
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        if (block.type === 'takeaway-card') {
+          return (
+            <div
+              key={idx}
+              className="bg-indigo-50/80 border-l-3 border-indigo-500 rounded-r-md p-2.5 shadow-2xs space-y-1"
+            >
+              <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-900 uppercase tracking-wide">
+                <Target className="w-3 h-3 text-indigo-600" />
+                <span>Key Takeaway & Example</span>
+              </div>
+              <div className="text-slate-800 leading-relaxed space-y-1">
+                {block.content.map((line, lIdx) => (
+                  <p key={lIdx}>{renderInlineMarkdown(line)}</p>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
+        if (block.type === 'header') {
+          return (
+            <h4 key={idx} className="font-bold text-slate-900 text-xs mt-1.5 border-b border-slate-200 pb-0.5">
+              {block.content.join(' ')}
+            </h4>
+          );
+        }
+
+        return (
+          <div key={idx} className="space-y-1">
+            {block.content.map((l, lIdx) => (
+              <p key={lIdx}>{renderInlineMarkdown(l)}</p>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+// Parser helper for generating aligned styled PDFs
+const parseSectionsForPdf = (rawText: string) => {
+  const lines = rawText.split('\n');
+  const definitionLines: string[] = [];
+  const solutionLines: string[] = [];
+  const takeawayLines: string[] = [];
+  const generalLines: string[] = [];
+
+  let currentSection: 'definition' | 'solution' | 'takeaway' | 'none' = 'none';
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+
+    if (
+      trimmed.includes('Concept Definition') ||
+      trimmed.startsWith('### 📖') ||
+      trimmed.startsWith('### Concept') ||
+      trimmed.startsWith('**Concept Definition:**')
+    ) {
+      currentSection = 'definition';
+      continue;
+    } else if (
+      trimmed.includes('Step-by-Step Solution') ||
+      trimmed.includes('Solution & Explanation') ||
+      trimmed.startsWith('### 💡') ||
+      trimmed.startsWith('### Solution') ||
+      trimmed.startsWith('**Step-by-Step Solution:**')
+    ) {
+      currentSection = 'solution';
+      continue;
+    } else if (
+      trimmed.includes('Key Takeaway') ||
+      trimmed.includes('Takeaway & Example') ||
+      trimmed.startsWith('### 🎯') ||
+      trimmed.startsWith('### Key Takeaway') ||
+      trimmed.startsWith('**Key Takeaway:**')
+    ) {
+      currentSection = 'takeaway';
+      continue;
+    } else if (trimmed.startsWith('### ')) {
+      currentSection = 'none';
+      generalLines.push(trimmed.replace(/^###\s*/, ''));
+      continue;
+    }
+
+    if (currentSection === 'definition') {
+      definitionLines.push(trimmed);
+    } else if (currentSection === 'solution') {
+      solutionLines.push(trimmed);
+    } else if (currentSection === 'takeaway') {
+      takeawayLines.push(trimmed);
+    } else {
+      generalLines.push(trimmed);
+    }
+  }
+
+  return { definitionLines, solutionLines, takeawayLines, generalLines };
+};
 
 export const MemoryPage: React.FC = () => {
   const [cards, setCards] = useState<MemoryCard[]>([]);
@@ -111,9 +457,9 @@ export const MemoryPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       const res = await API.post('/memory', {
-        concept: newConcept,
-        definition: newDefinition,
-        course: newCourse || 'General',
+        concept: newConcept.trim(),
+        definition: newDefinition.trim(),
+        course: newCourse.trim() || 'General',
         source: newSource,
       });
 
@@ -121,31 +467,37 @@ export const MemoryPage: React.FC = () => {
         setCards([res.data.card, ...cards]);
         setNewConcept('');
         setNewDefinition('');
+        setNewCourse('General');
+        setNewSource('manual');
         setIsAdding(false);
       }
     } catch (err) {
-      console.error('Add card error:', err);
+      console.error('Add memory card error:', err);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const toggleReveal = (id: string) => {
-    setRevealedIds((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
   const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this memory concept?')) return;
     try {
       const res = await API.delete(`/memory/${id}`);
       if (res.data.success) {
         setCards(cards.filter((c) => c._id !== id));
       }
     } catch (err) {
-      console.error('Delete concept error:', err);
+      console.error('Delete card error:', err);
     }
   };
 
-  // Download Notes PDF Handler
+  const toggleReveal = (id: string) => {
+    setRevealedIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  // Download Structured Notes PDF Handler matching the exact aligned layout
   const handleDownloadPdf = (card: MemoryCard) => {
     const doc = new jsPDF({
       orientation: 'portrait',
@@ -163,84 +515,199 @@ export const MemoryPage: React.FC = () => {
 
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-    const margin = 15;
+    const margin = 14;
     const maxContentWidth = pageWidth - margin * 2;
 
-    // Header bar
-    doc.setFillColor(16, 185, 129); // Synexora green
-    doc.rect(0, 0, pageWidth, 16, 'F');
+    const drawHeader = () => {
+      doc.setFillColor(16, 185, 129); // Synexora green
+      doc.rect(0, 0, pageWidth, 15, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.text('SYNEXORA — STUDY KNOWLEDGE & MEMORY NOTES', margin, 10.5);
+    };
 
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(12);
-    doc.setFont('helvetica', 'bold');
-    doc.text('SYNEXORA — STUDY KNOWLEDGE & MEMORY NOTES', margin, 11);
+    const drawFooter = () => {
+      doc.setTextColor(148, 163, 184);
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.text('Synexora AI Academic Workspace — Active Recall & Study Hub', margin, pageHeight - 8);
+    };
+
+    drawHeader();
 
     // Meta Header
     doc.setTextColor(100, 116, 139);
     doc.setFontSize(8.5);
     doc.setFont('helvetica', 'normal');
     doc.text(
-      `Source: ${sourceLabel}  |  Subject/Course: ${card.course}  |  Date: ${new Date(
+      `Source: ${sourceLabel}   |   Course: ${card.course}   |   Date: ${new Date(
         card.createdAt || Date.now()
       ).toLocaleDateString()}`,
       margin,
-      23
+      22
     );
 
     // Divider
     doc.setDrawColor(226, 232, 240);
     doc.setLineWidth(0.4);
-    doc.line(margin, 26, pageWidth - margin, 26);
+    doc.line(margin, 25, pageWidth - margin, 25);
 
-    // Concept Title
+    // Concept Title Header
     doc.setTextColor(15, 23, 42);
-    doc.setFontSize(13);
+    doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
     const splitTitle = doc.splitTextToSize(card.concept, maxContentWidth);
-    doc.text(splitTitle, margin, 34);
+    doc.text(splitTitle, margin, 33);
 
-    let currentY = 34 + splitTitle.length * 6 + 4;
+    let currentY = 33 + splitTitle.length * 6 + 3;
 
-    // Sub-header
-    doc.setTextColor(71, 85, 105);
-    doc.setFontSize(9.5);
-    doc.setFont('helvetica', 'bold');
-    doc.text('NOTES / FORMULAS / EXPLANATION:', margin, currentY);
-    currentY += 6;
-
-    // Definition / Notes Content
-    doc.setTextColor(30, 41, 59);
-    doc.setFontSize(9.5);
-    doc.setFont('helvetica', 'normal');
-    const splitDef = doc.splitTextToSize(card.definition, maxContentWidth);
-
-    const lineHeight = 5.2;
-    for (let i = 0; i < splitDef.length; i++) {
-      if (currentY + lineHeight > pageHeight - 18) {
-        // Footer on current page
-        doc.setTextColor(148, 163, 184);
-        doc.setFontSize(8);
-        doc.text('Synexora AI Academic Workspace — Active Recall & Study Hub', margin, pageHeight - 8);
-
-        // Add page
+    const checkPageBreak = (neededHeight: number) => {
+      if (currentY + neededHeight > pageHeight - 18) {
+        drawFooter();
         doc.addPage();
-        currentY = 18;
+        drawHeader();
+        currentY = 22;
       }
-      doc.text(splitDef[i], margin, currentY);
-      currentY += lineHeight;
+    };
+
+    // Parse structured sections
+    const { definitionLines, solutionLines, takeawayLines, generalLines } = parseSectionsForPdf(card.definition);
+    const hasSections = definitionLines.length > 0 || solutionLines.length > 0 || takeawayLines.length > 0;
+
+    if (hasSections) {
+      // 1. CONCEPT DEFINITION CARD
+      if (definitionLines.length > 0) {
+        const cleanDef = definitionLines.join(' ').replace(/\*\*/g, '');
+        const textLines = doc.splitTextToSize(cleanDef, maxContentWidth - 10);
+        const cardHeight = Math.max(16, 9 + textLines.length * 4.6);
+
+        checkPageBreak(cardHeight + 6);
+
+        // Fill background
+        doc.setFillColor(240, 253, 244); // light emerald
+        doc.roundedRect(margin, currentY, maxContentWidth, cardHeight, 2, 2, 'F');
+
+        // Left accent bar
+        doc.setFillColor(16, 185, 129); // emerald-500
+        doc.rect(margin, currentY, 2.5, cardHeight, 'F');
+
+        // Header
+        doc.setTextColor(6, 78, 59); // emerald-900
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text('CONCEPT DEFINITION', margin + 6, currentY + 5.5);
+
+        // Text
+        doc.setTextColor(30, 41, 59);
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(textLines, margin + 6, currentY + 11);
+
+        currentY += cardHeight + 5;
+      }
+
+      // 2. STEP-BY-STEP SOLUTION CARD
+      if (solutionLines.length > 0) {
+        let totalStepHeight = 11;
+        const formattedSteps: string[][] = [];
+        for (const s of solutionLines) {
+          const cleanLine = s.replace(/^[-*•]\s*/, '').replace(/\*\*/g, '');
+          const wrapped = doc.splitTextToSize(cleanLine, maxContentWidth - 14);
+          formattedSteps.push(wrapped);
+          totalStepHeight += wrapped.length * 4.4 + 3;
+        }
+
+        checkPageBreak(Math.min(totalStepHeight, 70));
+
+        // Draw Solution Box
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(margin, currentY, maxContentWidth, totalStepHeight, 2, 2, 'FD');
+
+        // Solution Header
+        doc.setTextColor(15, 23, 42);
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text('STEP-BY-STEP SOLUTION & EXPLANATION', margin + 5, currentY + 6);
+
+        currentY += 10;
+
+        for (let idx = 0; idx < formattedSteps.length; idx++) {
+          const stepLines = formattedSteps[idx];
+          const stepHeight = stepLines.length * 4.4 + 3;
+
+          checkPageBreak(stepHeight + 4);
+
+          // Step Bullet Badge
+          doc.setFillColor(16, 185, 129);
+          doc.circle(margin + 6, currentY + 1.5, 1, 'F');
+
+          doc.setTextColor(51, 65, 85);
+          doc.setFontSize(8.5);
+          doc.setFont('helvetica', 'normal');
+          doc.text(stepLines, margin + 10, currentY + 2.5);
+
+          currentY += stepHeight;
+        }
+
+        currentY += 4;
+      }
+
+      // 3. KEY TAKEAWAY CARD
+      if (takeawayLines.length > 0) {
+        const cleanTakeaway = takeawayLines.join(' ').replace(/\*\*/g, '');
+        const textLines = doc.splitTextToSize(cleanTakeaway, maxContentWidth - 10);
+        const cardHeight = Math.max(16, 9 + textLines.length * 4.6);
+
+        checkPageBreak(cardHeight + 6);
+
+        // Fill background
+        doc.setFillColor(238, 242, 255); // light indigo
+        doc.roundedRect(margin, currentY, maxContentWidth, cardHeight, 2, 2, 'F');
+
+        // Left accent bar
+        doc.setFillColor(99, 102, 241); // indigo-500
+        doc.rect(margin, currentY, 2.5, cardHeight, 'F');
+
+        // Header
+        doc.setTextColor(49, 46, 129); // indigo-900
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'bold');
+        doc.text('KEY TAKEAWAY & EXAMPLE', margin + 6, currentY + 5.5);
+
+        // Text
+        doc.setTextColor(30, 41, 59);
+        doc.setFontSize(8.5);
+        doc.setFont('helvetica', 'normal');
+        doc.text(textLines, margin + 6, currentY + 11);
+
+        currentY += cardHeight + 5;
+      }
+    } else {
+      // General / Unstructured lines
+      const splitDef = doc.splitTextToSize((generalLines.length > 0 ? generalLines.join('\n') : card.definition).replace(/\*\*/g, ''), maxContentWidth - 8);
+      const boxHeight = splitDef.length * 4.8 + 8;
+      checkPageBreak(boxHeight);
+
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.roundedRect(margin, currentY, maxContentWidth, boxHeight, 2, 2, 'FD');
+
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.text(splitDef, margin + 4, currentY + 6);
+      currentY += boxHeight + 5;
     }
 
-    // Bottom footer on final page
-    doc.setTextColor(148, 163, 184);
-    doc.setFontSize(8);
-    doc.text('Synexora AI Academic Workspace — Active Recall & Study Hub', margin, pageHeight - 8);
+    drawFooter();
 
-    // File name
     const sanitizedTitle = (card.concept || 'Notes')
       .replace(/[^a-zA-Z0-9_-]/g, '_')
       .replace(/_+/g, '_')
       .slice(0, 35);
-    doc.save(`${sanitizedTitle}_Notes.pdf`);
+    doc.save(`${sanitizedTitle}_Structured_Notes.pdf`);
   };
 
   // Open Doubt Modal
@@ -250,7 +717,7 @@ export const MemoryPage: React.FC = () => {
       {
         id: '1',
         sender: 'ai',
-        text: `Hello! I am your RAG Doubt Assistant grounded in "${card.concept}". Ask me anything about this concept, formulas, steps, or request intuitive analogies!`,
+        text: `### 📖 Concept Context\nGrounded in **${card.concept}** (${card.course}).\n\n### 💡 Step-by-Step Guidance\nAsk any question, formula breakdown, or intuition about this note!`,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ]);
@@ -349,33 +816,37 @@ export const MemoryPage: React.FC = () => {
               Categorized memory vault storing concepts from Ask RAG, Learning AI Tutor, and custom flashcards.
             </p>
           </div>
+
           <button
             onClick={() => setIsAdding(!isAdding)}
-            className="btn-primary gap-1.5 self-start sm:self-auto text-xs"
+            className="btn-primary text-xs self-start sm:self-auto gap-1.5"
           >
             <Plus className="w-4 h-4" />
-            <span>{isAdding ? 'Close Form' : 'Add Concept'}</span>
+            <span>{isAdding ? 'Cancel' : 'Add Concept'}</span>
           </button>
         </div>
 
-        {/* Add Form */}
+        {/* Add Concept Form */}
         {isAdding && (
-          <form onSubmit={handleAddCard} className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
-            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Store New Recall Concept</h3>
+          <form
+            onSubmit={handleAddCard}
+            className="bg-white border border-slate-200 rounded-lg p-4 space-y-3 shadow-xs"
+          >
+            <h2 className="text-sm font-bold text-slate-900">Add New Memory Concept</h2>
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
-              <div className="sm:col-span-6">
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Concept / Topic Title</label>
+              <div className="sm:col-span-5">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Concept / Title</label>
                 <input
                   type="text"
                   value={newConcept}
                   onChange={(e) => setNewConcept(e.target.value)}
-                  placeholder="e.g. Backpropagation Algorithm"
+                  placeholder="e.g. QuickSort Algorithm"
                   required
                   className="input-clean text-xs"
                 />
               </div>
-              <div className="sm:col-span-3">
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Course / Tag</label>
+              <div className="sm:col-span-4">
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Course / Subject</label>
                 <input
                   type="text"
                   value={newCourse}
@@ -493,43 +964,6 @@ export const MemoryPage: React.FC = () => {
           </button>
         </div>
 
-        {/* Section Context Info Banner */}
-        {activeTab === 'rag' && (
-          <div className="p-3 bg-purple-50/60 border border-purple-200 rounded-lg text-xs text-purple-900 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FileText className="w-4 h-4 text-purple-600 shrink-0" />
-              <span>
-                Showing answers and summaries saved directly from your uploaded documents via <strong>Ask RAG</strong>.
-              </span>
-            </div>
-            <span className="text-[11px] font-semibold text-purple-700">{counts.rag} saved entries</span>
-          </div>
-        )}
-
-        {activeTab === 'learning-ai' && (
-          <div className="p-3 bg-green-50/60 border border-green-200 rounded-lg text-xs text-green-900 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Bot className="w-4 h-4 text-green-600 shrink-0" />
-              <span>
-                Showing conceptual breakdowns and study explanations stored from the <strong>Learning AI Tutor</strong>.
-              </span>
-            </div>
-            <span className="text-[11px] font-semibold text-green-700">{counts['learning-ai']} saved entries</span>
-          </div>
-        )}
-
-        {activeTab === 'manual' && (
-          <div className="p-3 bg-blue-50/60 border border-blue-200 rounded-lg text-xs text-blue-900 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Brain className="w-4 h-4 text-blue-600 shrink-0" />
-              <span>
-                Showing custom flashcard definitions and formulas created manually.
-              </span>
-            </div>
-            <span className="text-[11px] font-semibold text-blue-700">{counts.manual} saved entries</span>
-          </div>
-        )}
-
         {/* Search */}
         <div className="relative">
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -625,9 +1059,9 @@ export const MemoryPage: React.FC = () => {
                     </h3>
 
                     {/* Definition / Explanation Body */}
-                    <div className="bg-slate-50 border border-slate-100 rounded-md p-3 min-h-[60px] text-xs text-slate-700">
+                    <div className="bg-slate-50/70 border border-slate-150 rounded-lg p-3 min-h-[60px] text-xs text-slate-700">
                       {isRevealed ? (
-                        <p className="whitespace-pre-wrap leading-relaxed">{card.definition}</p>
+                        <FormattedMemoryContent text={card.definition} />
                       ) : (
                         <p className="text-slate-400 italic flex items-center gap-1.5">
                           <EyeOff className="w-3.5 h-3.5 text-slate-400" />
@@ -661,17 +1095,17 @@ export const MemoryPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => handleDownloadPdf(card)}
-                            className="btn-secondary text-xs py-1 px-2.5 gap-1.5 text-green-700 hover:bg-green-50 hover:border-green-300 transition-colors"
-                            title="Download this note as a styled PDF"
+                            className="btn-secondary text-xs py-1 px-2.5 gap-1.5 text-green-700 hover:bg-green-50 hover:border-green-300 transition-colors font-medium"
+                            title="Download this note as a structured aligned PDF"
                           >
                             <Download className="w-3.5 h-3.5 text-green-600" />
-                            <span>Download Notes PDF</span>
+                            <span>Download PDF</span>
                           </button>
 
                           <button
                             type="button"
                             onClick={() => handleOpenDoubtModal(card)}
-                            className="btn-secondary text-xs py-1 px-2.5 gap-1.5 text-purple-700 hover:bg-purple-50 hover:border-purple-300 transition-colors"
+                            className="btn-secondary text-xs py-1 px-2.5 gap-1.5 text-purple-700 hover:bg-purple-50 hover:border-purple-300 transition-colors font-medium"
                             title="Ask AI Doubt grounded in this concept"
                           >
                             <HelpCircle className="w-3.5 h-3.5 text-purple-600" />
@@ -680,12 +1114,6 @@ export const MemoryPage: React.FC = () => {
                         </>
                       )}
                     </div>
-
-                    {card.createdAt && (
-                      <span className="text-[10px] text-slate-400">
-                        {new Date(card.createdAt).toLocaleDateString()}
-                      </span>
-                    )}
                   </div>
                 </div>
               );
@@ -693,98 +1121,79 @@ export const MemoryPage: React.FC = () => {
           )}
         </div>
 
-        {/* Grounded RAG Doubt Assistant Modal */}
+        {/* MODAL: GROUNDED AI DOUBT SOLVER */}
         {doubtModalCard && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
-            <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl flex flex-col h-[620px] max-h-[90vh] overflow-hidden">
+          <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
+            <div className="bg-white rounded-xl max-w-xl w-full p-0 shadow-2xl border border-slate-200 overflow-hidden flex flex-col max-h-[85vh]">
               {/* Modal Header */}
               <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between">
-                <div className="flex items-center gap-2.5 overflow-hidden">
-                  <div className="w-8 h-8 rounded-lg bg-purple-600 flex items-center justify-center text-white shrink-0 shadow-sm">
-                    <Bot className="w-5 h-5" />
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center">
+                    <Brain className="w-4 h-4" />
                   </div>
-                  <div className="truncate">
-                    <div className="flex items-center gap-2">
-                      <h3 className="text-sm font-bold text-slate-900 truncate">
-                        {doubtModalCard.concept}
-                      </h3>
-                      <span className="text-[10px] font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded border border-purple-200 shrink-0">
-                        RAG Grounded
-                      </span>
-                    </div>
-                    <p className="text-[11px] text-slate-500">
-                      Grounded in stored memory note • Course: {doubtModalCard.course}
-                    </p>
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>Ask Doubt:</span>
+                      <span className="text-purple-700 truncate max-w-[200px]">{doubtModalCard.concept}</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-500">Grounded in your saved memory context • {doubtModalCard.course}</p>
                   </div>
                 </div>
                 <button
                   onClick={() => setDoubtModalCard(null)}
-                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-200 transition-colors"
+                  className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-200/50"
                 >
-                  <X className="w-5 h-5" />
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
-              {/* Grounded Note Excerpt Banner */}
-              <div className="px-4 py-2.5 bg-purple-50/60 border-b border-purple-100 text-xs text-slate-700 flex items-start gap-2">
-                <FileText className="w-4 h-4 text-purple-600 shrink-0 mt-0.5" />
-                <div className="truncate max-h-12 overflow-y-auto">
-                  <span className="font-semibold text-purple-900">Grounded Source Note: </span>
-                  <span className="text-slate-600">{doubtModalCard.definition.slice(0, 220)}...</span>
-                </div>
-              </div>
-
-              {/* Chat Message Stream */}
-              <div className="p-4 overflow-y-auto flex-1 space-y-3.5 bg-slate-50/30">
+              {/* Messages Body */}
+              <div className="p-4 overflow-y-auto space-y-3 flex-1 bg-white">
                 {doubtMessages.map((msg) => (
                   <div
                     key={msg.id}
-                    className={`flex items-start gap-2.5 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}
+                    className={`flex items-start gap-2.5 ${
+                      msg.sender === 'user' ? 'flex-row-reverse' : ''
+                    }`}
                   >
                     <div
-                      className={`w-6 h-6 rounded flex items-center justify-center text-[11px] font-bold shrink-0 ${
-                        msg.sender === 'user' ? 'bg-slate-800 text-white' : 'bg-purple-600 text-white'
+                      className={`w-6 h-6 rounded flex items-center justify-center text-xs font-semibold shrink-0 ${
+                        msg.sender === 'user'
+                          ? 'bg-slate-800 text-white'
+                          : 'bg-purple-600 text-white'
                       }`}
                     >
                       {msg.sender === 'user' ? <UserIcon className="w-3.5 h-3.5" /> : <Bot className="w-3.5 h-3.5" />}
                     </div>
-
                     <div
-                      className={`max-w-lg p-3 rounded-lg text-xs leading-relaxed ${
+                      className={`max-w-[85%] p-3 rounded-lg text-xs leading-relaxed ${
                         msg.sender === 'user'
-                          ? 'bg-purple-600 text-white'
-                          : 'bg-white text-slate-800 border border-slate-200 shadow-sm'
+                          ? 'bg-purple-50 text-slate-900 border border-purple-200'
+                          : 'bg-slate-50 text-slate-800 border border-slate-200'
                       }`}
                     >
-                      <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
-                      <div className={`mt-2 pt-1.5 border-t flex items-center justify-between gap-2 ${
-                        msg.sender === 'user' ? 'border-purple-500' : 'border-slate-100'
-                      }`}>
-                        <span className={`text-[9px] ${
-                          msg.sender === 'user' ? 'text-purple-200' : 'text-slate-400'
-                        }`}>
-                          {msg.timestamp}
-                        </span>
+                      {msg.sender === 'ai' ? (
+                        <FormattedMemoryContent text={msg.text} />
+                      ) : (
+                        <p className="whitespace-pre-wrap font-medium">{msg.text}</p>
+                      )}
 
+                      <div className="mt-1.5 pt-1 border-t border-slate-200/60 flex items-center justify-between text-[10px] text-slate-400">
+                        <span>{msg.timestamp}</span>
                         {msg.sender === 'ai' && (
                           <button
                             type="button"
                             onClick={() => toggleSpeak(msg.text, msg.id)}
-                            className={`text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors ${
-                              speakingId === msg.id
-                                ? 'bg-amber-100 text-amber-900 border-amber-300'
-                                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
-                            }`}
-                            title={speakingId === msg.id ? 'Stop audio' : 'Listen to explanation'}
+                            className="text-purple-700 hover:underline flex items-center gap-1 font-medium"
                           >
                             {speakingId === msg.id ? (
                               <>
                                 <VolumeX className="w-3 h-3 text-amber-700 animate-pulse" />
-                                <span>Stop Audio</span>
+                                <span>Stop</span>
                               </>
                             ) : (
                               <>
-                                <Volume2 className="w-3 h-3 text-slate-600" />
+                                <Volume2 className="w-3 h-3 text-purple-600" />
                                 <span>Listen</span>
                               </>
                             )}
@@ -902,4 +1311,3 @@ export const MemoryPage: React.FC = () => {
     </AppLayout>
   );
 };
-

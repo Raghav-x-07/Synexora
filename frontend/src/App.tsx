@@ -61,7 +61,7 @@ function App() {
         <Route
           path="/classroom"
           element={
-            <RoleProtectedRoute allowedRoles={['institution_admin', 'institution_student']} strict={true}>
+            <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'institution_student']} strict={true}>
               <ClassroomPage />
             </RoleProtectedRoute>
           }
@@ -69,7 +69,7 @@ function App() {
         <Route
           path="/classroom/:id"
           element={
-            <RoleProtectedRoute allowedRoles={['institution_admin', 'institution_student']} strict={true}>
+            <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'institution_student']} strict={true}>
               <ClassroomPage />
             </RoleProtectedRoute>
           }

@@ -8,8 +8,8 @@ const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// Allowed roles for classroom access: Institution Admins and Campus Students
-const allowedClassroomRoles = ['institution_admin', 'institution_student'];
+// Allowed roles for classroom access: Institution Admins, Campus Students, and Super Admin
+const allowedClassroomRoles = ['institution_admin', 'institution_student', 'super_admin', 'admin'];
 
 const requireClassroomAccess = (req, res, next) => {
   if (!req.user || !allowedClassroomRoles.includes(req.user.role)) {
@@ -684,7 +684,7 @@ ASSIGNMENT: ${title}
 INSTRUCTIONS: ${description || 'Standard coursework'}`;
     }
 
-    const candidateModels = ['openai/gpt-oss-120b', 'openai/gpt-oss-20b', 'qwen/qwen3.6-27b'];
+    const candidateModels = ['qwen/qwen3.8-27b', 'groq/compound', 'openai/gpt-oss-120b', 'openai/gpt-oss-20b'];
     let completion = null;
     for (const model of candidateModels) {
       try {

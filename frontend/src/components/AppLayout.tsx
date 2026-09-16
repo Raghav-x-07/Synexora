@@ -47,8 +47,8 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
 
   navItems.push({ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard });
 
-  // Classroom is exclusively available for Institution Admins and Campus Students
-  if (isInstitutionAdmin || isInstitutionStudent) {
+  // Classroom is available for Institution Admins, Campus Students, and Super Admin
+  if (isInstitutionAdmin || isInstitutionStudent || isSuperAdmin) {
     navItems.push({ name: 'Classroom', path: '/classroom', icon: GraduationCap });
   }
 

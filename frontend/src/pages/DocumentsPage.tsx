@@ -32,6 +32,9 @@ import {
   Headphones,
   Play,
   FileDown,
+  Lightbulb,
+  Target,
+  Copy,
 } from 'lucide-react';
 import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
 import { DocumentAudioModal } from '../components/DocumentAudioModal';
@@ -55,6 +58,267 @@ interface RagMessage {
   sources?: string[];
   timestamp: string;
 }
+
+// Inline Markdown & Code Formatter
+const renderInlineMarkdown = (text: string) => {
+  const parts = text.split(/(\*\*.*?\*\*|`.*?`)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong key={index} className="font-bold text-slate-900">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code key={index} className="font-mono text-[10px] bg-slate-200/80 text-emerald-800 px-1 py-0.5 rounded font-semibold">
+          {part.slice(1, -1)}
+        </code>
+      );
+    }
+    return part;
+  });
+};
+
+// Formatted RAG Content with Concept Definition, Solution Steps, and Takeaways
+const FormattedRagContent: React.FC<{ text: string }> = ({ text }) => {
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
+
+  const handleCopy = (codeText: string) => {
+    navigator.clipboard.writeText(codeText);
+    setCopiedCode(codeText);
+    setTimeout(() => setCopiedCode(null), 2000);
+  };
+
+  const lines = text.split('\n');
+  const blocks: Array<{
+    type: 'definition-card' | 'solution-card' | 'takeaway-card' | 'header' | 'paragraph';
+    title?: string;
+    content: string[];
+  }> = [];
+
+  let currentSection: 'definition' | 'solution' | 'takeaway' | 'none' = 'none';
+  let currentLines: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      if (currentLines.length > 0 && currentSection === 'none') {
+        blocks.push({ type: 'paragraph', content: currentLines });
+        currentLines = [];
+      }
+      continue;
+    }
+
+    if (
+      trimmed.includes('Concept Definition') ||
+      trimmed.startsWith('### 📖') ||
+      trimmed.startsWith('### Concept') ||
+      trimmed.startsWith('**Concept Definition:**')
+    ) {
+      if (currentLines.length > 0) {
+        blocks.push({
+          type: currentSection === 'definition' ? 'definition-card' : currentSection === 'solution' ? 'solution-card' : currentSection === 'takeaway' ? 'takeaway-card' : 'paragraph',
+          content: currentLines,
+        });
+        currentLines = [];
+      }
+      currentSection = 'definition';
+      continue;
+    } else if (
+      trimmed.includes('Step-by-Step Solution') ||
+      trimmed.includes('Solution & Explanation') ||
+      trimmed.startsWith('### 💡') ||
+      trimmed.startsWith('### Solution') ||
+      trimmed.startsWith('**Step-by-Step Solution:**')
+    ) {
+      if (currentLines.length > 0) {
+        blocks.push({
+          type: currentSection === 'definition' ? 'definition-card' : currentSection === 'solution' ? 'solution-card' : currentSection === 'takeaway' ? 'takeaway-card' : 'paragraph',
+          content: currentLines,
+        });
+        currentLines = [];
+      }
+      currentSection = 'solution';
+      continue;
+    } else if (
+      trimmed.includes('Key Takeaway') ||
+      trimmed.includes('Takeaway & Example') ||
+      trimmed.startsWith('### 🎯') ||
+      trimmed.startsWith('### Key Takeaway') ||
+      trimmed.startsWith('**Key Takeaway:**')
+    ) {
+      if (currentLines.length > 0) {
+        blocks.push({
+          type: currentSection === 'definition' ? 'definition-card' : currentSection === 'solution' ? 'solution-card' : currentSection === 'takeaway' ? 'takeaway-card' : 'paragraph',
+          content: currentLines,
+        });
+        currentLines = [];
+      }
+      currentSection = 'takeaway';
+      continue;
+    } else if (trimmed.startsWith('### ')) {
+      if (currentLines.length > 0) {
+        blocks.push({
+          type: currentSection === 'definition' ? 'definition-card' : currentSection === 'solution' ? 'solution-card' : currentSection === 'takeaway' ? 'takeaway-card' : 'paragraph',
+          content: currentLines,
+        });
+        currentLines = [];
+      }
+      currentSection = 'none';
+      blocks.push({ type: 'header', content: [trimmed.replace(/^###\s*/, '')] });
+      continue;
+    }
+
+    currentLines.push(trimmed);
+  }
+
+  if (currentLines.length > 0) {
+    blocks.push({
+      type: currentSection === 'definition' ? 'definition-card' : currentSection === 'solution' ? 'solution-card' : currentSection === 'takeaway' ? 'takeaway-card' : 'paragraph',
+      content: currentLines,
+    });
+  }
+
+  if (!blocks.some((b) => b.type === 'definition-card' || b.type === 'solution-card' || b.type === 'takeaway-card')) {
+    return (
+      <div className="space-y-1.5 text-slate-800 text-[11px] leading-relaxed">
+        {lines.map((l, idx) => {
+          const t = l.trim();
+          if (!t) return <div key={idx} className="h-0.5" />;
+          if (t.startsWith('- ') || t.startsWith('* ') || t.startsWith('• ')) {
+            return (
+              <div key={idx} className="flex items-start gap-1.5 pl-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                <div className="flex-1">{renderInlineMarkdown(t.replace(/^[-*•]\s*/, ''))}</div>
+              </div>
+            );
+          }
+          return <p key={idx}>{renderInlineMarkdown(t)}</p>;
+        })}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 text-[11px] text-slate-800">
+      {blocks.map((block, idx) => {
+        if (block.type === 'definition-card') {
+          return (
+            <div
+              key={idx}
+              className="bg-emerald-50/80 border-l-3 border-emerald-500 rounded-r-md p-2 shadow-2xs space-y-0.5"
+            >
+              <div className="flex items-center gap-1 text-[10px] font-bold text-emerald-900 uppercase tracking-wide">
+                <BookOpen className="w-3 h-3 text-emerald-600" />
+                <span>Concept Definition</span>
+              </div>
+              <div className="text-slate-800 leading-relaxed space-y-0.5">
+                {block.content.map((line, lIdx) => (
+                  <p key={lIdx}>{renderInlineMarkdown(line)}</p>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
+        if (block.type === 'solution-card') {
+          return (
+            <div
+              key={idx}
+              className="bg-white border border-slate-200 rounded-md p-2 shadow-xs space-y-1"
+            >
+              <div className="flex items-center gap-1 text-[10px] font-bold text-slate-900 uppercase tracking-wide border-b border-slate-100 pb-0.5">
+                <Lightbulb className="w-3 h-3 text-amber-500" />
+                <span>Step-by-Step Solution & Explanation</span>
+              </div>
+              <div className="space-y-1 text-slate-700 leading-relaxed">
+                {block.content.map((line, lIdx) => {
+                  const isStep =
+                    line.startsWith('- **Step') ||
+                    line.startsWith('**Step') ||
+                    /^\d+\./.test(line) ||
+                    line.startsWith('- ') ||
+                    line.startsWith('• ');
+
+                  if (isStep) {
+                    return (
+                      <div
+                        key={lIdx}
+                        className="bg-slate-50 border border-slate-200/80 rounded p-1.5 flex items-start gap-1.5"
+                      >
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <div className="flex-1">{renderInlineMarkdown(line.replace(/^[-*•]\s*/, ''))}</div>
+                      </div>
+                    );
+                  }
+
+                  if (line.startsWith('```')) {
+                    const code = line.replace(/```[a-z]*/g, '').trim();
+                    return (
+                      <div key={lIdx} className="relative group my-1">
+                        <pre className="p-2 bg-slate-900 text-emerald-400 font-mono text-[10px] rounded overflow-x-auto">
+                          <code>{code}</code>
+                        </pre>
+                        <button
+                          onClick={() => handleCopy(code)}
+                          className="absolute top-1 right-1 p-1 rounded bg-slate-800 text-slate-300 hover:text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
+                          title="Copy Code"
+                        >
+                          {copiedCode === code ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  return <p key={lIdx}>{renderInlineMarkdown(line)}</p>;
+                })}
+              </div>
+            </div>
+          );
+        }
+
+        if (block.type === 'takeaway-card') {
+          return (
+            <div
+              key={idx}
+              className="bg-indigo-50/80 border-l-3 border-indigo-500 rounded-r-md p-2 shadow-2xs space-y-0.5"
+            >
+              <div className="flex items-center gap-1 text-[10px] font-bold text-indigo-900 uppercase tracking-wide">
+                <Target className="w-3 h-3 text-indigo-600" />
+                <span>Key Takeaway & Example</span>
+              </div>
+              <div className="text-slate-800 leading-relaxed space-y-0.5">
+                {block.content.map((line, lIdx) => (
+                  <p key={lIdx}>{renderInlineMarkdown(line)}</p>
+                ))}
+              </div>
+            </div>
+          );
+        }
+
+        if (block.type === 'header') {
+          return (
+            <h4 key={idx} className="font-bold text-slate-900 text-xs mt-1 border-b border-slate-200 pb-0.5">
+              {block.content.join(' ')}
+            </h4>
+          );
+        }
+
+        return (
+          <div key={idx} className="space-y-0.5">
+            {block.content.map((l, lIdx) => (
+              <p key={lIdx}>{renderInlineMarkdown(l)}</p>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
 
 export const DocumentsPage: React.FC = () => {
   const [docs, setDocs] = useState<DocItem[]>([]);
@@ -1021,7 +1285,11 @@ export const DocumentsPage: React.FC = () => {
                           : 'bg-slate-50 text-slate-800 border border-slate-200'
                       }`}
                     >
-                      <p className="whitespace-pre-wrap">{msg.text}</p>
+                      {msg.sender === 'ai' ? (
+                        <FormattedRagContent text={msg.text} />
+                      ) : (
+                        <p className="whitespace-pre-wrap font-medium">{msg.text}</p>
+                      )}
 
                       {/* Expandable Document Excerpt Sources */}
                       {msg.sources && msg.sources.length > 0 && (
@@ -1037,7 +1305,7 @@ export const DocumentsPage: React.FC = () => {
 
                           {showSources[msg.id] && (
                             <div className="mt-1 space-y-1.5">
-                              {msg.sources.map((src, i) => (
+                              {msg.sources.map((src: string, i: number) => (
                                 <div key={i} className="p-2 bg-white rounded border border-slate-200 text-[10px] text-slate-600 font-mono">
                                   <span className="font-bold text-slate-800 block mb-0.5">Excerpt {i + 1}:</span>
                                   {src.slice(0, 180)}...

@@ -170,7 +170,16 @@ export const EvaluationPage: React.FC = () => {
     try {
       setSavingConceptIdx(idx);
       const conceptName = q.keyConcept || `${activeQuizTopic} (Question ${idx + 1})`;
-      const definitionText = `Question: ${q.q}\nCorrect Answer: ${q.options[q.correct]}\n\nExplanation: ${q.explanation}`;
+      const definitionText = `### 📖 Concept Definition
+${q.keyConcept || conceptName}: Core concept tested in academic evaluation for ${activeQuizTopic || 'topic'}.
+
+### 💡 Step-by-Step Solution & Explanation
+- **Question:** ${q.q}
+- **Correct Answer:** ${q.options[q.correct]}
+- **Detailed Explanation:** ${q.explanation}
+
+### 🎯 Key Takeaway & Example
+Ensure mastery of this concept for upcoming evaluations and coursework in ${activeQuizCourse || 'this subject'}.`;
 
       await API.post('/memory', {
         concept: conceptName,
