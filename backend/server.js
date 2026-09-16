@@ -12,8 +12,10 @@ const documentRoutes = require('./routes/documentRoutes');
 const eventRoutes = require('./routes/eventRoutes');
 const memoryRoutes = require('./routes/memoryRoutes');
 const assessmentRoutes = require('./routes/assessmentRoutes');
-const progressRoutes = require('./routes/progressRoutes');
 const classroomRoutes = require('./routes/classroomRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const institutionRoutes = require('./routes/institutionRoutes');
+const progressRoutes = require('./routes/progressRoutes');
 
 // Load environment variables
 dotenv.config();
@@ -44,6 +46,8 @@ app.get('/api/health', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/institutions', institutionRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/notes', noteRoutes);

@@ -28,8 +28,54 @@ const userSchema = new mongoose.Schema(
     },
     role: {
       type: String,
-      enum: ['student', 'educator', 'admin'],
-      default: 'student',
+      enum: [
+        'super_admin',
+        'institution_admin',
+        'institution_student',
+        'personal_student',
+        'student',
+        'educator',
+        'admin',
+      ],
+      default: 'personal_student',
+    },
+    accountStatus: {
+      type: String,
+      enum: ['active', 'pending_approval', 'suspended'],
+      default: 'active',
+    },
+    institutionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Institution',
+      default: null,
+    },
+    institutionCode: {
+      type: String,
+      default: '',
+      trim: true,
+      uppercase: true,
+    },
+    studentIdNumber: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    department: {
+      type: String,
+      default: 'General',
+      trim: true,
+    },
+    batchYear: {
+      type: String,
+      default: '2024-2028',
+      trim: true,
+    },
+    moduleAccess: {
+      aiTutor: { type: Boolean, default: true },
+      documentRag: { type: Boolean, default: true },
+      classrooms: { type: Boolean, default: true },
+      evaluations: { type: Boolean, default: true },
+      memoryRecall: { type: Boolean, default: true },
     },
     major: {
       type: String,

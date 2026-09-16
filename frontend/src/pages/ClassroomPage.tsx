@@ -157,7 +157,7 @@ const THEME_STYLES: Record<string, { bg: string; text: string; light: string; ba
 };
 
 export const ClassroomPage: React.FC = () => {
-  const { user } = useAuth();
+  const { user, isInstitutionAdmin, isInstitutionStudent } = useAuth();
   const { id: paramClassId } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -634,20 +634,24 @@ export const ClassroomPage: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-2.5">
-              <button
-                onClick={() => setIsJoinModalOpen(true)}
-                className="btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 font-semibold text-slate-700 hover:bg-slate-100"
-              >
-                <Users className="w-3.5 h-3.5 text-slate-500" />
-                <span>Join Class with Code</span>
-              </button>
-              <button
-                onClick={() => setIsCreateModalOpen(true)}
-                className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5 font-semibold bg-emerald-600 hover:bg-emerald-700 shadow-sm"
-              >
-                <Plus className="w-4 h-4" />
-                <span>Create Class</span>
-              </button>
+              {isInstitutionStudent && (
+                <button
+                  onClick={() => setIsJoinModalOpen(true)}
+                  className="btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 font-semibold text-slate-700 hover:bg-slate-100"
+                >
+                  <Users className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Join Class with Code</span>
+                </button>
+              )}
+              {isInstitutionAdmin && (
+                <button
+                  onClick={() => setIsCreateModalOpen(true)}
+                  className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5 font-semibold bg-emerald-600 hover:bg-emerald-700 shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Create Class</span>
+                </button>
+              )}
             </div>
           </div>
         ) : (
@@ -722,23 +726,31 @@ export const ClassroomPage: React.FC = () => {
                 <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4">
                   <GraduationCap className="w-8 h-8" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-1">No Classes Joined Yet</h3>
+                <h3 className="text-lg font-bold text-slate-900 mb-1">
+                  {isInstitutionAdmin ? 'No Classes Created Yet' : 'No Classes Joined Yet'}
+                </h3>
                 <p className="text-xs text-slate-500 mb-6 leading-relaxed">
-                  Create a new class to teach or ask your teacher for a 6-character Class Code to join an existing class.
+                  {isInstitutionAdmin
+                    ? 'Create your first classroom to publish coursework, post stream announcements, and manage campus students.'
+                    : 'Ask your instructor for a 6-character Class Code to join an existing class and access coursework.'}
                 </p>
                 <div className="flex items-center justify-center gap-3">
-                  <button
-                    onClick={() => setIsJoinModalOpen(true)}
-                    className="btn-secondary text-xs py-2 px-4 font-semibold"
-                  >
-                    Join with Code
-                  </button>
-                  <button
-                    onClick={() => setIsCreateModalOpen(true)}
-                    className="btn-primary text-xs py-2 px-4 font-semibold bg-emerald-600 hover:bg-emerald-700"
-                  >
-                    Create New Class
-                  </button>
+                  {isInstitutionStudent && (
+                    <button
+                      onClick={() => setIsJoinModalOpen(true)}
+                      className="btn-secondary text-xs py-2 px-4 font-semibold"
+                    >
+                      Join with Code
+                    </button>
+                  )}
+                  {isInstitutionAdmin && (
+                    <button
+                      onClick={() => setIsCreateModalOpen(true)}
+                      className="btn-primary text-xs py-2 px-4 font-semibold bg-emerald-600 hover:bg-emerald-700"
+                    >
+                      Create New Class
+                    </button>
+                  )}
                 </div>
               </div>
             ) : (
@@ -1098,13 +1110,15 @@ export const ClassroomPage: React.FC = () => {
                     ))}
                   </div>
 
-                  <button
-                    onClick={() => setIsClassworkModalOpen(true)}
-                    className="btn-primary text-xs py-2 px-4 font-semibold bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 shadow-xs"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    <span>Create Assignment / Material</span>
-                  </button>
+                  {isTeacher && (
+                    <button
+                      onClick={() => setIsClassworkModalOpen(true)}
+                      className="btn-primary text-xs py-2 px-4 font-semibold bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>Create Assignment / Material</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Classwork List */}
@@ -1114,7 +1128,9 @@ export const ClassroomPage: React.FC = () => {
                       <BookOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                       <p className="text-sm font-semibold text-slate-700">No classwork assigned yet</p>
                       <p className="text-xs text-slate-500 mt-1">
-                        Click "+ Create Assignment" to post coursework, lab assignments, or learning resources.
+                        {isTeacher
+                          ? 'Click "+ Create Assignment / Material" to post coursework, lab assignments, or learning resources.'
+                          : 'Your instructor has not posted any coursework in this topic yet.'}
                       </p>
                     </div>
                   ) : (

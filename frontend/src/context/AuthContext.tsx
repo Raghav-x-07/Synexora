@@ -5,12 +5,26 @@ export interface User {
   _id: string;
   name: string;
   email: string;
-  role: string;
+  role: 'super_admin' | 'institution_admin' | 'institution_student' | 'personal_student' | string;
+  accountStatus?: 'active' | 'pending_approval' | 'suspended';
+  institutionId?: any;
+  institutionCode?: string;
+  studentIdNumber?: string;
+  department?: string;
+  batchYear?: string;
   major?: string;
   university?: string;
   gpa?: number;
   streak?: number;
   semester?: number;
+  moduleAccess?: {
+    aiTutor?: boolean;
+    documentRag?: boolean;
+    classrooms?: boolean;
+    evaluations?: boolean;
+    memoryRecall?: boolean;
+  };
+  defaultPath?: string;
   preferences?: {
     learningStyle?: string;
     dailyStudyGoalMinutes?: number;
@@ -19,13 +33,31 @@ export interface User {
   createdAt?: string;
 }
 
+export interface RegisterPayload {
+  name: string;
+  email: string;
+  password: string;
+  role?: string;
+  major?: string;
+  university?: string;
+  institutionCode?: string;
+  studentIdNumber?: string;
+  department?: string;
+  batchYear?: string;
+  institutionName?: string;
+}
+
 interface AuthContextType {
   user: User | null;
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
-  register: (name: string, email: string, password: string, major?: string, university?: string) => Promise<{ success: boolean; message?: string }>;
+  isSuperAdmin: boolean;
+  isInstitutionAdmin: boolean;
+  isInstitutionStudent: boolean;
+  isPersonalStudent: boolean;
+  login: (email: string, password: string) => Promise<{ success: boolean; message?: string; defaultPath?: string }>;
+  register: (payload: RegisterPayload) => Promise<{ success: boolean; message?: string; defaultPath?: string }>;
   logout: () => void;
   updateProfile: (data: Partial<User>) => Promise<{ success: boolean; message?: string }>;
 }
@@ -33,7 +65,14 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(() => {
+    try {
+      const stored = localStorage.getItem('synexora_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [token, setToken] = useState<string | null>(() => localStorage.getItem('synexora_token'));
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -46,6 +85,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const res = await API.get('/auth/me');
           if (res.data.success && res.data.user) {
             setUser(res.data.user);
+            localStorage.setItem('synexora_user', JSON.stringify(res.data.user));
           } else {
             logout();
           }
@@ -68,7 +108,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('synexora_user', JSON.stringify(receivedUser));
         setToken(receivedToken);
         setUser(receivedUser);
-        return { success: true, message: res.data.message };
+        return { success: true, message: res.data.message, defaultPath: receivedUser.defaultPath };
       }
       return { success: false, message: res.data.message || 'Login failed' };
     } catch (err: any) {
@@ -78,28 +118,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const register = async (
-    name: string,
-    email: string,
-    password: string,
-    major?: string,
-    university?: string
-  ) => {
+  const register = async (payload: RegisterPayload) => {
     try {
-      const res = await API.post('/auth/register', {
-        name,
-        email,
-        password,
-        major,
-        university,
-      });
+      const res = await API.post('/auth/register', payload);
       if (res.data.success) {
         const { token: receivedToken, user: receivedUser } = res.data;
         localStorage.setItem('synexora_token', receivedToken);
         localStorage.setItem('synexora_user', JSON.stringify(receivedUser));
         setToken(receivedToken);
         setUser(receivedUser);
-        return { success: true, message: res.data.message };
+        return { success: true, message: res.data.message, defaultPath: receivedUser.defaultPath };
       }
       return { success: false, message: res.data.message || 'Registration failed' };
     } catch (err: any) {
@@ -121,6 +149,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const res = await API.put('/auth/profile', data);
       if (res.data.success && res.data.user) {
         setUser(res.data.user);
+        localStorage.setItem('synexora_user', JSON.stringify(res.data.user));
         return { success: true, message: 'Profile updated successfully' };
       }
       return { success: false, message: res.data.message || 'Update failed' };
@@ -132,6 +161,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const isSuperAdmin = !!user && (user.role === 'super_admin' || user.role === 'admin');
+  const isInstitutionAdmin = !!user && user.role === 'institution_admin';
+  const isInstitutionStudent = !!user && user.role === 'institution_student';
+  const isPersonalStudent =
+    !!user && (user.role === 'personal_student' || user.role === 'student' || user.role === 'educator');
+
   return (
     <AuthContext.Provider
       value={{
@@ -139,6 +174,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         token,
         isLoading,
         isAuthenticated: !!token && !!user,
+        isSuperAdmin,
+        isInstitutionAdmin,
+        isInstitutionStudent,
+        isPersonalStudent,
         login,
         register,
         logout,

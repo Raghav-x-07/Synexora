@@ -79,16 +79,22 @@ export const DashboardPage: React.FC = () => {
         {/* Header */}
         <div className="bg-white border border-slate-200 rounded-lg p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
               <h1 className="text-2xl font-bold text-slate-900">
                 Welcome back, {user?.name || 'Student'}
               </h1>
-              <span className="text-[10px] font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded border border-green-200">
-                DB Connected
-              </span>
+              {user?.institutionCode ? (
+                <span className="text-[10px] font-bold bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded border border-indigo-200">
+                  Campus: {user.institutionCode}
+                </span>
+              ) : (
+                <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded border border-emerald-200">
+                  Personal Learner
+                </span>
+              )}
             </div>
             <p className="text-sm text-slate-500">
-              {user?.major || 'General Studies'} • {user?.university || 'University'}
+              {user?.department || user?.major || 'General Studies'} • {user?.university || 'Synexora Platform'}
             </p>
           </div>
           <Link to="/learning-ai" className="btn-primary self-start sm:self-auto gap-2">

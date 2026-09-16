@@ -19,26 +19,12 @@ import {
   BookOpen,
   Timer,
   GraduationCap,
+  ShieldCheck,
+  Building2,
 } from 'lucide-react';
 
-const navItems = [
-  { name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard },
-  { name: 'Classroom', path: '/classroom', icon: GraduationCap },
-  { name: 'Learning AI', path: '/learning-ai', icon: Bot },
-  { name: 'Documents', path: '/documents', icon: FileText },
-  { name: 'Notes', path: '/notes', icon: StickyNote },
-  { name: 'Tasks', path: '/tasks', icon: CheckSquare },
-  { name: 'Calendar', path: '/calendar', icon: Calendar },
-  { name: 'Memory', path: '/memory', icon: Brain },
-  { name: 'Timer & Alarm', path: '/timer', icon: Timer },
-  { name: 'Evaluation', path: '/evaluation', icon: Award },
-  { name: 'Progress', path: '/progress', icon: BarChart3 },
-  { name: 'Profile', path: '/profile', icon: User },
-  { name: 'Settings', path: '/settings', icon: Settings },
-];
-
 export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, logout } = useAuth();
+  const { user, logout, isSuperAdmin, isInstitutionAdmin, isInstitutionStudent } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -47,6 +33,38 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
     logout();
     navigate('/login');
   };
+
+  // Build role-tailored nav items while keeping identical UI
+  const navItems = [];
+
+  if (isSuperAdmin) {
+    navItems.push({ name: 'Super Admin', path: '/admin', icon: ShieldCheck });
+  }
+
+  if (isInstitutionAdmin) {
+    navItems.push({ name: 'Campus Portal', path: '/institution-portal', icon: Building2 });
+  }
+
+  navItems.push({ name: 'Dashboard', path: '/dashboard', icon: LayoutDashboard });
+
+  // Classroom is exclusively available for Institution Admins and Campus Students
+  if (isInstitutionAdmin || isInstitutionStudent) {
+    navItems.push({ name: 'Classroom', path: '/classroom', icon: GraduationCap });
+  }
+
+  navItems.push(
+    { name: 'Learning AI', path: '/learning-ai', icon: Bot },
+    { name: 'Documents', path: '/documents', icon: FileText },
+    { name: 'Notes', path: '/notes', icon: StickyNote },
+    { name: 'Tasks', path: '/tasks', icon: CheckSquare },
+    { name: 'Calendar', path: '/calendar', icon: Calendar },
+    { name: 'Memory', path: '/memory', icon: Brain },
+    { name: 'Timer & Alarm', path: '/timer', icon: Timer },
+    { name: 'Evaluation', path: '/evaluation', icon: Award },
+    { name: 'Progress', path: '/progress', icon: BarChart3 },
+    { name: 'Profile', path: '/profile', icon: User },
+    { name: 'Settings', path: '/settings', icon: Settings }
+  );
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
@@ -78,7 +96,13 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
             </div>
             <div>
               <span className="font-bold text-base text-slate-900 block leading-none">Synexora</span>
-              <span className="text-xs text-slate-500 font-normal">Student Platform</span>
+              <span className="text-xs text-slate-500 font-normal">
+                {isSuperAdmin
+                  ? 'Master Platform Control'
+                  : isInstitutionAdmin
+                  ? 'Campus Admin Portal'
+                  : 'Student Platform'}
+              </span>
             </div>
           </div>
 
@@ -114,8 +138,10 @@ export const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children })
                 {user?.name?.charAt(0).toUpperCase() || 'S'}
               </div>
               <div className="truncate">
-                <p className="text-xs font-semibold text-slate-800 truncate">{user?.name || 'Student'}</p>
-                <p className="text-[11px] text-slate-500 truncate">{user?.email || ''}</p>
+                <p className="text-xs font-semibold text-slate-800 truncate">{user?.name || 'User'}</p>
+                <span className="text-[10px] text-emerald-700 font-bold block truncate capitalize">
+                  {user?.role?.replace('_', ' ') || 'Personal Learner'}
+                </span>
               </div>
             </div>
             <button

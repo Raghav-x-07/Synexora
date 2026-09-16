@@ -15,7 +15,10 @@ import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TimerPage } from './pages/TimerPage';
 import { ClassroomPage } from './pages/ClassroomPage';
+import { SuperAdminPage } from './pages/SuperAdminPage';
+import { InstitutionPortalPage } from './pages/InstitutionPortalPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { RoleProtectedRoute } from './components/RoleProtectedRoute';
 
 function App() {
   return (
@@ -25,6 +28,26 @@ function App() {
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
+
+        {/* Super Admin Control Portal */}
+        <Route
+          path="/admin"
+          element={
+            <RoleProtectedRoute allowedRoles={['super_admin', 'admin']}>
+              <SuperAdminPage />
+            </RoleProtectedRoute>
+          }
+        />
+
+        {/* Institution Admin Portal */}
+        <Route
+          path="/institution-portal"
+          element={
+            <RoleProtectedRoute allowedRoles={['institution_admin']}>
+              <InstitutionPortalPage />
+            </RoleProtectedRoute>
+          }
+        />
 
         {/* Authenticated Application Routes */}
         <Route
@@ -38,17 +61,17 @@ function App() {
         <Route
           path="/classroom"
           element={
-            <ProtectedRoute>
+            <RoleProtectedRoute allowedRoles={['institution_admin', 'institution_student']} strict={true}>
               <ClassroomPage />
-            </ProtectedRoute>
+            </RoleProtectedRoute>
           }
         />
         <Route
           path="/classroom/:id"
           element={
-            <ProtectedRoute>
+            <RoleProtectedRoute allowedRoles={['institution_admin', 'institution_student']} strict={true}>
               <ClassroomPage />
-            </ProtectedRoute>
+            </RoleProtectedRoute>
           }
         />
         <Route
@@ -100,6 +123,14 @@ function App() {
           }
         />
         <Route
+          path="/timer"
+          element={
+            <ProtectedRoute>
+              <TimerPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/evaluation"
           element={
             <ProtectedRoute>
@@ -139,16 +170,8 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/timer"
-          element={
-            <ProtectedRoute>
-              <TimerPage />
-            </ProtectedRoute>
-          }
-        />
 
-        {/* Catch-all fallback */}
+        {/* Catch-all Redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>

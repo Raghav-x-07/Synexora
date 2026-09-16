@@ -8,6 +8,22 @@ const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
+// Allowed roles for classroom access: Institution Admins and Campus Students
+const allowedClassroomRoles = ['institution_admin', 'institution_student'];
+
+const requireClassroomAccess = (req, res, next) => {
+  if (!req.user || !allowedClassroomRoles.includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      message: 'Access restricted. Classrooms are exclusively available for Institution Admins and Campus Students.',
+    });
+  }
+  next();
+};
+
+// Apply authentication and role check to all classroom endpoints
+router.use(protect, requireClassroomAccess);
+
 const getGroqClient = () => {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) return null;
@@ -54,8 +70,15 @@ router.get('/', protect, async (req, res) => {
 
 // @route   POST /api/classrooms
 // @desc    Create a new classroom
-// @access  Private
+// @access  Private (Institution Admin only)
 router.post('/', protect, async (req, res) => {
+  if (req.user.role !== 'institution_admin' && req.user.role !== 'super_admin') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access restricted. Only Institution Admins can create classrooms.',
+    });
+  }
+
   const { title, section = '', subject = 'General', room = '', bannerTheme = 'emerald' } = req.body;
 
   if (!title || !title.trim()) {
@@ -118,8 +141,15 @@ router.post('/', protect, async (req, res) => {
 
 // @route   POST /api/classrooms/join
 // @desc    Join a classroom using class code
-// @access  Private
+// @access  Private (Campus Student only)
 router.post('/join', protect, async (req, res) => {
+  if (req.user.role !== 'institution_student') {
+    return res.status(403).json({
+      success: false,
+      message: 'Access restricted. Only Campus Students can join classrooms using a class code.',
+    });
+  }
+
   const { code } = req.body;
 
   if (!code || !code.trim()) {
@@ -322,6 +352,19 @@ router.post('/:id/classwork', protect, async (req, res) => {
     const classroom = await Classroom.findById(req.params.id);
     if (!classroom) {
       return res.status(404).json({ success: false, message: 'Classroom not found.' });
+    }
+
+    const isTeacher =
+      classroom.creator.toString() === req.user._id.toString() ||
+      classroom.teachers.some((t) => t.toString() === req.user._id.toString()) ||
+      req.user.role === 'institution_admin' ||
+      req.user.role === 'super_admin';
+
+    if (!isTeacher) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only instructors and institution admins can create classwork.',
+      });
     }
 
     const newClasswork = {
