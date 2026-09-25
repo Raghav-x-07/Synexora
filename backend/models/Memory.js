@@ -27,6 +27,14 @@ const memorySchema = new mongoose.Schema(
       enum: ['learning-ai', 'rag', 'manual'],
       default: 'manual',
     },
+    flowchart: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
+    videoUrl: {
+      type: String,
+      default: null,
+    },
   },
   {
     timestamps: true,

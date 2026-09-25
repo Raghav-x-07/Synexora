@@ -1,5 +1,6 @@
 const express = require('express');
 const Groq = require('groq-sdk');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 const router = express.Router();
 
@@ -9,6 +10,12 @@ const getGroqClient = () => {
     throw new Error('GROQ_API_KEY is not configured in backend environment variables.');
   }
   return new Groq({ apiKey });
+};
+
+const getGeminiClient = () => {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) return null;
+  return new GoogleGenerativeAI(apiKey);
 };
 
 // Helper: Call Groq with automated model fallback
@@ -328,75 +335,288 @@ Generate the JSON object with the ${count} questions array now:`;
 });
 
 // @route   POST /api/ai/visualize
-// @desc    Generate an AI educational concept illustration / diagram for a topic
+// @desc    Generate interactive academic concept Flowchart & Process Workflow for any topic
 // @access  Public / Protected
 router.post('/visualize', async (req, res) => {
-  const { topic, context = '', style = 'scientific-infographic' } = req.body;
+  const { topic, context = '', style = 'flowchart' } = req.body;
 
   if (!topic || !topic.trim()) {
     return res.status(400).json({
       success: false,
-      message: 'Topic is required to generate a visualization.',
+      message: 'Topic is required to generate a flowchart.',
     });
   }
 
   const cleanTopic = topic.trim();
-  let visualPrompt = `${cleanTopic}, detailed educational scientific illustration, 3D anatomical render, crystal clear structure, high definition 8k, modern aesthetic, vivid colors, infographic elements`;
-  let caption = `AI-generated conceptual visualization for ${cleanTopic}.`;
+  let flowchartTitle = `${cleanTopic} • Concept Process Flowchart`;
+  let flowchartSummary = `Interactive step-by-step workflow and logic diagram for ${cleanTopic}.`;
+  let category = 'general';
+  let steps = [
+    {
+      step: 1,
+      type: 'start',
+      title: `Initiate ${cleanTopic}`,
+      description: `Initial state and prerequisite conditions for ${cleanTopic}.`,
+      details: 'Prerequisite parameters and input configuration.',
+      badge: 'Start / Input',
+    },
+    {
+      step: 2,
+      type: 'process',
+      title: 'Core Mechanism & Execution',
+      description: 'Primary transformation, reaction, or algorithmic operation.',
+      details: 'Active state processing.',
+      badge: 'Core Process',
+    },
+    {
+      step: 3,
+      type: 'decision',
+      title: 'Validation & Condition Check',
+      description: 'Check whether boundary conditions or equilibrium states are satisfied.',
+      details: 'Condition validation check.',
+      badge: 'Decision Check',
+    },
+    {
+      step: 4,
+      type: 'end',
+      title: 'Final Outcome & Output',
+      description: 'Stable final state, synthesized output, or return value.',
+      details: 'Result equilibrium attained.',
+      badge: 'Outcome / End',
+    },
+  ];
+  let connections = [
+    { from: 1, to: 2, label: 'Proceed' },
+    { from: 2, to: 3, label: 'Evaluate' },
+    { from: 3, to: 4, label: 'Valid / Complete' },
+  ];
+  let keyTakeaways = [
+    `Follows structured sequential transitions from input to output.`,
+    `Guarantees deterministic execution and state equilibrium.`,
+  ];
 
   try {
-    const groq = getGroqClient();
+    const gemini = getGeminiClient();
+    let parsed = null;
 
-    const systemPrompt = `You are Synexora Visual AI. Your task is to generate a descriptive, vivid, high-resolution visual art prompt for an educational AI image generator based on a study topic.
-Return ONLY a valid JSON object in this format:
+    if (gemini) {
+      try {
+        const model = gemini.getGenerativeModel({
+          model: 'gemini-2.5-flash',
+          generationConfig: { responseMimeType: 'application/json' },
+        });
+
+        const geminiPrompt = `You are Synexora Process & Flowchart AI Engine. Analyze this academic study topic: "${cleanTopic}".
+Context: "${context.slice(0, 400)}"
+
+Generate a comprehensive, scientifically/technically accurate STEP-BY-STEP PROCESS FLOWCHART for "${cleanTopic}".
+The flowchart should clearly break down how this concept/algorithm/biological process/physical law functions from start to finish.
+
+Return ONLY a valid JSON object matching this exact schema:
 {
-  "visualPrompt": "Detailed English image generation prompt (max 60 words, describing key visual elements, composition, lighting, 3D render, infographic style, crisp background, vibrant colors)",
-  "caption": "Short 1-2 sentence educational description of what this diagram/image visualizes."
+  "flowchartTitle": "Concise, descriptive title (e.g. 'DNA Double Helix Replication Mechanism Flowchart')",
+  "flowchartSummary": "Clear 2-sentence educational summary explaining what this flowchart maps out and its goal.",
+  "category": "biology | computing | physics | chemistry | mathematics | engineering | general",
+  "steps": [
+    {
+      "step": 1,
+      "type": "start",
+      "title": "Clear title of start step",
+      "description": "Accurate description of the starting condition/inputs",
+      "details": "Key enzymes, formulas, variables, or prerequisites",
+      "badge": "Initiation"
+    },
+    {
+      "step": 2,
+      "type": "process",
+      "title": "Clear title of action step",
+      "description": "Accurate description of what happens",
+      "details": "Technical detail or mechanism",
+      "badge": "Active Process"
+    },
+    {
+      "step": 3,
+      "type": "decision",
+      "title": "Condition or Branch Question?",
+      "description": "What condition is being tested/evaluated?",
+      "details": "Yes ➔ continue to next step; No ➔ retry or alternate branch",
+      "badge": "Condition Check"
+    },
+    {
+      "step": 4,
+      "type": "process",
+      "title": "Secondary Transformation / Extension",
+      "description": "Next phase in the sequence",
+      "details": "Enzymatic or computational operation",
+      "badge": "Synthesis"
+    },
+    {
+      "step": 5,
+      "type": "end",
+      "title": "Final Synthesized Outcome / Termination",
+      "description": "Final result, output product, or stabilized state",
+      "details": "End product or final return value",
+      "badge": "Final Output"
+    }
+  ],
+  "connections": [
+    { "from": 1, "to": 2, "label": "Start Process" },
+    { "from": 2, "to": 3, "label": "Evaluate Condition" },
+    { "from": 3, "to": 4, "label": "If True / Valid" },
+    { "from": 4, "to": 5, "label": "Finalize" }
+  ],
+  "keyTakeaways": [
+    "Core takeaway 1 about this process flow",
+    "Core takeaway 2 about efficiency or biological/physical significance"
+  ]
+}
+
+Include between 4 to 7 accurate sequential steps with at least 1 decision/validation branch if applicable.`;
+
+        const geminiRes = await model.generateContent(geminiPrompt);
+        const rawText = geminiRes.response.text();
+        parsed = JSON.parse(rawText);
+      } catch (geminiErr) {
+        console.warn('[Gemini Flowchart AI Fallback to Groq]:', geminiErr.message);
+      }
+    }
+
+    if (!parsed) {
+      const groq = getGroqClient();
+
+      const systemPrompt = `You are Synexora Flowchart Engine. Analyze the topic and generate a clear step-by-step flowchart in JSON.
+Return ONLY valid JSON matching:
+{
+  "flowchartTitle": "Topic Flowchart Title",
+  "flowchartSummary": "Summary of process",
+  "category": "biology | computing | physics | chemistry | mathematics | engineering | general",
+  "steps": [
+    {
+      "step": 1,
+      "type": "start",
+      "title": "Initial Step",
+      "description": "Description",
+      "details": "Technical detail",
+      "badge": "Start"
+    },
+    {
+      "step": 2,
+      "type": "process",
+      "title": "Core Action",
+      "description": "Description",
+      "details": "Technical detail",
+      "badge": "Process"
+    },
+    {
+      "step": 3,
+      "type": "decision",
+      "title": "Validation Condition?",
+      "description": "Condition description",
+      "details": "Yes/No check",
+      "badge": "Check"
+    },
+    {
+      "step": 4,
+      "type": "end",
+      "title": "Outcome",
+      "description": "Description",
+      "details": "Final state",
+      "badge": "End"
+    }
+  ],
+  "connections": [
+    { "from": 1, "to": 2, "label": "Next" },
+    { "from": 2, "to": 3, "label": "Check" },
+    { "from": 3, "to": 4, "label": "Complete" }
+  ],
+  "keyTakeaways": ["Takeaway 1", "Takeaway 2"]
 }`;
 
-    const userContent = `Topic: "${cleanTopic}"
-Context: "${context.slice(0, 300)}"
-Preferred Style: "${style}"
+      const userContent = `Topic: "${cleanTopic}"
+Context: "${context.slice(0, 400)}"`;
 
-Generate the visual image prompt and caption.`;
+      const { response } = await callGroqWithFallback(groq, {
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userContent },
+        ],
+        temperature: 0.3,
+        max_tokens: 1200,
+        response_format: { type: 'json_object' },
+      });
 
-    const { response } = await callGroqWithFallback(groq, {
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userContent },
-      ],
-      temperature: 0.7,
-      max_tokens: 300,
-      response_format: { type: 'json_object' },
-    });
-
-    const raw = response.choices[0]?.message?.content || '{}';
-    const parsed = JSON.parse(raw);
-
-    if (parsed.visualPrompt && parsed.visualPrompt.trim()) {
-      visualPrompt = parsed.visualPrompt.trim();
+      let raw = response.choices[0]?.message?.content || '{}';
+      if (raw.includes('</think>')) raw = raw.split('</think>')[1].trim();
+      raw = raw.replace(/```json/gi, '').replace(/```/g, '').trim();
+      parsed = JSON.parse(raw);
     }
-    if (parsed.caption && parsed.caption.trim()) {
-      caption = parsed.caption.trim();
+
+    if (parsed.flowchartTitle?.trim()) flowchartTitle = parsed.flowchartTitle.trim();
+    if (parsed.flowchartSummary?.trim()) flowchartSummary = parsed.flowchartSummary.trim();
+    if (parsed.category?.trim()) category = parsed.category.trim().toLowerCase();
+    if (Array.isArray(parsed.steps) && parsed.steps.length >= 2) {
+      steps = parsed.steps.map((s, idx) => ({
+        step: typeof s.step === 'number' ? s.step : idx + 1,
+        type: (s.type || 'process').toLowerCase(),
+        title: s.title || `Step ${idx + 1}`,
+        description: s.description || `Operation at step ${idx + 1}`,
+        details: s.details || '',
+        badge: s.badge || (s.type === 'start' ? 'Initiation' : s.type === 'end' ? 'Outcome' : s.type === 'decision' ? 'Check' : 'Process'),
+      }));
+    }
+    if (Array.isArray(parsed.connections) && parsed.connections.length > 0) {
+      connections = parsed.connections.map((c) => ({
+        from: typeof c.from === 'number' ? c.from : parseInt(c.from, 10) || 1,
+        to: typeof c.to === 'number' ? c.to : parseInt(c.to, 10) || 2,
+        label: c.label || 'Next',
+      }));
+    }
+    if (Array.isArray(parsed.keyTakeaways) && parsed.keyTakeaways.length > 0) {
+      keyTakeaways = parsed.keyTakeaways.map(String);
     }
   } catch (err) {
-    console.warn('[Visual Prompt Enhancement Fallback]:', err.message);
-    visualPrompt = `${cleanTopic}, educational infographic, 3D conceptual scientific illustration, ultra sharp focus, volumetric lighting, clear diagrammatic view, 8k resolution`;
+    console.warn('[Flowchart Generation Fallback]:', err.message);
   }
-
-  const seed = Math.floor(Math.random() * 900000) + 100000;
-  const encodedPrompt = encodeURIComponent(visualPrompt.slice(0, 400));
-  const imageUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&seed=${seed}&nologo=true&model=flux`;
 
   return res.status(200).json({
     success: true,
     topic: cleanTopic,
-    caption,
-    visualPrompt,
-    imageUrl,
-    seed,
-    style,
+    flowchartTitle,
+    flowchartSummary,
+    category,
+    steps,
+    connections,
+    keyTakeaways,
+    provider: 'Synexora AI Flowchart Engine',
   });
+});
+
+// @route   GET /api/ai/synexora-image
+// @desc    Stream Synexora AI generated 8K educational diagram
+// @access  Public
+router.get('/synexora-image', async (req, res) => {
+  const { prompt, seed = '12345' } = req.query;
+  if (!prompt) {
+    return res.status(400).send('Prompt is required.');
+  }
+
+  try {
+    const axios = require('axios');
+    const encoded = encodeURIComponent(String(prompt).slice(0, 400));
+    const targetUrl = `https://image.pollinations.ai/prompt/${encoded}?width=1024&height=1024&seed=${seed}&nologo=true&nofeed=true&model=flux`;
+
+    const response = await axios.get(targetUrl, {
+      responseType: 'arraybuffer',
+      timeout: 25000,
+    });
+
+    res.set('Content-Type', response.headers['content-type'] || 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=86400');
+    return res.send(Buffer.from(response.data));
+  } catch (err) {
+    console.error('[Synexora Image Error]', err.message);
+    return res.status(502).send('Failed to synthesize Synexora AI image.');
+  }
 });
 
 module.exports = router;

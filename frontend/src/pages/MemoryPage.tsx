@@ -28,8 +28,12 @@ import {
   Target,
   Copy,
   Check,
+  GitFork,
+  Film,
+  Play,
 } from 'lucide-react';
 import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
+import { FlowchartVisualizerCard, TopicFlowchart } from '../components/FlowchartVisualizerCard';
 
 type MemorySource = 'all' | 'rag' | 'learning-ai' | 'manual';
 
@@ -39,6 +43,8 @@ interface MemoryCard {
   definition: string;
   course: string;
   source?: 'learning-ai' | 'rag' | 'manual';
+  flowchart?: TopicFlowchart;
+  videoUrl?: string;
   createdAt?: string;
 }
 
@@ -401,6 +407,9 @@ export const MemoryPage: React.FC = () => {
   const [newCourse, setNewCourse] = useState('General');
   const [newSource, setNewSource] = useState<'manual' | 'learning-ai' | 'rag'>('manual');
   const [revealedIds, setRevealedIds] = useState<Record<string, boolean>>({});
+  const [expandedFlowchartIds, setExpandedFlowchartIds] = useState<Record<string, boolean>>({});
+  const [expandedVideoIds, setExpandedVideoIds] = useState<Record<string, boolean>>({});
+  const [zoomFlowchart, setZoomFlowchart] = useState<TopicFlowchart | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // RAG Doubt Modal State
@@ -495,6 +504,26 @@ export const MemoryPage: React.FC = () => {
       ...prev,
       [id]: !prev[id],
     }));
+  };
+
+  const toggleFlowchart = (id: string) => {
+    setExpandedFlowchartIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  const toggleVideo = (id: string) => {
+    setExpandedVideoIds((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
+
+  const getVideoSrc = (rawUrl?: string) => {
+    if (!rawUrl) return '';
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) return rawUrl;
+    return `http://localhost:5000${rawUrl}`;
   };
 
   // Download Structured Notes PDF Handler matching the exact aligned layout
@@ -699,6 +728,60 @@ export const MemoryPage: React.FC = () => {
       doc.setFont('helvetica', 'normal');
       doc.text(splitDef, margin + 4, currentY + 6);
       currentY += boxHeight + 5;
+    }
+
+    // 4. FLOWCHART STEPS (IF STORED IN MEMORY)
+    if (card.flowchart && card.flowchart.steps && card.flowchart.steps.length > 0) {
+      checkPageBreak(35);
+
+      // Flowchart Section Header
+      doc.setFillColor(15, 23, 42); // slate-900
+      doc.roundedRect(margin, currentY, maxContentWidth, 8, 1.5, 1.5, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`CONCEPT PROCESS FLOWCHART: ${card.flowchart.flowchartTitle || card.concept}`, margin + 5, currentY + 5.5);
+
+      currentY += 12;
+
+      for (let sIdx = 0; sIdx < card.flowchart.steps.length; sIdx++) {
+        const step = card.flowchart.steps[sIdx];
+        const stepLines = doc.splitTextToSize(`[Step ${step.step}: ${step.title}] ${step.description}${step.details ? ` (${step.details})` : ''}`, maxContentWidth - 14);
+        const stepBoxHeight = Math.max(12, 6 + stepLines.length * 4.2);
+
+        checkPageBreak(stepBoxHeight + 6);
+
+        // Step Box
+        doc.setFillColor(241, 245, 249);
+        doc.setDrawColor(203, 213, 225);
+        doc.roundedRect(margin, currentY, maxContentWidth, stepBoxHeight, 1.5, 1.5, 'FD');
+
+        // Step Number Badge
+        doc.setFillColor(16, 185, 129);
+        doc.circle(margin + 5, currentY + 4.5, 2.5, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'bold');
+        doc.text(String(step.step), margin + 4, currentY + 5.5);
+
+        // Step Text
+        doc.setTextColor(30, 41, 59);
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text(stepLines, margin + 10, currentY + 4.5);
+
+        currentY += stepBoxHeight + 2;
+
+        // Connecting arrow if not last step
+        if (sIdx < card.flowchart.steps.length - 1) {
+          doc.setTextColor(16, 185, 129);
+          doc.setFontSize(9);
+          doc.setFont('helvetica', 'bold');
+          doc.text('v', margin + (maxContentWidth / 2), currentY + 1.5);
+          currentY += 4;
+        }
+      }
+      currentY += 4;
     }
 
     drawFooter();
@@ -1042,6 +1125,20 @@ export const MemoryPage: React.FC = () => {
                         <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">
                           {card.course}
                         </span>
+
+                        {card.flowchart && (
+                          <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded border border-emerald-200 flex items-center gap-1">
+                            <GitFork className="w-3 h-3 text-emerald-600" />
+                            <span>Flowchart Saved</span>
+                          </span>
+                        )}
+
+                        {card.videoUrl && (
+                          <span className="text-[10px] font-bold bg-purple-50 text-purple-700 px-2 py-0.5 rounded border border-purple-200 flex items-center gap-1">
+                            <Film className="w-3 h-3 text-purple-600" />
+                            <span>Video Attached</span>
+                          </span>
+                        )}
                       </div>
 
                       <button
@@ -1061,7 +1158,80 @@ export const MemoryPage: React.FC = () => {
                     {/* Definition / Explanation Body */}
                     <div className="bg-slate-50/70 border border-slate-150 rounded-lg p-3 min-h-[60px] text-xs text-slate-700">
                       {isRevealed ? (
-                        <FormattedMemoryContent text={card.definition} />
+                        <>
+                          <FormattedMemoryContent text={card.definition} />
+
+                          {card.flowchart && (
+                            <div className="mt-3 pt-3 border-t border-slate-200/80">
+                              <button
+                                type="button"
+                                onClick={() => toggleFlowchart(card._id)}
+                                className="text-xs font-semibold text-emerald-700 hover:text-emerald-800 flex items-center gap-1.5 py-1 px-2.5 rounded-md bg-emerald-50 border border-emerald-200 hover:bg-emerald-100/70 transition-colors w-full justify-between mb-2"
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <GitFork className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>{expandedFlowchartIds[card._id] ? 'Hide Visual Flowchart' : 'View Saved Interactive Flowchart'}</span>
+                                </div>
+                                <span className="text-[10px] font-bold bg-emerald-200/70 text-emerald-900 px-1.5 py-0.5 rounded">
+                                  {card.flowchart.steps?.length || 0} Steps
+                                </span>
+                              </button>
+                              {expandedFlowchartIds[card._id] && (
+                                <div className="mt-2">
+                                  <FlowchartVisualizerCard
+                                    flowchart={card.flowchart}
+                                    onEnlarge={(fc) => setZoomFlowchart(fc)}
+                                  />
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {card.videoUrl && (
+                            <div className="mt-3 pt-3 border-t border-slate-200/80">
+                              <button
+                                type="button"
+                                onClick={() => toggleVideo(card._id)}
+                                className="text-xs font-semibold text-purple-700 hover:text-purple-800 flex items-center gap-1.5 py-1 px-2.5 rounded-md bg-purple-50 border border-purple-200 hover:bg-purple-100/70 transition-colors w-full justify-between mb-2"
+                              >
+                                <div className="flex items-center gap-1.5">
+                                  <Film className="w-3.5 h-3.5 text-purple-600" />
+                                  <span>{expandedVideoIds[card._id] ? 'Hide AI Concept Video' : 'Watch Attached Concept Video'}</span>
+                                </div>
+                                <span className="text-[10px] font-bold bg-purple-200/70 text-purple-900 px-1.5 py-0.5 rounded flex items-center gap-1">
+                                  <Play className="w-2.5 h-2.5 fill-purple-900" />
+                                  <span>MP4 Video</span>
+                                </span>
+                              </button>
+                              {expandedVideoIds[card._id] && (
+                                <div className="mt-2 rounded-xl overflow-hidden border border-slate-700 bg-slate-950 shadow-md">
+                                  <video
+                                    src={getVideoSrc(card.videoUrl)}
+                                    controls
+                                    playsInline
+                                    className="w-full aspect-video bg-black"
+                                  >
+                                    Your browser does not support HTML5 video.
+                                  </video>
+                                  <div className="p-2.5 bg-slate-900 flex items-center justify-between text-[11px] text-slate-300">
+                                    <span className="font-medium text-emerald-400 flex items-center gap-1">
+                                      <Film className="w-3 h-3" />
+                                      <span>Synexora Educational Video</span>
+                                    </span>
+                                    <a
+                                      href={getVideoSrc(card.videoUrl)}
+                                      download={`${card.concept.toLowerCase().replace(/\s+/g, '-')}.mp4`}
+                                      className="text-purple-400 hover:underline flex items-center gap-1 font-semibold"
+                                    >
+                                      <Download className="w-3 h-3" />
+                                      <span>Download MP4</span>
+                                    </a>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <p className="text-slate-400 italic flex items-center gap-1.5">
                           <EyeOff className="w-3.5 h-3.5 text-slate-400" />
@@ -1304,6 +1474,29 @@ export const MemoryPage: React.FC = () => {
                   <span>Ask</span>
                 </button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* MODAL: FULL-SCREEN ZOOM FLOWCHART */}
+        {zoomFlowchart && (
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+              <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/60">
+                <div className="flex items-center gap-2">
+                  <GitFork className="w-5 h-5 text-emerald-400" />
+                  <h2 className="text-base font-bold text-white">{zoomFlowchart.flowchartTitle || zoomFlowchart.topic}</h2>
+                </div>
+                <button
+                  onClick={() => setZoomFlowchart(null)}
+                  className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="p-5 overflow-y-auto flex-1 bg-slate-900">
+                <FlowchartVisualizerCard flowchart={zoomFlowchart} />
+              </div>
             </div>
           </div>
         )}

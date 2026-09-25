@@ -16,7 +16,7 @@ const userSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
       match: [
-        /^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/,
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
         'Please provide a valid email address',
       ],
     },
@@ -31,6 +31,7 @@ const userSchema = new mongoose.Schema(
       enum: [
         'super_admin',
         'institution_admin',
+        'institution_teacher',
         'institution_student',
         'personal_student',
         'student',
@@ -58,6 +59,16 @@ const userSchema = new mongoose.Schema(
     studentIdNumber: {
       type: String,
       default: '',
+      trim: true,
+    },
+    facultyIdNumber: {
+      type: String,
+      default: '',
+      trim: true,
+    },
+    designation: {
+      type: String,
+      default: 'Faculty / Lecturer',
       trim: true,
     },
     department: {

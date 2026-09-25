@@ -4,8 +4,10 @@ const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 
 // Route Handlers
+const path = require('path');
 const authRoutes = require('./routes/authRoutes');
 const aiRoutes = require('./routes/aiRoutes');
+const conceptVideoRoutes = require('./routes/conceptVideoRoutes');
 const taskRoutes = require('./routes/taskRoutes');
 const noteRoutes = require('./routes/noteRoutes');
 const documentRoutes = require('./routes/documentRoutes');
@@ -35,6 +37,10 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve Generated Concept Videos statically
+const generatedVideosPath = path.resolve(__dirname, '..', 'ai-service', 'generated', 'videos');
+app.use('/generated-videos', express.static(generatedVideosPath));
+
 // Health Check Route
 app.get('/api/health', (req, res) => {
   res.status(200).json({
@@ -49,6 +55,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/institutions', institutionRoutes);
 app.use('/api/ai', aiRoutes);
+app.use('/api/concept-video', conceptVideoRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/documents', documentRoutes);

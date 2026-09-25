@@ -8,14 +8,14 @@ const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// Allowed roles for classroom access: Institution Admins, Campus Students, and Super Admin
-const allowedClassroomRoles = ['institution_admin', 'institution_student', 'super_admin', 'admin'];
+// Allowed roles for classroom access: Institution Admins, Faculty Teachers, Campus Students, and Super Admin
+const allowedClassroomRoles = ['institution_admin', 'institution_teacher', 'institution_student', 'super_admin', 'admin'];
 
 const requireClassroomAccess = (req, res, next) => {
   if (!req.user || !allowedClassroomRoles.includes(req.user.role)) {
     return res.status(403).json({
       success: false,
-      message: 'Access restricted. Classrooms are exclusively available for Institution Admins and Campus Students.',
+      message: 'Access restricted. Classrooms are exclusively available for Institution Admins, Faculty Teachers, and Campus Students.',
     });
   }
   next();
@@ -70,12 +70,16 @@ router.get('/', protect, async (req, res) => {
 
 // @route   POST /api/classrooms
 // @desc    Create a new classroom
-// @access  Private (Institution Admin only)
+// @access  Private (Institution Admin and Institution Teacher)
 router.post('/', protect, async (req, res) => {
-  if (req.user.role !== 'institution_admin' && req.user.role !== 'super_admin') {
+  if (
+    req.user.role !== 'institution_admin' &&
+    req.user.role !== 'institution_teacher' &&
+    req.user.role !== 'super_admin'
+  ) {
     return res.status(403).json({
       success: false,
-      message: 'Access restricted. Only Institution Admins can create classrooms.',
+      message: 'Access restricted. Only Campus Admins and Teachers can create classrooms.',
     });
   }
 

@@ -17,6 +17,7 @@ import { TimerPage } from './pages/TimerPage';
 import { ClassroomPage } from './pages/ClassroomPage';
 import { SuperAdminPage } from './pages/SuperAdminPage';
 import { InstitutionPortalPage } from './pages/InstitutionPortalPage';
+import { ConceptVideoPage } from './pages/ConceptVideoPage';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { RoleProtectedRoute } from './components/RoleProtectedRoute';
 
@@ -61,7 +62,7 @@ function App() {
         <Route
           path="/classroom"
           element={
-            <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'institution_student']} strict={true}>
+            <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'institution_teacher', 'institution_student']} strict={true}>
               <ClassroomPage />
             </RoleProtectedRoute>
           }
@@ -69,7 +70,15 @@ function App() {
         <Route
           path="/classroom/:id"
           element={
-            <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'institution_student']} strict={true}>
+            <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'institution_teacher', 'institution_student']} strict={true}>
+              <ClassroomPage />
+            </RoleProtectedRoute>
+          }
+        />
+        <Route
+          path="/classrooms"
+          element={
+            <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'institution_teacher', 'institution_student']} strict={true}>
               <ClassroomPage />
             </RoleProtectedRoute>
           }
@@ -79,6 +88,14 @@ function App() {
           element={
             <ProtectedRoute>
               <LearningAIPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/concept-video"
+          element={
+            <ProtectedRoute>
+              <ConceptVideoPage />
             </ProtectedRoute>
           }
         />

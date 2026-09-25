@@ -24,6 +24,22 @@ const requireInstitutionAdmin = async (req, res, next) => {
   }
 };
 
+// Helper to robustly find an institution for an admin or user
+const getAdminInstitution = async (user) => {
+  if (!user) return null;
+  let institution = null;
+  if (user.institutionId) {
+    institution = await Institution.findById(user.institutionId);
+  }
+  if (!institution && user.institutionCode) {
+    institution = await Institution.findOne({ code: user.institutionCode.trim().toUpperCase() });
+  }
+  if (!institution) {
+    institution = await Institution.findOne({ adminUser: user._id });
+  }
+  return institution;
+};
+
 // @route   POST /api/institutions/verify-code
 // @desc    Verify if an institution code is valid and active during student registration
 // @access  Public
@@ -80,14 +96,7 @@ router.post('/verify-code', async (req, res) => {
 // @access  Private
 router.get('/my-institution', protect, async (req, res) => {
   try {
-    let institution;
-    if (req.user.institutionId) {
-      institution = await Institution.findById(req.user.institutionId).populate('adminUser', 'name email');
-    } else if (req.user.institutionCode) {
-      institution = await Institution.findOne({ code: req.user.institutionCode }).populate('adminUser', 'name email');
-    } else if (req.user.role === 'institution_admin') {
-      institution = await Institution.findOne({ adminUser: req.user._id }).populate('adminUser', 'name email');
-    }
+    let institution = await getAdminInstitution(req.user);
 
     if (!institution) {
       return res.status(404).json({
@@ -99,6 +108,7 @@ router.get('/my-institution', protect, async (req, res) => {
     // Refresh seat count
     const studentCount = await User.countDocuments({
       institutionId: institution._id,
+      role: 'institution_student',
       accountStatus: 'active',
     });
 
@@ -128,9 +138,7 @@ router.put('/my-institution', protect, requireInstitutionAdmin, async (req, res)
   const { name, domain, departments, phone, address, bannerTheme } = req.body;
 
   try {
-    let institution = await Institution.findOne({
-      $or: [{ _id: req.user.institutionId }, { adminUser: req.user._id }],
-    });
+    let institution = await getAdminInstitution(req.user);
 
     if (!institution) {
       return res.status(404).json({ success: false, message: 'Institution not found.' });
@@ -167,9 +175,7 @@ router.get('/my-institution/students', protect, requireInstitutionAdmin, async (
   const { department, search } = req.query;
 
   try {
-    let institution = await Institution.findOne({
-      $or: [{ _id: req.user.institutionId }, { adminUser: req.user._id }],
-    });
+    let institution = await getAdminInstitution(req.user);
 
     if (!institution) {
       return res.status(404).json({ success: false, message: 'Institution not found.' });
@@ -215,7 +221,7 @@ router.get('/my-institution/students', protect, requireInstitutionAdmin, async (
 router.post('/my-institution/students', protect, requireInstitutionAdmin, async (req, res) => {
   const { name, email, password, studentIdNumber, department, batchYear } = req.body;
 
-  if (!name || !email || !password) {
+  if (!name || !name.trim() || !email || !email.trim() || !password) {
     return res.status(400).json({
       success: false,
       message: 'Name, email, and temporary password are required.',
@@ -223,9 +229,7 @@ router.post('/my-institution/students', protect, requireInstitutionAdmin, async 
   }
 
   try {
-    let institution = await Institution.findOne({
-      $or: [{ _id: req.user.institutionId }, { adminUser: req.user._id }],
-    });
+    let institution = await getAdminInstitution(req.user);
 
     if (!institution) {
       return res.status(404).json({ success: false, message: 'Institution not found.' });
@@ -238,24 +242,25 @@ router.post('/my-institution/students', protect, requireInstitutionAdmin, async 
       });
     }
 
-    const existing = await User.findOne({ email: email.toLowerCase().trim() });
+    const cleanEmail = email.toLowerCase().trim();
+    const existing = await User.findOne({ email: cleanEmail });
     if (existing) {
       return res.status(400).json({
         success: false,
-        message: 'A student with this email address is already registered.',
+        message: `A user with email "${cleanEmail}" is already registered.`,
       });
     }
 
     const student = await User.create({
       name: name.trim(),
-      email: email.toLowerCase().trim(),
+      email: cleanEmail,
       password,
       role: 'institution_student',
       accountStatus: 'active',
       institutionId: institution._id,
       institutionCode: institution.code,
       studentIdNumber: studentIdNumber ? studentIdNumber.trim() : `STU-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
-      department: department ? department.trim() : institution.departments[0] || 'General',
+      department: department ? department.trim() : (institution.departments && institution.departments[0]) || 'General',
       batchYear: batchYear ? batchYear.trim() : '2024-2028',
       university: institution.name,
     });
@@ -276,10 +281,124 @@ router.post('/my-institution/students', protect, requireInstitutionAdmin, async 
       },
     });
   } catch (err) {
-    console.error('[Enroll Student Error]', err.message);
+    console.error('[Enroll Student Error]', err);
     return res.status(500).json({
       success: false,
-      message: 'Failed to enroll student.',
+      message: err.message || 'Failed to enroll student.',
+      error: err.message,
+    });
+  }
+});
+
+// @route   GET /api/institutions/my-institution/teachers
+// @desc    Get faculty/teacher roster for the institution
+// @access  Private (Institution Admin)
+router.get('/my-institution/teachers', protect, requireInstitutionAdmin, async (req, res) => {
+  const { department, search } = req.query;
+
+  try {
+    let institution = await getAdminInstitution(req.user);
+
+    if (!institution) {
+      return res.status(404).json({ success: false, message: 'Institution not found.' });
+    }
+
+    const query = {
+      institutionId: institution._id,
+      role: 'institution_teacher',
+    };
+
+    if (department && department !== 'all') {
+      query.department = department;
+    }
+
+    if (search && search.trim()) {
+      query.$or = [
+        { name: { $regex: search.trim(), $options: 'i' } },
+        { email: { $regex: search.trim(), $options: 'i' } },
+        { facultyIdNumber: { $regex: search.trim(), $options: 'i' } },
+        { designation: { $regex: search.trim(), $options: 'i' } },
+      ];
+    }
+
+    const teachers = await User.find(query).select('-password').sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: teachers.length,
+      teachers,
+    });
+  } catch (err) {
+    console.error('[Get Teachers Error]', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch faculty roster.',
+      error: err.message,
+    });
+  }
+});
+
+// @route   POST /api/institutions/my-institution/teachers
+// @desc    Manually enroll a teacher/faculty member under the institution
+// @access  Private (Institution Admin)
+router.post('/my-institution/teachers', protect, requireInstitutionAdmin, async (req, res) => {
+  const { name, email, password, facultyIdNumber, department, designation } = req.body;
+
+  if (!name || !name.trim() || !email || !email.trim() || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Name, faculty email, and temporary password are required.',
+    });
+  }
+
+  try {
+    let institution = await getAdminInstitution(req.user);
+
+    if (!institution) {
+      return res.status(404).json({ success: false, message: 'Institution not found for your account.' });
+    }
+
+    const cleanEmail = email.toLowerCase().trim();
+    const existing = await User.findOne({ email: cleanEmail });
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: `A user with email "${cleanEmail}" is already registered in the platform.`,
+      });
+    }
+
+    const teacher = await User.create({
+      name: name.trim(),
+      email: cleanEmail,
+      password,
+      role: 'institution_teacher',
+      accountStatus: 'active',
+      institutionId: institution._id,
+      institutionCode: institution.code,
+      facultyIdNumber: facultyIdNumber && facultyIdNumber.trim() ? facultyIdNumber.trim() : `FAC-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+      designation: designation && designation.trim() ? designation.trim() : 'Assistant Professor',
+      department: department && department.trim() ? department.trim() : (institution.departments && institution.departments[0]) || 'General',
+      university: institution.name,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: `Teacher "${teacher.name}" enrolled successfully as ${teacher.designation}.`,
+      teacher: {
+        _id: teacher._id,
+        name: teacher.name,
+        email: teacher.email,
+        facultyIdNumber: teacher.facultyIdNumber,
+        designation: teacher.designation,
+        department: teacher.department,
+        accountStatus: teacher.accountStatus,
+      },
+    });
+  } catch (err) {
+    console.error('[Enroll Teacher Error]', err);
+    return res.status(500).json({
+      success: false,
+      message: err.message || 'Failed to enroll faculty teacher.',
       error: err.message,
     });
   }
@@ -290,9 +409,7 @@ router.post('/my-institution/students', protect, requireInstitutionAdmin, async 
 // @access  Private (Institution Admin)
 router.get('/my-institution/analytics', protect, requireInstitutionAdmin, async (req, res) => {
   try {
-    let institution = await Institution.findOne({
-      $or: [{ _id: req.user.institutionId }, { adminUser: req.user._id }],
-    });
+    let institution = await getAdminInstitution(req.user);
 
     if (!institution) {
       return res.status(404).json({ success: false, message: 'Institution not found.' });
@@ -309,6 +426,11 @@ router.get('/my-institution/analytics', protect, requireInstitutionAdmin, async 
       accountStatus: 'active',
     });
 
+    const totalTeachers = await User.countDocuments({
+      institutionId: institution._id,
+      role: 'institution_teacher',
+    });
+
     const totalClassrooms = await Classroom.countDocuments({
       $or: [{ creator: institution.adminUser }, { teachers: institution.adminUser }],
     });
@@ -320,6 +442,7 @@ router.get('/my-institution/analytics', protect, requireInstitutionAdmin, async 
       analytics: {
         totalStudents,
         activeStudents,
+        totalTeachers,
         totalClassrooms,
         assessmentsCount,
         maxSeats: institution.maxSeats,

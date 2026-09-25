@@ -54,6 +54,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isSuperAdmin: boolean;
   isInstitutionAdmin: boolean;
+  isInstitutionTeacher: boolean;
   isInstitutionStudent: boolean;
   isPersonalStudent: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string; defaultPath?: string }>;
@@ -163,9 +164,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const isSuperAdmin = !!user && (user.role === 'super_admin' || user.role === 'admin');
   const isInstitutionAdmin = !!user && user.role === 'institution_admin';
+  const isInstitutionTeacher = !!user && (user.role === 'institution_teacher' || user.role === 'educator');
   const isInstitutionStudent = !!user && user.role === 'institution_student';
   const isPersonalStudent =
-    !!user && (user.role === 'personal_student' || user.role === 'student' || user.role === 'educator');
+    !!user && (user.role === 'personal_student' || user.role === 'student');
 
   return (
     <AuthContext.Provider
@@ -176,6 +178,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isAuthenticated: !!token && !!user,
         isSuperAdmin,
         isInstitutionAdmin,
+        isInstitutionTeacher,
         isInstitutionStudent,
         isPersonalStudent,
         login,

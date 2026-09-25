@@ -189,38 +189,12 @@ router.post(
       let assignedDept = department || major || 'General';
       let initialStatus = 'active';
 
-      // 1. Institutional Student Registration
+      // 1. Institutional Student Registration - Must be provisioned by Institution Admin
       if (role === 'institution_student') {
-        if (!institutionCode || !institutionCode.trim()) {
-          return res.status(400).json({
-            success: false,
-            message: 'An Institution Enrollment Code is required for institutional student signup.',
-          });
-        }
-
-        const institution = await Institution.findOne({
-          code: institutionCode.trim().toUpperCase(),
-          status: 'active',
+        return res.status(403).json({
+          success: false,
+          message: 'Campus student accounts must be enrolled and registered directly by your Institution Administrator. Please log in with your university credentials or contact your department administrator.',
         });
-
-        if (!institution) {
-          return res.status(404).json({
-            success: false,
-            message: 'Invalid or inactive institution code. Please check with your campus administrator.',
-          });
-        }
-
-        if (institution.usedSeats >= institution.maxSeats) {
-          return res.status(400).json({
-            success: false,
-            message: `Seat capacity limit reached for ${institution.name}. Contact your campus administrator.`,
-          });
-        }
-
-        institutionId = institution._id;
-        assignedUniversity = institution.name;
-        institution.usedSeats += 1;
-        await institution.save();
       }
 
       // 2. Institution Admin Registration

@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
 import { useAuth } from '../context/AuthContext';
 import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
+import { FlowchartVisualizerCard, TopicFlowchart } from '../components/FlowchartVisualizerCard';
 import API from '../lib/api';
 import {
   Bot,
@@ -17,10 +19,8 @@ import {
   MicOff,
   Volume2,
   VolumeX,
-  Image as ImageIcon,
-  Download,
-  Maximize2,
-  RefreshCw,
+  GitFork,
+  Film,
   X,
   BookOpen,
   Lightbulb,
@@ -35,13 +35,6 @@ interface Message {
   timestamp: string;
 }
 
-interface TopicVisual {
-  topic: string;
-  caption: string;
-  visualPrompt: string;
-  imageUrl: string;
-  seed: number;
-}
 
 // Inline Markdown & Code Formatter
 const renderInlineMarkdown = (text: string) => {
@@ -325,6 +318,7 @@ const FormattedAIMessage: React.FC<{ text: string }> = ({ text }) => {
 };
 
 export const LearningAIPage: React.FC = () => {
+  const navigate = useNavigate();
   const { user } = useAuth();
   const {
     isListening,
@@ -350,14 +344,13 @@ export const LearningAIPage: React.FC = () => {
   const [savedMemoryMap, setSavedMemoryMap] = useState<Record<string, boolean>>({});
   const [memoryNotification, setMemoryNotification] = useState<string | null>(null);
 
-  // Visualization states
-  const [visualsMap, setVisualsMap] = useState<Record<string, TopicVisual>>({});
+  // Flowchart states
+  const [flowchartsMap, setFlowchartsMap] = useState<Record<string, TopicFlowchart>>({});
   const [visualizingId, setVisualizingId] = useState<string | null>(null);
-  const [selectedZoomVisual, setSelectedZoomVisual] = useState<TopicVisual | null>(null);
+  const [selectedZoomFlowchart, setSelectedZoomFlowchart] = useState<TopicFlowchart | null>(null);
   const [isQuickVisualizeModalOpen, setIsQuickVisualizeModalOpen] = useState(false);
   const [quickTopicInput, setQuickTopicInput] = useState('');
   const [isQuickVisualizing, setIsQuickVisualizing] = useState(false);
-  const [activeVisualFilter, setActiveVisualFilter] = useState<'scientific-infographic' | '3d-render' | 'diagram'>('scientific-infographic');
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -424,6 +417,12 @@ export const LearningAIPage: React.FC = () => {
   };
 
   const handleVisualizeMessage = async (msgIndex: number, aiMsg: Message) => {
+    // If already generated, open the flowchart zoom modal
+    if (flowchartsMap[aiMsg.id]) {
+      setSelectedZoomFlowchart(flowchartsMap[aiMsg.id]);
+      return;
+    }
+
     const topic = getTopicForMessage(msgIndex, aiMsg);
     setVisualizingId(aiMsg.id);
     setErrorMessage(null);
@@ -431,27 +430,30 @@ export const LearningAIPage: React.FC = () => {
     try {
       const res = await API.post('/ai/visualize', {
         topic,
-        context: aiMsg.text.slice(0, 300),
-        style: activeVisualFilter,
+        context: aiMsg.text.slice(0, 400),
       });
 
-      if (res.data.success && res.data.imageUrl) {
-        setVisualsMap((prev) => ({
+      if (res.data.success && res.data.steps) {
+        const flowchartObj: TopicFlowchart = {
+          topic: res.data.topic || topic,
+          flowchartTitle: res.data.flowchartTitle || `${topic} Process Flowchart`,
+          flowchartSummary: res.data.flowchartSummary || `Interactive workflow and logic sequence for ${topic}.`,
+          category: res.data.category || 'general',
+          steps: res.data.steps || [],
+          connections: res.data.connections || [],
+          keyTakeaways: res.data.keyTakeaways || [],
+        };
+
+        setFlowchartsMap((prev) => ({
           ...prev,
-          [aiMsg.id]: {
-            topic: res.data.topic || topic,
-            caption: res.data.caption || `Visual concept illustration for ${topic}`,
-            visualPrompt: res.data.visualPrompt,
-            imageUrl: res.data.imageUrl,
-            seed: res.data.seed,
-          },
+          [aiMsg.id]: flowchartObj,
         }));
       } else {
-        throw new Error(res.data.message || 'Failed to generate visual.');
+        throw new Error(res.data.message || 'Failed to generate flowchart.');
       }
     } catch (err: any) {
-      console.error('Visualize error:', err);
-      setErrorMessage(err.response?.data?.message || 'Failed to generate visual illustration.');
+      console.error('Flowchart visualize error:', err);
+      setErrorMessage(err.response?.data?.message || 'Failed to generate concept flowchart.');
     } finally {
       setVisualizingId(null);
     }
@@ -468,58 +470,43 @@ export const LearningAIPage: React.FC = () => {
     try {
       const res = await API.post('/ai/visualize', {
         topic,
-        style: activeVisualFilter,
       });
 
-      if (res.data.success && res.data.imageUrl) {
-        const visualObj: TopicVisual = {
+      if (res.data.success && res.data.steps) {
+        const flowchartObj: TopicFlowchart = {
           topic: res.data.topic || topic,
-          caption: res.data.caption || `Visual concept illustration for ${topic}`,
-          visualPrompt: res.data.visualPrompt,
-          imageUrl: res.data.imageUrl,
-          seed: res.data.seed,
+          flowchartTitle: res.data.flowchartTitle || `${topic} Process Flowchart`,
+          flowchartSummary: res.data.flowchartSummary || `Interactive workflow and logic sequence for ${topic}.`,
+          category: res.data.category || 'general',
+          steps: res.data.steps || [],
+          connections: res.data.connections || [],
+          keyTakeaways: res.data.keyTakeaways || [],
         };
 
         const aiVisualMsg: Message = {
           id: Date.now().toString(),
           sender: 'ai',
-          text: `### 📖 Concept Definition\nVisualization of **${topic}**.\n\n### 💡 Step-by-Step Solution & Explanation\n${res.data.caption || 'Concept rendered in 8K high-definition diagram.'}\n\n### 🎯 Key Takeaway & Example\nUse visual models to reinforce intuition for complex concepts.`,
+          text: `### 📖 Concept Definition\nInteractive Process Flowchart for **${topic}**.\n\n### 💡 Step-by-Step Solution & Explanation\n${res.data.flowchartSummary || 'Interactive step-by-step logic flowchart generated.'}\n\n### 🎯 Key Takeaway & Example\nExplore the interactive steps, decisions, and sequential transitions below!`,
           timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         };
 
         setMessages((prev) => [...prev, aiVisualMsg]);
-        setVisualsMap((prev) => ({ ...prev, [aiVisualMsg.id]: visualObj }));
+        setFlowchartsMap((prev) => ({ ...prev, [aiVisualMsg.id]: flowchartObj }));
         setIsQuickVisualizeModalOpen(false);
         setQuickTopicInput('');
       } else {
-        throw new Error(res.data.message || 'Failed to generate visualization.');
+        throw new Error(res.data.message || 'Failed to generate flowchart.');
       }
     } catch (err: any) {
-      setErrorMessage(err.response?.data?.message || 'Failed to generate topic visualization.');
+      setErrorMessage(err.response?.data?.message || 'Failed to generate topic flowchart.');
     } finally {
       setIsQuickVisualizing(false);
     }
   };
 
-  const handleDownloadImage = async (imageUrl: string, topicName: string) => {
-    try {
-      const response = await fetch(imageUrl);
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `${topicName.toLowerCase().replace(/[^a-z0-9]/g, '_')}_visualization.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      window.open(imageUrl, '_blank');
-    }
-  };
-
   const handleStoreToMemory = async (msgIndex: number, aiMsg: Message) => {
     const topic = getTopicForMessage(msgIndex, aiMsg);
+    const flowchart = flowchartsMap[aiMsg.id] || null;
     setSavingMemoryId(aiMsg.id);
     try {
       const res = await API.post('/memory', {
@@ -527,6 +514,7 @@ export const LearningAIPage: React.FC = () => {
         definition: aiMsg.text,
         course: user?.major || 'General Studies',
         source: 'learning-ai',
+        flowchart,
       });
 
       if (res.data.success) {
@@ -542,6 +530,31 @@ export const LearningAIPage: React.FC = () => {
     }
   };
 
+  const handleStoreFlowchartDirect = async (flowchart: TopicFlowchart, msgId?: string) => {
+    try {
+      const res = await API.post('/memory', {
+        concept: flowchart.flowchartTitle || flowchart.topic,
+        definition: `### 📖 Concept Definition\n${flowchart.flowchartSummary}\n\n### 💡 Step-by-Step Flowchart Sequence\n` +
+          flowchart.steps.map((s) => `- **Step ${s.step} [${s.type.toUpperCase()}]:** ${s.title} — ${s.description}${s.details ? ` (${s.details})` : ''}`).join('\n') +
+          (flowchart.keyTakeaways ? `\n\n### 🎯 Key Takeaways\n` + flowchart.keyTakeaways.map((k) => `- ${k}`).join('\n') : ''),
+        course: user?.major || 'General Studies',
+        source: 'learning-ai',
+        flowchart,
+      });
+
+      if (res.data.success) {
+        if (msgId) {
+          setSavedMemoryMap((prev) => ({ ...prev, [msgId]: true }));
+        }
+        setMemoryNotification(`Stored "${flowchart.topic}" flowchart in Knowledge Memory!`);
+        setTimeout(() => setMemoryNotification(null), 3500);
+      }
+    } catch (err: any) {
+      console.error('Store flowchart error:', err);
+      setErrorMessage(err.response?.data?.message || 'Failed to store flowchart in memory.');
+    }
+  };
+
   const handleClear = () => {
     setMessages([
       {
@@ -551,8 +564,6 @@ export const LearningAIPage: React.FC = () => {
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       },
     ]);
-    setVisualsMap({});
-    setErrorMessage(null);
   };
 
   const suggestedTopics = [
@@ -566,30 +577,39 @@ export const LearningAIPage: React.FC = () => {
 
   return (
     <AppLayout>
-      <div className="space-y-4">
+      <div className="max-w-5xl mx-auto space-y-4">
         {/* Header */}
-        <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-lg border border-slate-200">
           <div>
             <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
               <Bot className="w-5 h-5 text-green-600" />
-              <span>Learning AI Tutor</span>
-              <span className="text-[10px] font-semibold bg-green-50 text-green-700 px-2 py-0.5 rounded border border-green-200">
-                Groq Structured + Visual AI
+              <span>Synexora AI Learning Assistant</span>
+              <span className="text-[10px] font-mono font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+                Groq • Gemini
               </span>
             </h1>
             <p className="text-xs text-slate-500">
-              Interactive aligned concept definitions, step-by-step solutions, voice playback & AI topic visualizations
+              Interactive aligned concept definitions, step-by-step solutions, voice playback & AI concept flowcharts
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <button
+              onClick={() => navigate('/concept-video')}
+              className="btn-secondary text-xs flex items-center gap-1.5 font-semibold text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100"
+              title="Generate AI Concept Video with Narration"
+            >
+              <Film className="w-3.5 h-3.5 text-purple-600" />
+              <span>AI Video</span>
+            </button>
+
+            <button
               onClick={() => setIsQuickVisualizeModalOpen(true)}
               className="btn-secondary text-xs flex items-center gap-1.5 font-semibold text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100"
-              title="Visualize Any Concept"
+              title="Generate Concept Flowchart"
             >
-              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Visualize Concept</span>
+              <GitFork className="w-3.5 h-3.5 text-emerald-600" />
+              <span>Concept Flowchart</span>
             </button>
 
             <button
@@ -622,7 +642,7 @@ export const LearningAIPage: React.FC = () => {
           {/* Messages list */}
           <div className="p-4 overflow-y-auto space-y-4 flex-1">
             {messages.map((msg, idx) => {
-              const visual = visualsMap[msg.id];
+              const flowchart = flowchartsMap[msg.id];
               const isVisualizing = visualizingId === msg.id;
 
               return (
@@ -654,79 +674,23 @@ export const LearningAIPage: React.FC = () => {
                       <p className="whitespace-pre-wrap leading-relaxed font-medium">{msg.text}</p>
                     )}
 
-                    {/* Inline AI Concept Visualization Card */}
-                    {visual && (
-                      <div className="mt-3 bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs animate-in fade-in duration-200">
-                        <div className="relative group overflow-hidden bg-slate-900">
-                          <img
-                            src={visual.imageUrl}
-                            alt={visual.topic}
-                            className="w-full h-48 sm:h-56 object-cover transition-transform duration-300 group-hover:scale-105 cursor-pointer"
-                            onClick={() => setSelectedZoomVisual(visual)}
-                            loading="lazy"
-                          />
-                          <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                            <button
-                              type="button"
-                              onClick={() => setSelectedZoomVisual(visual)}
-                              className="p-2 rounded-full bg-white/90 text-slate-800 hover:bg-white shadow-md transition-transform hover:scale-110"
-                              title="Enlarge Image"
-                            >
-                              <Maximize2 className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDownloadImage(visual.imageUrl, visual.topic)}
-                              className="p-2 rounded-full bg-white/90 text-slate-800 hover:bg-white shadow-md transition-transform hover:scale-110"
-                              title="Download PNG"
-                            >
-                              <Download className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-
-                        <div className="p-3 bg-slate-50/80 border-t border-slate-100 text-xs">
-                          <div className="flex items-center justify-between gap-2 mb-1">
-                            <span className="font-bold text-slate-800 flex items-center gap-1.5 truncate">
-                              <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                              <span className="truncate">{visual.topic}</span>
-                            </span>
-                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 shrink-0">
-                              Flux AI 8K
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-slate-600 leading-normal">{visual.caption}</p>
-
-                          <div className="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px]">
-                            <button
-                              type="button"
-                              onClick={() => handleVisualizeMessage(idx, msg)}
-                              className="text-slate-600 hover:text-emerald-700 flex items-center gap-1 font-medium transition-colors"
-                            >
-                              <RefreshCw className="w-3 h-3" />
-                              <span>Regenerate Visual</span>
-                            </button>
-
-                            <button
-                              type="button"
-                              onClick={() => handleDownloadImage(visual.imageUrl, visual.topic)}
-                              className="text-emerald-700 hover:text-emerald-800 flex items-center gap-1 font-medium"
-                            >
-                              <Download className="w-3 h-3" />
-                              <span>Save PNG</span>
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                    {/* Inline Concept Flowchart */}
+                    {flowchart && (
+                      <FlowchartVisualizerCard
+                        flowchart={flowchart}
+                        onEnlarge={(fc) => setSelectedZoomFlowchart(fc)}
+                        onStoreToMemory={(fc) => handleStoreFlowchartDirect(fc, msg.id)}
+                        isStoredInMemory={!!savedMemoryMap[msg.id]}
+                      />
                     )}
 
-                    {/* Visual Loading State */}
+                    {/* Flowchart Loading State */}
                     {isVisualizing && (
-                      <div className="mt-3 p-4 rounded-lg bg-emerald-50/60 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5">
+                      <div className="mt-3 p-3.5 rounded-lg bg-emerald-50/60 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5">
                         <Loader2 className="w-4 h-4 animate-spin text-emerald-600 shrink-0" />
                         <div>
-                          <p className="font-bold">Synthesizing AI Conceptual Illustration...</p>
-                          <p className="text-[11px] text-emerald-700">Groq is generating educational visual prompt & 8K diagram.</p>
+                          <p className="font-bold">Generating Interactive Concept Flowchart...</p>
+                          <p className="text-[11px] text-emerald-700">Structuring sequential steps, decisions, and outcomes...</p>
                         </div>
                       </div>
                     )}
@@ -762,30 +726,46 @@ export const LearningAIPage: React.FC = () => {
                           </button>
                         )}
 
-                        {/* Visualize Topic Button for AI responses */}
+                        {/* Flowchart Button for AI responses */}
                         {msg.sender === 'ai' && (
                           <button
                             type="button"
                             onClick={() => handleVisualizeMessage(idx, msg)}
                             disabled={isVisualizing}
                             className={`text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors ${
-                              visual
+                              flowchart
                                 ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
                                 : 'bg-white text-slate-700 border-slate-300 hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-700'
                             }`}
-                            title="Generate an AI visual illustration for this topic"
+                            title="Generate a step-by-step logic flowchart for this concept"
                           >
                             {isVisualizing ? (
                               <>
                                 <Loader2 className="w-3 h-3 animate-spin text-emerald-600" />
-                                <span>Visualizing...</span>
+                                <span>Generating...</span>
                               </>
                             ) : (
                               <>
-                                <ImageIcon className="w-3 h-3 text-emerald-600" />
-                                <span>{visual ? 'Re-Visualize' : 'Visualize'}</span>
+                                <GitFork className="w-3 h-3 text-emerald-600" />
+                                <span>{flowchart ? 'View Flowchart' : 'Flowchart'}</span>
                               </>
                             )}
+                          </button>
+                        )}
+
+                        {/* AI Video Button for AI responses */}
+                        {msg.sender === 'ai' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const topic = getTopicForMessage(idx, msg);
+                              navigate(`/concept-video?topic=${encodeURIComponent(topic)}`);
+                            }}
+                            className="text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors bg-white text-slate-700 border-slate-300 hover:bg-purple-50 hover:border-purple-400 hover:text-purple-700"
+                            title="Generate an AI-powered concept video with voice narration for this topic"
+                          >
+                            <Film className="w-3 h-3 text-purple-600" />
+                            <span>AI Video</span>
                           </button>
                         )}
 
@@ -881,79 +861,68 @@ export const LearningAIPage: React.FC = () => {
           </form>
         </div>
 
-        {/* MODAL: ZOOM & ENLARGE VISUAL */}
-        {selectedZoomVisual && (
-          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
-            <div className="bg-white rounded-2xl max-w-3xl w-full overflow-hidden shadow-2xl border border-slate-200 flex flex-col max-h-[90vh]">
-              <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4" />
+        {/* MODAL: FULLSCREEN FLOWCHART THEATER */}
+        {selectedZoomFlowchart && (
+          <div className="fixed inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center z-50 p-3 sm:p-5 animate-in fade-in duration-150">
+            <div className="bg-slate-900 text-white rounded-2xl max-w-4xl w-full overflow-hidden shadow-2xl border border-slate-700 flex flex-col max-h-[92vh]">
+              {/* Header */}
+              <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950">
+                <div className="flex items-center gap-2.5 truncate">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+                    <GitFork className="w-4 h-4" />
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold text-slate-900">{selectedZoomVisual.topic}</h3>
-                    <p className="text-[10px] text-slate-500">High-Definition 1024x1024 AI Concept Illustration</p>
+                  <div className="truncate">
+                    <h3 className="text-sm font-bold text-white truncate">
+                      {selectedZoomFlowchart.flowchartTitle}
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-mono">
+                      Category: {selectedZoomFlowchart.category?.toUpperCase() || 'CONCEPT FLOWCHART'} • Fullscreen View
+                    </p>
                   </div>
                 </div>
+
                 <button
-                  onClick={() => setSelectedZoomVisual(null)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors"
+                  onClick={() => setSelectedZoomFlowchart(null)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
 
-              <div className="p-4 overflow-y-auto flex-1 flex flex-col items-center bg-slate-950">
-                <img
-                  src={selectedZoomVisual.imageUrl}
-                  alt={selectedZoomVisual.topic}
-                  className="rounded-lg max-h-[55vh] object-contain shadow-lg"
-                />
+              {/* Body */}
+              <div className="overflow-y-auto flex-1 p-4 bg-slate-950">
+                <FlowchartVisualizerCard flowchart={selectedZoomFlowchart} />
               </div>
 
-              <div className="p-4 bg-white border-t border-slate-200 space-y-3">
-                <div className="p-3 bg-slate-50 rounded-lg text-xs text-slate-700 border border-slate-100">
-                  <p className="font-semibold text-slate-900 mb-0.5">Educational Concept Breakdown:</p>
-                  <p className="leading-relaxed">{selectedZoomVisual.caption}</p>
-                </div>
-
-                <div className="flex items-center justify-between gap-3 pt-1">
-                  <span className="text-[11px] text-slate-500 font-mono">
-                    Seed: {selectedZoomVisual.seed} • Model: Flux-8K
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleDownloadImage(selectedZoomVisual.imageUrl, selectedZoomVisual.topic)}
-                      className="btn-primary py-2 px-4 text-xs font-semibold bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5"
-                    >
-                      <Download className="w-3.5 h-3.5" />
-                      <span>Download Illustration</span>
-                    </button>
-                    <button
-                      onClick={() => setSelectedZoomVisual(null)}
-                      className="btn-secondary py-2 px-3.5 text-xs font-semibold"
-                    >
-                      Close
-                    </button>
-                  </div>
-                </div>
+              {/* Footer */}
+              <div className="p-3.5 bg-slate-950 border-t border-slate-800 flex items-center justify-between gap-3 text-xs">
+                <span className="text-[11px] text-slate-400 font-mono">
+                  Engine: Synexora AI Process & Flowchart Modeler
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedZoomFlowchart(null)}
+                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold transition-colors"
+                >
+                  Close
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* MODAL: QUICK VISUALIZE CONCEPT */}
+        {/* MODAL: QUICK FLOWCHART GENERATOR */}
         {isQuickVisualizeModalOpen && (
           <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in duration-150">
             <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4 text-xs">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                    <Sparkles className="w-4 h-4" />
+                    <GitFork className="w-4 h-4" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-slate-900">Visualize Any Study Topic</h3>
-                    <p className="text-[10px] text-slate-500">Generate 8K conceptual diagrams & visual art</p>
+                    <h3 className="text-sm font-bold text-slate-900">Map Any Concept Flowchart</h3>
+                    <p className="text-[10px] text-slate-500">Step-by-step logic, condition branches & execution paths</p>
                   </div>
                 </div>
                 <button
@@ -966,43 +935,19 @@ export const LearningAIPage: React.FC = () => {
 
               <form onSubmit={handleQuickVisualize} className="space-y-4">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Concept or Topic to Visualize</label>
+                  <label className="font-bold text-slate-700 block mb-1">Concept or Algorithm to Map</label>
                   <input
                     type="text"
                     required
                     value={quickTopicInput}
                     onChange={(e) => setQuickTopicInput(e.target.value)}
-                    placeholder="e.g. Mitosis Phases, CPU Architecture, Photosynthesis..."
+                    placeholder="e.g. Binary Search, DNA Replication, Photosynthesis, OAuth2 Flow..."
                     className="input-clean"
                   />
                 </div>
 
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1.5">Visual Art Style</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'scientific-infographic', label: 'Infographic' },
-                      { id: '3d-render', label: '3D Model' },
-                      { id: 'diagram', label: 'Flow Diagram' },
-                    ].map((st) => (
-                      <button
-                        key={st.id}
-                        type="button"
-                        onClick={() => setActiveVisualFilter(st.id as any)}
-                        className={`py-1.5 px-2 rounded-lg border text-center font-medium transition-colors ${
-                          activeVisualFilter === st.id
-                            ? 'bg-emerald-50 text-emerald-800 border-emerald-500 font-bold'
-                            : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        {st.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <span className="font-bold text-slate-600 block mb-1.5 text-[11px]">Suggested Academic Concepts:</span>
+                  <span className="font-bold text-slate-600 block mb-1.5 text-[11px]">Suggested Topics:</span>
                   <div className="flex flex-wrap gap-1.5">
                     {suggestedTopics.map((top, idx) => (
                       <button
@@ -1037,8 +982,8 @@ export const LearningAIPage: React.FC = () => {
                       </>
                     ) : (
                       <>
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>Generate Visualization</span>
+                        <GitFork className="w-3.5 h-3.5" />
+                        <span>Generate Flowchart</span>
                       </>
                     )}
                   </button>

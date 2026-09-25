@@ -22,6 +22,8 @@ dist/
 !.env.example
 
 # Python / FastAPI
+ai-service/generated/
+**/ai-service/generated/
 __pycache__/
 **/__pycache__/
 *.py[cod]

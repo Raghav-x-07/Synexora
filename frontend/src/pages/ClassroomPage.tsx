@@ -157,7 +157,7 @@ const THEME_STYLES: Record<string, { bg: string; text: string; light: string; ba
 };
 
 export const ClassroomPage: React.FC = () => {
-  const { user, isInstitutionAdmin, isInstitutionStudent } = useAuth();
+  const { user, isInstitutionAdmin, isInstitutionTeacher, isInstitutionStudent, isSuperAdmin } = useAuth();
   const { id: paramClassId } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -643,7 +643,7 @@ export const ClassroomPage: React.FC = () => {
                   <span>Join Class with Code</span>
                 </button>
               )}
-              {isInstitutionAdmin && (
+              {(isInstitutionAdmin || isInstitutionTeacher || isSuperAdmin) && (
                 <button
                   onClick={() => setIsCreateModalOpen(true)}
                   className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5 font-semibold bg-emerald-600 hover:bg-emerald-700 shadow-sm"
