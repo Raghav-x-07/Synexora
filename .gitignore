@@ -50,6 +50,12 @@ wheels/
 .pytest_cache/
 **/.pytest_cache/
 
+# Generated AI Media
+ai-service/generated/
+**/generated/audio/
+**/generated/scenes/
+**/generated/videos/
+
 # OS / Editors
 .DS_Store
 Thumbs.db
