@@ -16,6 +16,7 @@ import {
   BookOpen,
   RotateCcw,
   Brain,
+  GraduationCap,
 } from 'lucide-react';
 
 export interface FlowchartStep {
@@ -47,6 +48,7 @@ interface FlowchartVisualizerCardProps {
   flowchart: TopicFlowchart;
   onEnlarge?: (flowchart: TopicFlowchart) => void;
   onStoreToMemory?: (flowchart: TopicFlowchart) => void;
+  onPostToClassroom?: (flowchart: TopicFlowchart) => void;
   isStoredInMemory?: boolean;
 }
 
@@ -54,6 +56,7 @@ export const FlowchartVisualizerCard: React.FC<FlowchartVisualizerCardProps> = (
   flowchart,
   onEnlarge,
   onStoreToMemory,
+  onPostToClassroom,
   isStoredInMemory = false,
 }) => {
   const [activeStepIndex, setActiveStepIndex] = useState<number | null>(null);
@@ -184,6 +187,18 @@ export const FlowchartVisualizerCard: React.FC<FlowchartVisualizerCardProps> = (
                   <span>Save Flowchart</span>
                 </>
               )}
+            </button>
+          )}
+
+          {onPostToClassroom && (
+            <button
+              type="button"
+              onClick={() => onPostToClassroom(flowchart)}
+              className="px-2 py-1 rounded-md text-[11px] font-bold flex items-center gap-1 border border-[#F4C542]/70 bg-[#F4C542] text-[#111111] hover:bg-[#E5B532] transition-colors shadow-xs"
+              title="Post flowchart directly to your classroom"
+            >
+              <GraduationCap className="w-3.5 h-3.5 text-[#111111]" />
+              <span>Post to Class</span>
             </button>
           )}
 

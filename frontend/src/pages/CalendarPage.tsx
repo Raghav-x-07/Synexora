@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { AppLayout } from '../components/AppLayout';
 import API from '../lib/api';
-import { Calendar as CalendarIcon, Plus, Trash2, Clock, Tag, Loader2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, Trash2, Clock, Loader2 } from 'lucide-react';
 
 interface EventItem {
   _id: string;
@@ -84,31 +84,33 @@ export const CalendarPage: React.FC = () => {
   const getTypeBadge = (type: string) => {
     switch (type) {
       case 'exam':
-        return 'bg-red-50 text-red-700 border-red-200';
+        return 'bg-rose-50 text-rose-700 border-rose-200';
       case 'assignment':
-        return 'bg-amber-50 text-amber-700 border-amber-200';
+        return 'bg-[#FFF8E8] text-[#111111] border-[#F4C542]';
       case 'lecture':
-        return 'bg-blue-50 text-blue-700 border-blue-200';
+        return 'bg-[#FFFDF7] text-[#111111] border-[#E8E1D2]';
       default:
-        return 'bg-green-50 text-green-700 border-green-200';
+        return 'bg-emerald-50 text-emerald-700 border-emerald-200';
     }
   };
 
   return (
     <AppLayout>
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
+        <div className="bg-[#FFFFFF] border border-[#E8E1D2] rounded-3xl p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <CalendarIcon className="w-5 h-5 text-green-600" />
-              <span>Academic Schedule & Calendar</span>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-[#111111] flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-[#111111] text-[#F4C542] flex items-center justify-center font-bold">
+                <CalendarIcon className="w-4 h-4" />
+              </div>
+              <span>Academic Schedule & Timetable</span>
             </h1>
-            <p className="text-xs text-slate-500">Track exam dates, assignment deadlines, and lecture slots stored in MongoDB</p>
+            <p className="text-xs text-[#777777] mt-1">Track exam dates, assignment deadlines, and lecture slots in your calendar.</p>
           </div>
           <button
             onClick={() => setIsAdding(!isAdding)}
-            className="btn-primary gap-1.5 self-start sm:self-auto text-xs"
+            className="btn-primary gap-1.5 self-start sm:self-auto text-xs font-bold shadow-sm"
           >
             <Plus className="w-4 h-4" />
             <span>{isAdding ? 'Close Form' : 'Add Event'}</span>
@@ -117,133 +119,134 @@ export const CalendarPage: React.FC = () => {
 
         {/* Add Event Form */}
         {isAdding && (
-          <form onSubmit={handleAddEvent} className="bg-slate-50 border border-slate-200 rounded-lg p-4 space-y-3">
-            <h3 className="text-xs font-bold text-slate-700 uppercase tracking-wider">Schedule New Academic Event</h3>
+          <form onSubmit={handleAddEvent} className="bg-[#FFFFFF] border border-[#E8E1D2] rounded-3xl p-6 space-y-4 shadow-sm animate-fade-in">
+            <h3 className="text-xs font-bold text-[#111111] uppercase tracking-wider">Schedule New Academic Event</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Event Title</label>
+                <label className="block text-xs font-bold text-[#777777] mb-1">Event Title</label>
                 <input
                   type="text"
                   value={newTitle}
                   onChange={(e) => setNewTitle(e.target.value)}
                   placeholder="e.g. Midterm Examination"
                   required
-                  className="input-clean text-xs"
+                  className="input-clean text-xs font-medium"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Date</label>
+                <label className="block text-xs font-bold text-[#777777] mb-1">Date</label>
                 <input
                   type="date"
                   value={newDate}
                   onChange={(e) => setNewDate(e.target.value)}
                   required
-                  className="input-clean text-xs"
+                  className="input-clean text-xs font-medium"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Time</label>
+                <label className="block text-xs font-bold text-[#777777] mb-1">Time</label>
                 <input
                   type="text"
                   value={newTime}
                   onChange={(e) => setNewTime(e.target.value)}
-                  placeholder="e.g. 10:00 AM"
-                  className="input-clean text-xs"
+                  placeholder="e.g. 10:00 AM - 12:00 PM"
+                  className="input-clean text-xs font-medium"
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Type</label>
+                <label className="block text-xs font-bold text-[#777777] mb-1">Event Category</label>
                 <select
                   value={newType}
                   onChange={(e) => setNewType(e.target.value as any)}
-                  className="input-clean text-xs"
+                  className="input-clean text-xs font-medium"
                 >
                   <option value="exam">Exam</option>
-                  <option value="assignment">Assignment Due</option>
-                  <option value="lecture">Lecture / Class</option>
-                  <option value="study">Study Block</option>
+                  <option value="assignment">Assignment</option>
+                  <option value="lecture">Lecture</option>
+                  <option value="study">Deep Study Block</option>
                 </select>
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Course</label>
+                <label className="block text-xs font-bold text-[#777777] mb-1">Course</label>
                 <input
                   type="text"
                   value={newCourse}
                   onChange={(e) => setNewCourse(e.target.value)}
                   placeholder="e.g. CS 301"
-                  className="input-clean text-xs"
+                  className="input-clean text-xs font-medium"
                 />
               </div>
             </div>
-
             <div className="flex justify-end gap-2 pt-2">
               <button
                 type="button"
                 onClick={() => setIsAdding(false)}
-                className="btn-secondary text-xs"
+                className="btn-secondary text-xs py-2 px-4 font-bold"
               >
                 Cancel
               </button>
-              <button type="submit" disabled={isSubmitting} className="btn-primary text-xs disabled:opacity-50">
-                {isSubmitting ? 'Saving...' : 'Save Event'}
+              <button type="submit" disabled={isSubmitting} className="btn-primary text-xs py-2 px-5 font-bold disabled:opacity-50">
+                {isSubmitting ? 'Saving...' : 'Add to Schedule'}
               </button>
             </div>
           </form>
         )}
 
-        {/* Schedule List */}
-        <div className="space-y-3">
-          <h2 className="text-sm font-bold text-slate-800">Upcoming Events ({events.length})</h2>
-          <div className="bg-white border border-slate-200 rounded-lg divide-y divide-slate-100">
+        {/* Schedule Events List */}
+        <div className="bg-[#FFFFFF] border border-[#E8E1D2] rounded-3xl overflow-hidden shadow-xs">
+          <div className="px-6 py-5 border-b border-[#E8E1D2] flex items-center justify-between">
+            <h2 className="text-sm font-extrabold text-[#111111]">Upcoming Timeline</h2>
+            <span className="text-xs text-[#777777] font-semibold">{events.length} scheduled events</span>
+          </div>
+
+          <div className="divide-y divide-[#E8E1D2]/60">
             {isLoading ? (
-              <div className="p-8 text-center text-slate-400 text-sm flex items-center justify-center gap-2">
-                <Loader2 className="w-4 h-4 animate-spin text-green-600" />
+              <div className="p-8 text-center text-[#777777] text-sm flex items-center justify-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-[#111111]" />
                 <span>Loading calendar events from database...</span>
               </div>
             ) : events.length === 0 ? (
-              <p className="p-8 text-center text-slate-400 text-sm">No events scheduled. Use the form above to add an event.</p>
+              <div className="p-8 text-center text-[#777777] text-sm">
+                No events scheduled yet. Click "Add Event" above to create your first deadline.
+              </div>
             ) : (
-              events.map((event) => (
-                <div
-                  key={event._id}
-                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50 transition-colors"
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-slate-100 border border-slate-200 flex flex-col items-center justify-center shrink-0">
-                      <span className="text-[10px] uppercase font-bold text-slate-500">
-                        {new Date(event.date).toLocaleDateString([], { month: 'short' })}
+              events.map((evt) => (
+                <div key={evt._id} className="p-4 sm:px-6 flex items-center justify-between hover:bg-[#FFF8E8]/40 transition-colors gap-3">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-[#FFF8E8] border border-[#E8E1D2] flex flex-col items-center justify-center text-center shrink-0">
+                      <span className="text-[10px] uppercase font-bold text-[#777777]">
+                        {new Date(evt.date).toLocaleString('default', { month: 'short' })}
                       </span>
-                      <span className="text-xs font-black text-slate-900 leading-none">
-                        {new Date(event.date).getDate()}
+                      <span className="text-sm font-extrabold text-[#111111]">
+                        {new Date(evt.date).getDate() || '--'}
                       </span>
                     </div>
 
                     <div>
-                      <h3 className="text-sm font-semibold text-slate-900">{event.title}</h3>
-                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5 text-slate-400" /> {event.time}
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-extrabold text-[#111111]">{evt.title}</span>
+                        <span className={`text-[10px] font-bold uppercase px-2.5 py-0.5 rounded-full border ${getTypeBadge(evt.type)}`}>
+                          {evt.type}
                         </span>
+                      </div>
+                      <div className="flex items-center gap-3 text-xs text-[#777777] mt-1">
+                        <span className="font-semibold">{evt.course}</span>
                         <span>•</span>
                         <span className="flex items-center gap-1">
-                          <Tag className="w-3.5 h-3.5 text-slate-400" /> {event.course}
+                          <Clock className="w-3 h-3" />
+                          <span>{evt.time}</span>
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-3 self-end sm:self-center">
-                    <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded border ${getTypeBadge(event.type)}`}>
-                      {event.type}
-                    </span>
-                    <button
-                      onClick={() => handleDelete(event._id)}
-                      className="p-1 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
-                      title="Delete event"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => handleDelete(evt._id)}
+                    className="p-1.5 text-[#777777] hover:text-rose-600 rounded-full hover:bg-rose-50 transition-colors"
+                    title="Delete event"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               ))
             )}

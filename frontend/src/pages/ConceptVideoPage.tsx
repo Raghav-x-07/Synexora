@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
-import API from '../lib/api';
+import { useAuth } from '../context/AuthContext';
+import { ShareToClassroomModal } from '../components/ShareToClassroomModal';
+import API, { resolveMediaUrl } from '../lib/api';
 import {
   Film,
   Play,
@@ -17,6 +19,7 @@ import {
   Clock,
   BookOpen,
   ArrowRight,
+  GraduationCap,
 } from 'lucide-react';
 
 interface Scene {
@@ -55,6 +58,8 @@ interface VideoResult {
 export const ConceptVideoPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const { isInstitutionTeacher, isInstitutionAdmin } = useAuth();
+  const canShare = isInstitutionTeacher || isInstitutionAdmin;
 
   const [topic, setTopic] = useState<string>(searchParams.get('topic') || '');
   const [difficulty, setDifficulty] = useState<string>(searchParams.get('difficulty') || 'beginner');
@@ -64,6 +69,7 @@ export const ConceptVideoPage: React.FC = () => {
   const [result, setResult] = useState<VideoResult | null>(null);
   const [activeSceneTab, setActiveSceneTab] = useState<number>(1);
   const [memoryNotification, setMemoryNotification] = useState<string | null>(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
 
@@ -158,33 +164,29 @@ export const ConceptVideoPage: React.FC = () => {
   ];
 
   // Resolve video URL for backend static serving
-  const getVideoSrc = (rawUrl: string) => {
-    if (!rawUrl) return '';
-    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) return rawUrl;
-    return `http://localhost:5000${rawUrl}`;
-  };
+  const getVideoSrc = (rawUrl: string) => resolveMediaUrl(rawUrl);
 
   return (
     <AppLayout>
       <div className="max-w-4xl mx-auto space-y-6 pb-12">
         {/* Header */}
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs">
+        <div className="bg-[#FFFFFF] border border-[#E8E1D2] rounded-3xl p-6 sm:p-7 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900 flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-lg bg-emerald-100 text-emerald-700 flex items-center justify-center">
+              <h1 className="text-2xl font-extrabold text-[#111111] flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-[#111111] text-[#F4C542] flex items-center justify-center font-bold">
                   <Film className="w-5 h-5" />
                 </div>
-                <span>AI Concept Video Generator</span>
+                <span>AI Concept Video Studio</span>
               </h1>
-              <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                Enter any topic and generate a simple AI-powered explanation video with visual scenes and voice narration.
+              <p className="text-xs sm:text-sm text-[#777777] mt-1">
+                Enter any topic and generate an animated pedagogical explanation video with visual scenes and voice narration.
               </p>
             </div>
 
             <button
               onClick={() => navigate('/learning-ai')}
-              className="btn-secondary text-xs flex items-center gap-1.5 self-start sm:self-auto"
+              className="btn-secondary text-xs flex items-center gap-1.5 self-start sm:self-auto font-bold py-2.5 px-4"
             >
               <span>Back to Tutor Chat</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -192,8 +194,8 @@ export const ConceptVideoPage: React.FC = () => {
           </div>
 
           {/* Quick topic suggestion chips */}
-          <div className="mt-4 pt-4 border-t border-slate-100 flex items-center gap-2 flex-wrap">
-            <span className="text-[11px] font-semibold text-slate-400">Popular Topics:</span>
+          <div className="mt-4 pt-4 border-t border-[#E8E1D2] flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-bold text-[#777777] uppercase tracking-wider">Popular Topics:</span>
             {sampleTopics.map((item) => (
               <button
                 key={item}
@@ -203,7 +205,7 @@ export const ConceptVideoPage: React.FC = () => {
                     handleGenerate(item, difficulty);
                   }
                 }}
-                className="text-xs bg-slate-100 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-200 border border-slate-200 text-slate-700 px-2.5 py-1 rounded-full transition-colors font-medium"
+                className="text-xs bg-[#FFF8E8] hover:bg-[#F7F1E3] hover:border-[#D6CCA8] border border-[#E8E1D2] text-[#111111] px-3 py-1 rounded-full transition-colors font-semibold"
               >
                 {item}
               </button>
@@ -212,10 +214,10 @@ export const ConceptVideoPage: React.FC = () => {
         </div>
 
         {/* Input & Options Card */}
-        <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-xs space-y-4">
+        <div className="bg-[#FFFFFF] border border-[#E8E1D2] rounded-3xl p-6 shadow-sm space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2 space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+              <label className="block text-xs font-bold text-[#777777] uppercase tracking-wide">
                 What do you want to learn?
               </label>
               <div className="relative">
@@ -228,22 +230,22 @@ export const ConceptVideoPage: React.FC = () => {
                       handleGenerate();
                     }
                   }}
-                  placeholder="Example: Binary Search"
+                  placeholder="Example: Binary Search, Photosynthesis, Neural Networks..."
                   disabled={isGenerating}
-                  className="input-clean w-full py-2.5 px-3 text-sm font-medium border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                  className="input-clean font-medium text-xs"
                 />
               </div>
             </div>
 
             <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wide">
+              <label className="block text-xs font-bold text-[#777777] uppercase tracking-wide">
                 Difficulty Level
               </label>
               <select
                 value={difficulty}
                 onChange={(e) => setDifficulty(e.target.value)}
                 disabled={isGenerating}
-                className="input-clean w-full py-2.5 px-3 text-sm font-medium border border-slate-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500"
+                className="input-clean text-xs font-medium"
               >
                 <option value="beginner">Beginner</option>
                 <option value="intermediate">Intermediate</option>
@@ -253,24 +255,24 @@ export const ConceptVideoPage: React.FC = () => {
           </div>
 
           <div className="flex items-center justify-between pt-2">
-            <div className="text-xs text-slate-400 flex items-center gap-1.5">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-500" />
+            <div className="text-xs text-[#777777] flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#F4C542]" />
               <span>Generates 4–6 pedagogical visual scenes with synced narration</span>
             </div>
 
             <button
               onClick={() => handleGenerate()}
               disabled={isGenerating || !topic.trim()}
-              className="btn-primary px-6 py-2.5 text-sm font-semibold flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg shadow-sm disabled:opacity-50 transition-all cursor-pointer"
+              className="btn-primary px-6 py-2.5 text-xs font-bold flex items-center gap-2 shadow-sm disabled:opacity-50 transition-all cursor-pointer"
             >
               {isGenerating ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <Loader2 className="w-4 h-4 animate-spin text-[#111111]" />
                   <span>Generating Video...</span>
                 </>
               ) : (
                 <>
-                  <Play className="w-4 h-4 fill-white" />
+                  <Play className="w-4 h-4 fill-[#111111] text-[#111111]" />
                   <span>Generate Video</span>
                 </>
               )}
@@ -280,21 +282,21 @@ export const ConceptVideoPage: React.FC = () => {
 
         {/* Loading Progressive State */}
         {isGenerating && (
-          <div className="bg-slate-900 text-white border border-slate-800 rounded-xl p-8 shadow-xl text-center space-y-4 animate-in fade-in duration-200">
+          <div className="bg-[#FFFFFF] text-[#111111] border border-[#E8E1D2] rounded-3xl p-8 shadow-sm text-center space-y-4 animate-in fade-in duration-200">
             <div className="relative w-16 h-16 mx-auto flex items-center justify-center">
-              <div className="absolute inset-0 rounded-full border-4 border-emerald-500/20 border-t-emerald-400 animate-spin" />
-              <Film className="w-7 h-7 text-emerald-400 animate-pulse" />
+              <div className="absolute inset-0 rounded-full border-4 border-[#FFF8E8] border-t-[#F4C542] animate-spin" />
+              <Film className="w-7 h-7 text-[#111111] animate-pulse" />
             </div>
 
             <div>
-              <h3 className="text-lg font-bold text-slate-100">{generationStage || 'Generating your video...'}</h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Creating tailored visual slide animations and synthesized voice explanation for <span className="text-emerald-400 font-semibold">"{topic}"</span>
+              <h3 className="text-lg font-extrabold text-[#111111]">{generationStage || 'Generating your video...'}</h3>
+              <p className="text-xs text-[#777777] mt-1">
+                Creating tailored visual slide animations and synthesized voice explanation for <span className="text-[#111111] font-bold">"{topic}"</span>
               </p>
             </div>
 
-            <div className="max-w-md mx-auto bg-slate-800 rounded-full h-2 overflow-hidden border border-slate-700">
-              <div className="bg-gradient-to-r from-emerald-500 to-cyan-400 h-full w-3/4 animate-pulse rounded-full" />
+            <div className="max-w-md mx-auto bg-[#F7F1E3] rounded-full h-2 overflow-hidden border border-[#E8E1D2]">
+              <div className="bg-[#F4C542] h-full w-3/4 animate-pulse rounded-full" />
             </div>
           </div>
         )}
@@ -375,6 +377,17 @@ export const ConceptVideoPage: React.FC = () => {
                     <Brain className="w-3.5 h-3.5 text-purple-400" />
                     <span>Store to Memory</span>
                   </button>
+
+                  {canShare && (
+                    <button
+                      onClick={() => setIsShareModalOpen(true)}
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#F4C542] hover:bg-[#E5B532] text-[#111111] flex items-center gap-1.5 transition-colors shadow-xs"
+                      title="Post this AI video to your classroom stream or classwork"
+                    >
+                      <GraduationCap className="w-3.5 h-3.5 text-[#111111]" />
+                      <span>Post to Classroom</span>
+                    </button>
+                  )}
                 </div>
 
                 <button
@@ -504,6 +517,25 @@ export const ConceptVideoPage: React.FC = () => {
               )}
             </div>
           </div>
+        )}
+
+        {/* Share to Classroom Modal for Teachers */}
+        {result && canShare && (
+          <ShareToClassroomModal
+            isOpen={isShareModalOpen}
+            onClose={() => setIsShareModalOpen(false)}
+            contentType="video"
+            contentData={{
+              title: result.lesson.title || result.topic,
+              topic: result.topic,
+              summary: result.explanation,
+              videoUrl: result.videoUrl,
+            }}
+            onSuccess={(msg) => {
+              setMemoryNotification(msg);
+              setTimeout(() => setMemoryNotification(null), 4000);
+            }}
+          />
         )}
       </div>
     </AppLayout>

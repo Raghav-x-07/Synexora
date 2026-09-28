@@ -136,6 +136,17 @@ const classroomSchema = new mongoose.Schema(
       enum: ['emerald', 'indigo', 'rose', 'amber', 'cyan', 'purple', 'slate'],
       default: 'emerald',
     },
+    institutionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Institution',
+      default: null,
+    },
+    institutionCode: {
+      type: String,
+      default: '',
+      trim: true,
+      uppercase: true,
+    },
     creator: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

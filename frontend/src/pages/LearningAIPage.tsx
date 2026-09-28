@@ -4,6 +4,7 @@ import { AppLayout } from '../components/AppLayout';
 import { useAuth } from '../context/AuthContext';
 import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
 import { FlowchartVisualizerCard, TopicFlowchart } from '../components/FlowchartVisualizerCard';
+import { ShareToClassroomModal, ShareContentData } from '../components/ShareToClassroomModal';
 import API from '../lib/api';
 import {
   Bot,
@@ -26,6 +27,7 @@ import {
   Lightbulb,
   Target,
   Copy,
+  GraduationCap,
 } from 'lucide-react';
 
 interface Message {
@@ -201,19 +203,19 @@ const FormattedAIMessage: React.FC<{ text: string }> = ({ text }) => {
   }
 
   return (
-    <div className="space-y-3 text-xs sm:text-sm text-slate-800">
+    <div className="space-y-3 text-xs sm:text-sm text-[#111111]">
       {blocks.map((block, idx) => {
         if (block.type === 'definition-card') {
           return (
             <div
               key={idx}
-              className="bg-emerald-50/80 border-l-4 border-emerald-500 rounded-r-lg p-3.5 shadow-2xs space-y-1.5"
+              className="bg-[#FFF8E8] border-l-4 border-[#F4C542] rounded-r-2xl p-4 shadow-xs space-y-1.5 border border-[#E8E1D2]"
             >
-              <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-900 uppercase tracking-wide">
-                <BookOpen className="w-3.5 h-3.5 text-emerald-600" />
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#111111] uppercase tracking-wide">
+                <BookOpen className="w-3.5 h-3.5 text-[#F4C542]" />
                 <span>Concept Definition</span>
               </div>
-              <div className="text-slate-800 leading-relaxed space-y-1">
+              <div className="text-[#3F3F3F] leading-relaxed space-y-1">
                 {block.content.map((line, lIdx) => (
                   <p key={lIdx}>{renderInlineMarkdown(line)}</p>
                 ))}
@@ -226,13 +228,13 @@ const FormattedAIMessage: React.FC<{ text: string }> = ({ text }) => {
           return (
             <div
               key={idx}
-              className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-xs space-y-2.5"
+              className="bg-[#FFFFFF] border border-[#E8E1D2] rounded-2xl p-4 shadow-xs space-y-2.5"
             >
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-900 uppercase tracking-wide border-b border-slate-100 pb-1.5">
-                <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#111111] uppercase tracking-wide border-b border-[#E8E1D2] pb-2">
+                <Lightbulb className="w-3.5 h-3.5 text-[#F4C542]" />
                 <span>Step-by-Step Solution & Explanation</span>
               </div>
-              <div className="space-y-2 text-slate-700 leading-relaxed">
+              <div className="space-y-2 text-[#3F3F3F] leading-relaxed">
                 {block.content.map((line, lIdx) => {
                   const isStep =
                     line.startsWith('- **Step') ||
@@ -245,9 +247,9 @@ const FormattedAIMessage: React.FC<{ text: string }> = ({ text }) => {
                     return (
                       <div
                         key={lIdx}
-                        className="bg-slate-50 border border-slate-200/80 rounded-lg p-2.5 flex items-start gap-2.5"
+                        className="bg-[#FFFDF7] border border-[#E8E1D2] rounded-xl p-3 flex items-start gap-2.5"
                       >
-                        <span className="w-2 h-2 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <span className="w-2 h-2 rounded-full bg-[#F4C542] mt-1.5 shrink-0" />
                         <div className="flex-1">{renderInlineMarkdown(line.replace(/^[-*•]\s*/, ''))}</div>
                       </div>
                     );
@@ -257,15 +259,15 @@ const FormattedAIMessage: React.FC<{ text: string }> = ({ text }) => {
                     const code = line.replace(/```[a-z]*/g, '').trim();
                     return (
                       <div key={lIdx} className="relative group my-2">
-                        <pre className="p-3 bg-slate-900 text-emerald-400 font-mono text-xs rounded-lg overflow-x-auto">
+                        <pre className="p-3.5 bg-[#111111] text-[#F4C542] font-mono text-xs rounded-xl overflow-x-auto">
                           <code>{code}</code>
                         </pre>
                         <button
                           onClick={() => handleCopy(code)}
-                          className="absolute top-2 right-2 p-1.5 rounded bg-slate-800 text-slate-300 hover:text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
+                          className="absolute top-2 right-2 p-1.5 rounded-lg bg-[#222222] text-[#FFFFFF] hover:text-[#F4C542] text-xs opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1"
                           title="Copy Code"
                         >
-                          {copiedCode === code ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                          {copiedCode === code ? <Check className="w-3 h-3 text-[#10B981]" /> : <Copy className="w-3 h-3" />}
                         </button>
                       </div>
                     );
@@ -282,13 +284,13 @@ const FormattedAIMessage: React.FC<{ text: string }> = ({ text }) => {
           return (
             <div
               key={idx}
-              className="bg-indigo-50/80 border-l-4 border-indigo-500 rounded-r-lg p-3.5 shadow-2xs space-y-1.5"
+              className="bg-[#F7F1E3]/70 border-l-4 border-[#111111] rounded-r-2xl p-4 shadow-xs space-y-1.5 border border-[#E8E1D2]"
             >
-              <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900 uppercase tracking-wide">
-                <Target className="w-3.5 h-3.5 text-indigo-600" />
+              <div className="flex items-center gap-1.5 text-xs font-bold text-[#111111] uppercase tracking-wide">
+                <Target className="w-3.5 h-3.5 text-[#111111]" />
                 <span>Key Takeaway & Example</span>
               </div>
-              <div className="text-slate-800 leading-relaxed space-y-1">
+              <div className="text-[#3F3F3F] leading-relaxed space-y-1">
                 {block.content.map((line, lIdx) => (
                   <p key={lIdx}>{renderInlineMarkdown(line)}</p>
                 ))}
@@ -319,7 +321,8 @@ const FormattedAIMessage: React.FC<{ text: string }> = ({ text }) => {
 
 export const LearningAIPage: React.FC = () => {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isInstitutionTeacher, isInstitutionAdmin } = useAuth();
+  const canShare = isInstitutionTeacher || isInstitutionAdmin;
   const {
     isListening,
     micError,
@@ -351,6 +354,17 @@ export const LearningAIPage: React.FC = () => {
   const [isQuickVisualizeModalOpen, setIsQuickVisualizeModalOpen] = useState(false);
   const [quickTopicInput, setQuickTopicInput] = useState('');
   const [isQuickVisualizing, setIsQuickVisualizing] = useState(false);
+
+  // Classroom Share State
+  const [shareModalData, setShareModalData] = useState<{
+    isOpen: boolean;
+    contentType: 'video' | 'flowchart' | 'chat';
+    contentData: ShareContentData;
+  }>({
+    isOpen: false,
+    contentType: 'chat',
+    contentData: { title: '', topic: '' },
+  });
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -578,69 +592,71 @@ export const LearningAIPage: React.FC = () => {
   return (
     <AppLayout>
       <div className="max-w-5xl mx-auto space-y-4">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-lg border border-slate-200">
+        {/* Header Card */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#FFFFFF] p-5 rounded-3xl border border-[#E8E1D2] shadow-sm">
           <div>
-            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <Bot className="w-5 h-5 text-green-600" />
+            <h1 className="text-xl font-extrabold text-[#111111] flex items-center gap-2">
+              <div className="w-7 h-7 rounded-full bg-[#111111] text-[#F4C542] flex items-center justify-center">
+                <Bot className="w-4 h-4" />
+              </div>
               <span>Synexora AI Learning Assistant</span>
-              <span className="text-[10px] font-mono font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded-full">
+              <span className="text-[10px] font-mono font-bold bg-[#FFF8E8] text-[#111111] px-2.5 py-0.5 rounded-full border border-[#E8E1D2]">
                 Groq • Gemini
               </span>
             </h1>
-            <p className="text-xs text-slate-500">
+            <p className="text-xs text-[#777777] mt-0.5">
               Interactive aligned concept definitions, step-by-step solutions, voice playback & AI concept flowcharts
             </p>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               onClick={() => navigate('/concept-video')}
-              className="btn-secondary text-xs flex items-center gap-1.5 font-semibold text-purple-700 bg-purple-50 border-purple-200 hover:bg-purple-100"
+              className="btn-secondary text-xs flex items-center gap-1.5 font-bold"
               title="Generate AI Concept Video with Narration"
             >
-              <Film className="w-3.5 h-3.5 text-purple-600" />
+              <Film className="w-3.5 h-3.5 text-[#111111]" />
               <span>AI Video</span>
             </button>
 
             <button
               onClick={() => setIsQuickVisualizeModalOpen(true)}
-              className="btn-secondary text-xs flex items-center gap-1.5 font-semibold text-emerald-700 bg-emerald-50 border-emerald-200 hover:bg-emerald-100"
+              className="btn-secondary text-xs flex items-center gap-1.5 font-bold"
               title="Generate Concept Flowchart"
             >
-              <GitFork className="w-3.5 h-3.5 text-emerald-600" />
+              <GitFork className="w-3.5 h-3.5 text-[#111111]" />
               <span>Concept Flowchart</span>
             </button>
 
             <button
               onClick={handleClear}
-              className="btn-secondary text-xs flex items-center gap-1.5"
+              className="btn-secondary text-xs flex items-center gap-1.5 font-bold"
               title="Clear Chat"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-3.5 h-3.5 text-[#777777]" />
               <span>Clear</span>
             </button>
           </div>
         </div>
 
         {errorMessage && (
-          <div className="p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
+          <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-500 shrink-0" />
             <span>{errorMessage}</span>
           </div>
         )}
 
         {memoryNotification && (
-          <div className="p-3 rounded-md bg-green-50 border border-green-200 text-green-800 text-xs flex items-center gap-2 animate-fade-in">
-            <Brain className="w-4 h-4 text-green-600 shrink-0" />
+          <div className="p-3.5 rounded-2xl bg-[#FFF8E8] border border-[#F4C542] text-[#111111] text-xs flex items-center gap-2 animate-fade-in font-bold">
+            <Brain className="w-4 h-4 text-[#111111] shrink-0" />
             <span>{memoryNotification}</span>
           </div>
         )}
 
         {/* Chat Box */}
-        <div className="bg-white border border-slate-200 rounded-lg h-[590px] flex flex-col justify-between">
+        <div className="bg-[#FFFFFF] border border-[#E8E1D2] rounded-3xl h-[600px] flex flex-col justify-between shadow-sm overflow-hidden">
           {/* Messages list */}
-          <div className="p-4 overflow-y-auto space-y-4 flex-1">
+          <div className="p-5 overflow-y-auto space-y-4 flex-1">
             {messages.map((msg, idx) => {
               const flowchart = flowchartsMap[msg.id];
               const isVisualizing = visualizingId === msg.id;
@@ -653,25 +669,25 @@ export const LearningAIPage: React.FC = () => {
                   }`}
                 >
                   <div
-                    className={`w-7 h-7 rounded flex items-center justify-center text-xs font-semibold shrink-0 ${
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 shadow-xs ${
                       msg.sender === 'user'
-                        ? 'bg-slate-800 text-white'
-                        : 'bg-green-600 text-white'
+                        ? 'bg-[#111111] text-[#FFFFFF]'
+                        : 'bg-[#111111] text-[#F4C542]'
                     }`}
                   >
                     {msg.sender === 'user' ? <UserIcon className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
                   </div>
                   <div
-                    className={`max-w-2xl w-full p-3.5 rounded-lg text-sm ${
+                    className={`max-w-2xl w-full p-4 rounded-3xl text-sm ${
                       msg.sender === 'user'
-                        ? 'bg-green-50 text-slate-900 border border-green-200 max-w-lg ml-auto'
-                        : 'bg-slate-50/70 text-slate-800 border border-slate-200'
+                        ? 'bg-[#FFF8E8] text-[#111111] border border-[#E8E1D2] max-w-lg ml-auto'
+                        : 'bg-[#FFFDF7] text-[#111111] border border-[#E8E1D2]'
                     }`}
                   >
                     {msg.sender === 'ai' ? (
                       <FormattedAIMessage text={msg.text} />
                     ) : (
-                      <p className="whitespace-pre-wrap leading-relaxed font-medium">{msg.text}</p>
+                      <p className="whitespace-pre-wrap leading-relaxed font-semibold">{msg.text}</p>
                     )}
 
                     {/* Inline Concept Flowchart */}
@@ -680,24 +696,40 @@ export const LearningAIPage: React.FC = () => {
                         flowchart={flowchart}
                         onEnlarge={(fc) => setSelectedZoomFlowchart(fc)}
                         onStoreToMemory={(fc) => handleStoreFlowchartDirect(fc, msg.id)}
+                        onPostToClassroom={
+                          canShare
+                            ? (fc) => {
+                                setShareModalData({
+                                  isOpen: true,
+                                  contentType: 'flowchart',
+                                  contentData: {
+                                    title: fc.flowchartTitle,
+                                    topic: fc.topic,
+                                    summary: fc.flowchartSummary,
+                                    flowchartData: fc,
+                                  },
+                                });
+                              }
+                            : undefined
+                        }
                         isStoredInMemory={!!savedMemoryMap[msg.id]}
                       />
                     )}
 
                     {/* Flowchart Loading State */}
                     {isVisualizing && (
-                      <div className="mt-3 p-3.5 rounded-lg bg-emerald-50/60 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2.5">
-                        <Loader2 className="w-4 h-4 animate-spin text-emerald-600 shrink-0" />
+                      <div className="mt-3 p-3.5 rounded-2xl bg-[#FFF8E8] border border-[#F4C542] text-[#111111] text-xs flex items-center gap-2.5">
+                        <Loader2 className="w-4 h-4 animate-spin text-[#111111] shrink-0" />
                         <div>
                           <p className="font-bold">Generating Interactive Concept Flowchart...</p>
-                          <p className="text-[11px] text-emerald-700">Structuring sequential steps, decisions, and outcomes...</p>
+                          <p className="text-[11px] text-[#777777]">Structuring sequential steps, decisions, and outcomes...</p>
                         </div>
                       </div>
                     )}
 
                     {/* Actions Bar */}
-                    <div className="mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between text-xs flex-wrap gap-2">
-                      <span className="text-[10px] text-slate-400">{msg.timestamp}</span>
+                    <div className="mt-3 pt-2.5 border-t border-[#E8E1D2] flex items-center justify-between text-xs flex-wrap gap-2">
+                      <span className="text-[10px] text-[#777777] font-medium">{msg.timestamp}</span>
 
                       <div className="flex items-center gap-1.5 flex-wrap">
                         {/* Audio Narration button for AI responses */}
@@ -705,21 +737,21 @@ export const LearningAIPage: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => toggleSpeak(msg.text, msg.id)}
-                            className={`text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors ${
+                            className={`text-[11px] font-bold px-2.5 py-1 rounded-full border flex items-center gap-1 transition-colors ${
                               speakingId === msg.id
-                                ? 'bg-purple-100 text-purple-800 border-purple-300 animate-pulse'
-                                : 'bg-white text-slate-700 border-slate-300 hover:bg-purple-50 hover:text-purple-700'
+                                ? 'bg-[#FFF8E8] text-[#111111] border-[#F4C542] animate-pulse'
+                                : 'bg-[#FFFFFF] text-[#3F3F3F] border-[#E8E1D2] hover:bg-[#FFF8E8] hover:text-[#111111]'
                             }`}
                             title={speakingId === msg.id ? 'Stop listening' : 'Listen to audio response'}
                           >
                             {speakingId === msg.id ? (
                               <>
-                                <VolumeX className="w-3 h-3 text-purple-600" />
+                                <VolumeX className="w-3 h-3 text-[#111111]" />
                                 <span>Stop Audio</span>
                               </>
                             ) : (
                               <>
-                                <Volume2 className="w-3 h-3 text-purple-600" />
+                                <Volume2 className="w-3 h-3 text-[#111111]" />
                                 <span>Listen</span>
                               </>
                             )}
@@ -732,21 +764,21 @@ export const LearningAIPage: React.FC = () => {
                             type="button"
                             onClick={() => handleVisualizeMessage(idx, msg)}
                             disabled={isVisualizing}
-                            className={`text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors ${
+                            className={`text-[11px] font-bold px-2.5 py-1 rounded-full border flex items-center gap-1 transition-colors ${
                               flowchart
-                                ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
-                                : 'bg-white text-slate-700 border-slate-300 hover:bg-emerald-50 hover:border-emerald-400 hover:text-emerald-700'
+                                ? 'bg-[#FFF8E8] text-[#111111] border-[#F4C542]'
+                                : 'bg-[#FFFFFF] text-[#3F3F3F] border-[#E8E1D2] hover:bg-[#FFF8E8] hover:text-[#111111]'
                             }`}
                             title="Generate a step-by-step logic flowchart for this concept"
                           >
                             {isVisualizing ? (
                               <>
-                                <Loader2 className="w-3 h-3 animate-spin text-emerald-600" />
+                                <Loader2 className="w-3 h-3 animate-spin text-[#111111]" />
                                 <span>Generating...</span>
                               </>
                             ) : (
                               <>
-                                <GitFork className="w-3 h-3 text-emerald-600" />
+                                <GitFork className="w-3 h-3 text-[#111111]" />
                                 <span>{flowchart ? 'View Flowchart' : 'Flowchart'}</span>
                               </>
                             )}
@@ -761,10 +793,10 @@ export const LearningAIPage: React.FC = () => {
                               const topic = getTopicForMessage(idx, msg);
                               navigate(`/concept-video?topic=${encodeURIComponent(topic)}`);
                             }}
-                            className="text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors bg-white text-slate-700 border-slate-300 hover:bg-purple-50 hover:border-purple-400 hover:text-purple-700"
+                            className="text-[11px] font-bold px-2.5 py-1 rounded-full border flex items-center gap-1 transition-colors bg-[#FFFFFF] text-[#3F3F3F] border-[#E8E1D2] hover:bg-[#FFF8E8] hover:text-[#111111]"
                             title="Generate an AI-powered concept video with voice narration for this topic"
                           >
-                            <Film className="w-3 h-3 text-purple-600" />
+                            <Film className="w-3 h-3 text-[#111111]" />
                             <span>AI Video</span>
                           </button>
                         )}
@@ -775,28 +807,53 @@ export const LearningAIPage: React.FC = () => {
                             type="button"
                             onClick={() => handleStoreToMemory(idx, msg)}
                             disabled={savingMemoryId === msg.id || savedMemoryMap[msg.id]}
-                            className={`text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors ${
+                            className={`text-[11px] font-bold px-2.5 py-1 rounded-full border flex items-center gap-1 transition-colors ${
                               savedMemoryMap[msg.id]
-                                ? 'bg-green-100 text-green-800 border-green-300 cursor-default'
-                                : 'bg-white text-slate-700 border-slate-300 hover:bg-green-50 hover:border-green-400 hover:text-green-700'
+                                ? 'bg-[#FFF8E8] text-[#111111] border-[#F4C542] cursor-default'
+                                : 'bg-[#FFFFFF] text-[#3F3F3F] border-[#E8E1D2] hover:bg-[#FFF8E8] hover:text-[#111111]'
                             }`}
                           >
                             {savingMemoryId === msg.id ? (
                               <>
-                                <Loader2 className="w-3 h-3 animate-spin text-green-600" />
+                                <Loader2 className="w-3 h-3 animate-spin text-[#111111]" />
                                 <span>Saving...</span>
                               </>
                             ) : savedMemoryMap[msg.id] ? (
                               <>
-                                <Check className="w-3 h-3 text-green-600" />
+                                <Check className="w-3 h-3 text-[#10B981]" />
                                 <span>Stored in Memory</span>
                               </>
                             ) : (
                               <>
-                                <Brain className="w-3 h-3 text-green-600" />
+                                <Brain className="w-3 h-3 text-[#111111]" />
                                 <span>Store to Memory</span>
                               </>
                             )}
+                          </button>
+                        )}
+
+                        {/* Post to Classroom button for Teachers */}
+                        {canShare && msg.sender === 'ai' && msg.id !== '1' && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const topic = getTopicForMessage(idx, msg);
+                              setShareModalData({
+                                isOpen: true,
+                                contentType: 'chat',
+                                contentData: {
+                                  title: `AI Lesson: ${topic}`,
+                                  topic,
+                                  textContent: msg.text,
+                                  summary: msg.text.slice(0, 250),
+                                },
+                              });
+                            }}
+                            className="text-[11px] font-bold px-2.5 py-1 rounded-full border flex items-center gap-1 transition-colors bg-[#FFF8E8] text-[#111111] border-[#F4C542] hover:bg-[#F4C542] shadow-xs"
+                            title="Post this AI explanation to your classroom stream or materials"
+                          >
+                            <GraduationCap className="w-3 h-3 text-[#111111]" />
+                            <span>Post to Class</span>
                           </button>
                         )}
                       </div>
@@ -807,22 +864,22 @@ export const LearningAIPage: React.FC = () => {
             })}
 
             {isTyping && (
-              <div className="flex items-center gap-2 text-xs text-slate-500 italic p-2">
-                <Sparkles className="w-3.5 h-3.5 text-green-600 animate-spin" />
-                <span>Groq AI is thinking...</span>
+              <div className="flex items-center gap-2 text-xs text-[#777777] italic p-2">
+                <Sparkles className="w-3.5 h-3.5 text-[#F4C542] animate-spin" />
+                <span>Synexora AI is reasoning...</span>
               </div>
             )}
           </div>
 
           {micError && (
-            <div className="px-4 py-2 bg-red-50 border-t border-red-200 text-red-700 text-xs flex items-center gap-2">
-              <AlertCircle className="w-3.5 h-3.5 text-red-500 shrink-0" />
+            <div className="px-4 py-2 bg-rose-50 border-t border-rose-200 text-rose-700 text-xs flex items-center gap-2">
+              <AlertCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
               <span>{micError}</span>
             </div>
           )}
 
           {/* Prompt input */}
-          <form onSubmit={handleSendMessage} className="p-3 border-t border-slate-200 flex gap-2">
+          <form onSubmit={handleSendMessage} className="p-3.5 border-t border-[#E8E1D2] flex gap-2 bg-[#FFFDF7]">
             <button
               type="button"
               onClick={() => {
@@ -832,10 +889,10 @@ export const LearningAIPage: React.FC = () => {
                   startListening((text) => setInputText(text));
                 }
               }}
-              className={`p-2 rounded-md border transition-all flex items-center justify-center shrink-0 ${
+              className={`p-2.5 rounded-full border transition-all flex items-center justify-center shrink-0 ${
                 isListening
-                  ? 'bg-red-50 text-red-600 border-red-300 animate-pulse ring-2 ring-red-400/40'
-                  : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-900'
+                  ? 'bg-rose-50 text-rose-600 border-rose-300 animate-pulse ring-2 ring-rose-400/40'
+                  : 'bg-[#FFFFFF] text-[#3F3F3F] border-[#E8E1D2] hover:bg-[#FFF8E8] hover:text-[#111111]'
               }`}
               title={isListening ? 'Listening... click to stop' : 'Speak question with microphone'}
             >
@@ -853,7 +910,7 @@ export const LearningAIPage: React.FC = () => {
             <button
               type="submit"
               disabled={!inputText.trim() || isTyping}
-              className="btn-primary px-4 gap-1.5 disabled:opacity-50"
+              className="btn-primary px-5 gap-1.5 disabled:opacity-50 text-xs font-bold"
             >
               <Send className="w-4 h-4" />
               <span>Send</span>
@@ -891,7 +948,25 @@ export const LearningAIPage: React.FC = () => {
 
               {/* Body */}
               <div className="overflow-y-auto flex-1 p-4 bg-slate-950">
-                <FlowchartVisualizerCard flowchart={selectedZoomFlowchart} />
+                <FlowchartVisualizerCard
+                  flowchart={selectedZoomFlowchart}
+                  onPostToClassroom={
+                    canShare
+                      ? (fc) => {
+                          setShareModalData({
+                            isOpen: true,
+                            contentType: 'flowchart',
+                            contentData: {
+                              title: fc.flowchartTitle,
+                              topic: fc.topic,
+                              summary: fc.flowchartSummary,
+                              flowchartData: fc,
+                            },
+                          });
+                        }
+                      : undefined
+                  }
+                />
               </div>
 
               {/* Footer */}
@@ -991,6 +1066,20 @@ export const LearningAIPage: React.FC = () => {
               </form>
             </div>
           </div>
+        )}
+
+        {/* Share to Classroom Modal for Teachers */}
+        {canShare && (
+          <ShareToClassroomModal
+            isOpen={shareModalData.isOpen}
+            onClose={() => setShareModalData((prev) => ({ ...prev, isOpen: false }))}
+            contentType={shareModalData.contentType}
+            contentData={shareModalData.contentData}
+            onSuccess={(msg) => {
+              setMemoryNotification(msg);
+              setTimeout(() => setMemoryNotification(null), 4000);
+            }}
+          />
         )}
       </div>
     </AppLayout>

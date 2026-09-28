@@ -38,26 +38,32 @@ export const SettingsPage: React.FC = () => {
 
   return (
     <AppLayout>
-      <div className="space-y-6 max-w-3xl">
+      <div className="space-y-6 max-w-3xl pb-16">
         {/* Header */}
-        <div className="pb-4 border-b border-slate-200">
-          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <Settings className="w-5 h-5 text-green-600" />
-            <span>Platform Settings & Preferences</span>
-          </h1>
-          <p className="text-xs text-slate-500">Configure study targets and account options</p>
+        <div className="pb-6 border-b border-[#E8E1D2] flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-[#111111] text-[#F4C542] flex items-center justify-center shadow-sm">
+            <Settings className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-[#111111] tracking-tight">
+              Platform Settings & Preferences
+            </h1>
+            <p className="text-xs text-[#777777] font-medium mt-0.5">
+              Configure study targets, AI learning modes, and account options
+            </p>
+          </div>
         </div>
 
         {statusMessage && (
-          <div className="p-3.5 rounded-md bg-green-50 border border-green-200 text-green-800 text-xs font-medium flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{statusMessage}</span>
           </div>
         )}
 
-        <form onSubmit={handleSave} className="bg-white border border-slate-200 rounded-lg p-6 space-y-5">
+        <form onSubmit={handleSave} className="bg-white border border-[#E8E1D2] rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-bold text-[#111111] uppercase tracking-wider mb-1.5">
               Daily Study Goal (Minutes)
             </label>
             <input
@@ -66,19 +72,19 @@ export const SettingsPage: React.FC = () => {
               onChange={(e) => setDailyGoal(Number(e.target.value))}
               min={15}
               max={600}
-              className="input-clean text-xs"
+              className="input-clean"
             />
-            <p className="text-[11px] text-slate-400 mt-1">Target focused study duration per day.</p>
+            <p className="text-[11px] text-[#777777] mt-1.5">Target focused study duration per day.</p>
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-bold text-[#111111] uppercase tracking-wider mb-1.5">
               AI Learning Mode
             </label>
             <select
               value={learningStyle}
               onChange={(e) => setLearningStyle(e.target.value)}
-              className="input-clean text-xs"
+              className="input-clean"
             >
               <option value="socratic">Socratic (Step-by-step guided questions)</option>
               <option value="hands-on">Hands-on (Code and practical examples)</option>
@@ -92,15 +98,15 @@ export const SettingsPage: React.FC = () => {
               id="notifToggle"
               checked={notifications}
               onChange={(e) => setNotifications(e.target.checked)}
-              className="w-4 h-4 text-green-600 rounded border-slate-300 focus:ring-green-500"
+              className="w-4 h-4 text-[#111111] accent-[#111111] rounded border-[#E8E1D2] focus:ring-[#111111]"
             />
-            <label htmlFor="notifToggle" className="text-xs font-medium text-slate-700 cursor-pointer">
+            <label htmlFor="notifToggle" className="text-xs font-medium text-[#111111] cursor-pointer">
               Enable study reminders and upcoming deadline notifications
             </label>
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex justify-end">
-            <button type="submit" className="btn-primary gap-1.5 text-xs">
+          <div className="pt-4 border-t border-[#E8E1D2] flex justify-end">
+            <button type="submit" className="btn-primary gap-1.5 text-xs py-2.5 px-5 font-bold">
               <Save className="w-3.5 h-3.5" />
               <span>Save Settings</span>
             </button>
@@ -108,14 +114,14 @@ export const SettingsPage: React.FC = () => {
         </form>
 
         {/* Danger zone */}
-        <div className="bg-white border border-slate-200 rounded-lg p-6">
-          <h3 className="text-sm font-bold text-slate-800 mb-2">Session Control</h3>
-          <p className="text-xs text-slate-500 mb-4">
+        <div className="bg-white border border-[#E8E1D2] rounded-3xl p-6 sm:p-8 shadow-xs">
+          <h3 className="text-sm font-bold text-[#111111] mb-1">Session Control</h3>
+          <p className="text-xs text-[#777777] mb-4">
             Sign out of your active Synexora session on this device.
           </p>
           <button
             onClick={handleLogout}
-            className="btn-secondary text-xs text-red-600 hover:bg-red-50 gap-1.5 border-red-200"
+            className="btn-secondary text-xs text-rose-600 hover:bg-rose-50 gap-1.5 border-rose-200 font-bold"
           >
             <LogOut className="w-3.5 h-3.5" />
             <span>Sign Out</span>
@@ -125,3 +131,4 @@ export const SettingsPage: React.FC = () => {
     </AppLayout>
   );
 };
+

@@ -4,12 +4,13 @@ const Groq = require('groq-sdk');
 const Classroom = require('../models/Classroom');
 const ClassroomSubmission = require('../models/ClassroomSubmission');
 const User = require('../models/User');
+const Institution = require('../models/Institution');
 const { protect } = require('../middleware/authMiddleware');
 
 const router = express.Router();
 
-// Allowed roles for classroom access: Institution Admins, Faculty Teachers, Campus Students, and Super Admin
-const allowedClassroomRoles = ['institution_admin', 'institution_teacher', 'institution_student', 'super_admin', 'admin'];
+// Allowed roles for classroom access: Institution Admins, Faculty Teachers, Campus Students
+const allowedClassroomRoles = ['institution_admin', 'institution_teacher', 'institution_student', 'educator', 'student', 'super_admin', 'admin'];
 
 const requireClassroomAccess = (req, res, next) => {
   if (!req.user || !allowedClassroomRoles.includes(req.user.role)) {
@@ -41,21 +42,71 @@ const generateClassCode = () => {
 };
 
 // @route   GET /api/classrooms
-// @desc    Get all classrooms user is enrolled in or teaching
+// @desc    Get classrooms scoped to user role:
+//          - Campus Admin: sees ALL teachers' classrooms in that campus/institution
+//          - Institution Teacher: sees ONLY the classrooms they created
+//          - Students: sees classrooms they are enrolled in
 // @access  Private
 router.get('/', protect, async (req, res) => {
   try {
     const userId = req.user._id;
-    const classrooms = await Classroom.find({
-      $or: [{ creator: userId }, { teachers: userId }, { students: userId }],
-    })
-      .populate('creator', 'name email avatar')
-      .populate('teachers', 'name email avatar')
-      .populate('students', 'name email avatar')
+    const userRole = req.user.role;
+
+    let query = {};
+
+    if (userRole === 'institution_admin') {
+      // Campus Admin: Show all classrooms created by all teachers in this campus
+      let institutionId = req.user.institutionId;
+      let institutionCode = req.user.institutionCode;
+
+      if (!institutionId && institutionCode) {
+        const inst = await Institution.findOne({ code: institutionCode.toUpperCase().trim() });
+        if (inst) institutionId = inst._id;
+      }
+      if (!institutionId) {
+        const inst = await Institution.findOne({ adminUser: userId });
+        if (inst) institutionId = inst._id;
+      }
+
+      let campusTeacherIds = [userId];
+      if (institutionId) {
+        const campusUsers = await User.find({
+          institutionId: institutionId,
+          role: { $in: ['institution_teacher', 'educator', 'institution_admin'] },
+        }).select('_id');
+        campusTeacherIds = campusUsers.map((u) => u._id);
+      }
+
+      query = {
+        $or: [
+          ...(institutionId ? [{ institutionId: institutionId }] : []),
+          ...(institutionCode ? [{ institutionCode: institutionCode.toUpperCase().trim() }] : []),
+          { creator: { $in: [userId, ...campusTeacherIds] } },
+          { teachers: userId },
+          { students: userId },
+        ],
+      };
+    } else if (userRole === 'institution_teacher' || userRole === 'educator') {
+      // Institution Teacher: Shows ONLY classrooms that they created
+      query = { creator: userId };
+    } else if (userRole === 'super_admin' || userRole === 'admin') {
+      // Super Admin manages institutions; return all or empty
+      query = {};
+    } else {
+      // Institution Student & Personal Student: classrooms they are enrolled in
+      query = { students: userId };
+    }
+
+    const classrooms = await Classroom.find(query)
+      .populate('creator', 'name email avatar department designation')
+      .populate('teachers', 'name email avatar department designation')
+      .populate('students', 'name email avatar studentIdNumber')
       .sort({ updatedAt: -1 });
 
     return res.status(200).json({
       success: true,
+      role: userRole,
+      count: classrooms.length,
       classrooms,
     });
   } catch (err) {
@@ -101,6 +152,21 @@ router.post('/', protect, async (req, res) => {
       if (!existing) isUnique = true;
     }
 
+    let institutionId = req.user.institutionId || null;
+    let institutionCode = req.user.institutionCode || '';
+
+    if (!institutionId && institutionCode) {
+      const inst = await Institution.findOne({ code: institutionCode.toUpperCase().trim() });
+      if (inst) institutionId = inst._id;
+    }
+    if (!institutionId && req.user.role === 'institution_admin') {
+      const inst = await Institution.findOne({ adminUser: req.user._id });
+      if (inst) {
+        institutionId = inst._id;
+        institutionCode = inst.code;
+      }
+    }
+
     const classroom = await Classroom.create({
       title: title.trim(),
       section: section.trim(),
@@ -108,6 +174,8 @@ router.post('/', protect, async (req, res) => {
       room: room.trim(),
       code,
       bannerTheme,
+      institutionId,
+      institutionCode: institutionCode ? institutionCode.toUpperCase().trim() : '',
       creator: req.user._id,
       teachers: [req.user._id],
       students: [],
@@ -125,9 +193,9 @@ router.post('/', protect, async (req, res) => {
     });
 
     const populated = await Classroom.findById(classroom._id)
-      .populate('creator', 'name email')
-      .populate('teachers', 'name email')
-      .populate('students', 'name email');
+      .populate('creator', 'name email avatar department designation')
+      .populate('teachers', 'name email avatar department designation')
+      .populate('students', 'name email avatar');
 
     return res.status(201).json({
       success: true,
@@ -718,6 +786,272 @@ INSTRUCTIONS: ${description || 'Standard coursework'}`;
     return res.status(500).json({
       success: false,
       message: 'Failed to process AI assistant request.',
+      error: err.message,
+    });
+  }
+});
+
+// @route   POST /api/classrooms/:id/students
+// @desc    Add / enroll student directly into a classroom by Teacher or Admin
+// @access  Private (Teacher or Campus Admin)
+router.post('/:id/students', protect, async (req, res) => {
+  const { studentId, email, name, password, studentIdNumber, department, batchYear } = req.body;
+
+  try {
+    const classroom = await Classroom.findById(req.params.id);
+    if (!classroom) {
+      return res.status(404).json({ success: false, message: 'Classroom not found.' });
+    }
+
+    const isTeacher =
+      classroom.creator.toString() === req.user._id.toString() ||
+      classroom.teachers.some((t) => t.toString() === req.user._id.toString()) ||
+      req.user.role === 'institution_admin' ||
+      req.user.role === 'super_admin';
+
+    if (!isTeacher) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the classroom instructor or campus administrator can add students.',
+      });
+    }
+
+    let targetStudent = null;
+
+    // 1. If existing studentId passed
+    if (studentId) {
+      targetStudent = await User.findById(studentId);
+    }
+
+    // 2. If email passed, find existing user or provision new
+    if (!targetStudent && email) {
+      targetStudent = await User.findOne({ email: email.toLowerCase().trim() });
+    }
+
+    // 3. If student doesn't exist and name + password provided, create new student account under this institution
+    if (!targetStudent && email && name && password) {
+      let institutionId = classroom.institutionId || req.user.institutionId;
+      let institutionCode = classroom.institutionCode || req.user.institutionCode || '';
+
+      if (!institutionId && institutionCode) {
+        const inst = await Institution.findOne({ code: institutionCode.toUpperCase().trim() });
+        if (inst) institutionId = inst._id;
+      }
+
+      targetStudent = await User.create({
+        name: name.trim(),
+        email: email.toLowerCase().trim(),
+        password,
+        role: 'institution_student',
+        accountStatus: 'active',
+        institutionId,
+        institutionCode,
+        studentIdNumber: studentIdNumber ? studentIdNumber.trim() : `STU-${Math.random().toString(36).substring(2, 7).toUpperCase()}`,
+        department: department ? department.trim() : classroom.subject || 'Computer Science',
+        batchYear: batchYear ? batchYear.trim() : '2024-2028',
+        university: req.user.university || 'Synexora Campus',
+      });
+
+      if (institutionId) {
+        await Institution.findByIdAndUpdate(institutionId, { $inc: { usedSeats: 1 } });
+      }
+    }
+
+    if (!targetStudent) {
+      return res.status(404).json({
+        success: false,
+        message: 'Student account not found. To create and add a new student, provide their name, email, and temporary password.',
+      });
+    }
+
+    // Check if already in class
+    const isAlreadyEnrolled = classroom.students.some(
+      (s) => s.toString() === targetStudent._id.toString()
+    );
+
+    if (isAlreadyEnrolled) {
+      return res.status(400).json({
+        success: false,
+        message: `Student "${targetStudent.name}" is already enrolled in this classroom.`,
+      });
+    }
+
+    classroom.students.push(targetStudent._id);
+    await classroom.save();
+
+    const updatedClassroom = await Classroom.findById(classroom._id)
+      .populate('creator', 'name email avatar department designation')
+      .populate('teachers', 'name email avatar department designation')
+      .populate('students', 'name email avatar studentIdNumber department');
+
+    return res.status(200).json({
+      success: true,
+      message: `Student "${targetStudent.name}" successfully added to "${classroom.title}".`,
+      classroom: updatedClassroom,
+      student: {
+        _id: targetStudent._id,
+        name: targetStudent.name,
+        email: targetStudent.email,
+        studentIdNumber: targetStudent.studentIdNumber,
+        department: targetStudent.department,
+      },
+    });
+  } catch (err) {
+    console.error('[Add Student to Classroom Error]', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to add student to classroom.',
+      error: err.message,
+    });
+  }
+});
+
+// @route   DELETE /api/classrooms/:id/students/:studentId
+// @desc    Remove a student from classroom by Teacher or Admin
+// @access  Private (Teacher or Campus Admin)
+router.delete('/:id/students/:studentId', protect, async (req, res) => {
+  try {
+    const classroom = await Classroom.findById(req.params.id);
+    if (!classroom) {
+      return res.status(404).json({ success: false, message: 'Classroom not found.' });
+    }
+
+    const isTeacher =
+      classroom.creator.toString() === req.user._id.toString() ||
+      classroom.teachers.some((t) => t.toString() === req.user._id.toString()) ||
+      req.user.role === 'institution_admin' ||
+      req.user.role === 'super_admin';
+
+    if (!isTeacher) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only the instructor or campus admin can remove students from this class.',
+      });
+    }
+
+    classroom.students = classroom.students.filter(
+      (s) => s.toString() !== req.params.studentId.toString()
+    );
+    await classroom.save();
+
+    const updatedClassroom = await Classroom.findById(classroom._id)
+      .populate('creator', 'name email avatar department designation')
+      .populate('teachers', 'name email avatar department designation')
+      .populate('students', 'name email avatar studentIdNumber department');
+
+    return res.status(200).json({
+      success: true,
+      message: 'Student removed from classroom.',
+      classroom: updatedClassroom,
+    });
+  } catch (err) {
+    console.error('[Remove Student from Classroom Error]', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to remove student from classroom.',
+      error: err.message,
+    });
+  }
+});
+
+// @route   DELETE /api/classrooms/:id/announcements/:announcementId
+// @desc    Delete an announcement from classroom stream by Teacher or Author
+// @access  Private (Teacher or Author)
+router.delete('/:id/announcements/:announcementId', protect, async (req, res) => {
+  try {
+    const classroom = await Classroom.findById(req.params.id);
+    if (!classroom) {
+      return res.status(404).json({ success: false, message: 'Classroom not found.' });
+    }
+
+    const announcement = classroom.announcements.id(req.params.announcementId);
+    if (!announcement) {
+      return res.status(404).json({ success: false, message: 'Announcement not found.' });
+    }
+
+    const isAuthor = announcement.authorId && announcement.authorId.toString() === req.user._id.toString();
+    const isTeacher =
+      classroom.creator.toString() === req.user._id.toString() ||
+      classroom.teachers.some((t) => t.toString() === req.user._id.toString()) ||
+      req.user.role === 'institution_admin' ||
+      req.user.role === 'institution_teacher' ||
+      req.user.role === 'educator' ||
+      req.user.role === 'super_admin';
+
+    if (!isAuthor && !isTeacher) {
+      return res.status(403).json({
+        success: false,
+        message: 'You do not have permission to delete this announcement.',
+      });
+    }
+
+    classroom.announcements.pull({ _id: req.params.announcementId });
+    await classroom.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Announcement deleted successfully.',
+      announcements: classroom.announcements,
+    });
+  } catch (err) {
+    console.error('[Delete Announcement Error]', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete announcement.',
+      error: err.message,
+    });
+  }
+});
+
+// @route   DELETE /api/classrooms/:id/classwork/:classworkId
+// @desc    Delete a classwork item (material / assignment) by Teacher or Admin
+// @access  Private (Teacher or Admin)
+router.delete('/:id/classwork/:classworkId', protect, async (req, res) => {
+  try {
+    const classroom = await Classroom.findById(req.params.id);
+    if (!classroom) {
+      return res.status(404).json({ success: false, message: 'Classroom not found.' });
+    }
+
+    const classwork = classroom.classwork.id(req.params.classworkId);
+    if (!classwork) {
+      return res.status(404).json({ success: false, message: 'Classwork not found.' });
+    }
+
+    const isTeacher =
+      classroom.creator.toString() === req.user._id.toString() ||
+      classroom.teachers.some((t) => t.toString() === req.user._id.toString()) ||
+      req.user.role === 'institution_admin' ||
+      req.user.role === 'institution_teacher' ||
+      req.user.role === 'educator' ||
+      req.user.role === 'super_admin';
+
+    if (!isTeacher) {
+      return res.status(403).json({
+        success: false,
+        message: 'Only instructors and campus administrators can delete classwork.',
+      });
+    }
+
+    classroom.classwork.pull({ _id: req.params.classworkId });
+    await classroom.save();
+
+    // Clean up related submissions
+    await ClassroomSubmission.deleteMany({
+      classroomId: req.params.id,
+      classworkId: req.params.classworkId,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Classwork item deleted successfully.',
+      classwork: classroom.classwork,
+    });
+  } catch (err) {
+    console.error('[Delete Classwork Error]', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete classwork.',
       error: err.message,
     });
   }

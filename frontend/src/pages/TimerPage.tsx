@@ -370,29 +370,26 @@ export const TimerPage: React.FC = () => {
     <AppLayout>
       <div className="space-y-6 max-w-5xl mx-auto pb-12">
         {/* Top Header */}
-        <div className="pb-4 border-b border-slate-200 flex flex-wrap items-center justify-between gap-4">
+        <div className="pb-4 border-b border-[#E8E1D2] flex flex-wrap items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-lg bg-emerald-600 flex items-center justify-center text-white shadow-xs">
-                <Clock className="w-5 h-5" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-slate-900">Study Clock & Focus Hub</h1>
-                <p className="text-xs text-slate-500">
-                  Precision stopwatch, Pomodoro focus timer, and scheduled alert alarms for students.
-                </p>
-              </div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FFF8E8] border border-[#E8E1D2] text-[11px] font-semibold text-[#111111] mb-2">
+              <Sparkles className="w-3.5 h-3.5 text-[#F4C542]" />
+              <span>Time & Focus Manager</span>
             </div>
+            <h1 className="text-2xl font-black text-[#111111] tracking-tight">Study Clock & Focus Hub</h1>
+            <p className="text-xs text-[#777777] mt-1">
+              Precision stopwatch, Pomodoro focus timer, and scheduled alert alarms for students.
+            </p>
           </div>
 
           {/* Mode Switcher Pills */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+          <div className="flex items-center bg-[#FFF8E8] p-1.5 rounded-full border border-[#E8E1D2] gap-1">
             <button
               onClick={() => setActiveMode('stopwatch')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+              className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${
                 activeMode === 'stopwatch'
-                  ? 'bg-white text-emerald-700 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-[#111111] text-[#F4C542] shadow-sm'
+                  : 'text-[#555555] hover:text-[#111111]'
               }`}
             >
               <RotateCcw className="w-3.5 h-3.5" />
@@ -401,10 +398,10 @@ export const TimerPage: React.FC = () => {
 
             <button
               onClick={() => setActiveMode('timer')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+              className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${
                 activeMode === 'timer'
-                  ? 'bg-white text-emerald-700 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-[#111111] text-[#F4C542] shadow-sm'
+                  : 'text-[#555555] hover:text-[#111111]'
               }`}
             >
               <TimerIcon className="w-3.5 h-3.5" />
@@ -413,10 +410,10 @@ export const TimerPage: React.FC = () => {
 
             <button
               onClick={() => setActiveMode('alarm')}
-              className={`px-4 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all ${
+              className={`px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all ${
                 activeMode === 'alarm'
-                  ? 'bg-white text-emerald-700 shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-[#111111] text-[#F4C542] shadow-sm'
+                  : 'text-[#555555] hover:text-[#111111]'
               }`}
             >
               <Bell className="w-3.5 h-3.5" />
@@ -431,25 +428,25 @@ export const TimerPage: React.FC = () => {
         {activeMode === 'stopwatch' && (
           <div className="space-y-6 animate-fade-in">
             {/* Stopwatch Big Display Card */}
-            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white rounded-2xl p-8 sm:p-12 shadow-xl border border-slate-700/50 flex flex-col items-center justify-center relative overflow-hidden">
-              <div className="absolute top-4 right-4 flex items-center gap-2">
-                <span className={`w-2.5 h-2.5 rounded-full ${isStopwatchRunning ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`} />
-                <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">
+            <div className="bg-[#111111] text-white rounded-3xl p-8 sm:p-12 shadow-xl border border-[#222222] flex flex-col items-center justify-center relative overflow-hidden">
+              <div className="absolute top-5 right-5 flex items-center gap-2 px-3 py-1 rounded-full bg-[#222222] border border-[#333333]">
+                <span className={`w-2.5 h-2.5 rounded-full ${isStopwatchRunning ? 'bg-[#F4C542] animate-ping' : 'bg-[#666666]'}`} />
+                <span className="text-[11px] font-semibold text-[#F4C542] uppercase tracking-wider">
                   {isStopwatchRunning ? 'Active Timing' : 'Paused'}
                 </span>
               </div>
 
               {/* Digital Timer Display */}
-              <div className="font-mono text-5xl sm:text-7xl font-extrabold tracking-tight text-white select-none my-4 flex items-baseline">
+              <div className="font-mono text-5xl sm:text-7xl font-black tracking-tight text-white select-none my-6 flex items-baseline">
                 <span>{sw.hours}</span>
-                <span className="text-emerald-400 mx-1">:</span>
+                <span className="text-[#F4C542] mx-1">:</span>
                 <span>{sw.minutes}</span>
-                <span className="text-emerald-400 mx-1">:</span>
+                <span className="text-[#F4C542] mx-1">:</span>
                 <span>{sw.seconds}</span>
-                <span className="text-2xl sm:text-4xl text-emerald-300 font-medium ml-2">.{sw.ms}</span>
+                <span className="text-2xl sm:text-4xl text-[#F4C542] font-semibold ml-2">.{sw.ms}</span>
               </div>
 
-              <p className="text-xs text-slate-400 mb-8 font-mono">
+              <p className="text-xs text-[#888888] mb-8 font-mono">
                 Hours : Minutes : Seconds . Centiseconds
               </p>
 
@@ -457,29 +454,25 @@ export const TimerPage: React.FC = () => {
               <div className="flex items-center gap-3.5 flex-wrap justify-center">
                 <button
                   onClick={handleStopwatchStartPause}
-                  className={`px-8 py-3.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg transition-transform active:scale-95 ${
-                    isStopwatchRunning
-                      ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20'
-                      : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20'
-                  }`}
+                  className="btn-primary text-sm py-3.5 px-8 gap-2 font-bold shadow-lg"
                 >
-                  {isStopwatchRunning ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-white" />}
+                  {isStopwatchRunning ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-[#111111]" />}
                   <span>{isStopwatchRunning ? 'Pause' : stopwatchTime === 0 ? 'Start Stopwatch' : 'Resume'}</span>
                 </button>
 
                 <button
                   onClick={handleStopwatchLap}
                   disabled={!isStopwatchRunning}
-                  className="px-6 py-3.5 rounded-xl font-bold text-sm bg-white/10 hover:bg-white/20 text-white border border-white/10 flex items-center gap-2 transition-all disabled:opacity-30"
+                  className="px-6 py-3.5 rounded-full font-bold text-sm bg-[#222222] hover:bg-[#333333] text-white border border-[#444444] flex items-center gap-2 transition-all disabled:opacity-30"
                 >
-                  <Flag className="w-4 h-4 text-emerald-400" />
+                  <Flag className="w-4 h-4 text-[#F4C542]" />
                   <span>Lap Split</span>
                 </button>
 
                 <button
                   onClick={handleStopwatchReset}
                   disabled={stopwatchTime === 0}
-                  className="px-6 py-3.5 rounded-xl font-bold text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-2 transition-all disabled:opacity-30"
+                  className="px-6 py-3.5 rounded-full font-bold text-sm bg-[#222222] hover:bg-[#333333] text-[#999999] border border-[#333333] flex items-center gap-2 transition-all disabled:opacity-30"
                 >
                   <RotateCcw className="w-4 h-4" />
                   <span>Reset</span>
@@ -489,35 +482,35 @@ export const TimerPage: React.FC = () => {
 
             {/* Lap Times History Table */}
             {laps.length > 0 && (
-              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-                <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                  <h3 className="text-xs font-bold text-slate-800 flex items-center gap-2">
-                    <Flag className="w-4 h-4 text-emerald-600" />
+              <div className="bg-white border border-[#E8E1D2] rounded-3xl overflow-hidden shadow-sm">
+                <div className="px-6 py-4 bg-[#FFF8E8] border-b border-[#E8E1D2] flex items-center justify-between">
+                  <h3 className="text-xs font-bold text-[#111111] flex items-center gap-2">
+                    <Flag className="w-4 h-4 text-[#111111]" />
                     <span>Recorded Lap Splits ({laps.length})</span>
                   </h3>
                   <button
                     onClick={() => setLaps([])}
-                    className="text-[11px] text-slate-400 hover:text-red-600"
+                    className="text-[11px] text-[#777777] hover:text-red-600 font-semibold"
                   >
                     Clear Laps
                   </button>
                 </div>
 
-                <div className="max-h-64 overflow-y-auto divide-y divide-slate-100 font-mono text-xs">
+                <div className="max-h-64 overflow-y-auto divide-y divide-[#F0EBE0] font-mono text-xs">
                   {laps.map((lap, idx) => {
                     const l = formatStopwatch(lap.time);
                     const d = formatStopwatch(lap.diff);
                     return (
-                      <div key={idx} className="px-5 py-3 flex items-center justify-between hover:bg-slate-50">
+                      <div key={idx} className="px-6 py-3.5 flex items-center justify-between hover:bg-[#FFFDF7]">
                         <div className="flex items-center gap-3">
-                          <span className="w-7 h-7 rounded-full bg-slate-100 text-slate-700 font-bold flex items-center justify-center text-[11px]">
+                          <span className="w-7 h-7 rounded-full bg-[#FFF8E8] border border-[#E8E1D2] text-[#111111] font-bold flex items-center justify-center text-[11px]">
                             #{lap.lap}
                           </span>
-                          <span className="font-semibold text-slate-800">
+                          <span className="font-bold text-[#111111]">
                             {l.hours}:{l.minutes}:{l.seconds}.{l.ms}
                           </span>
                         </div>
-                        <span className="text-slate-400 text-[11px]">
+                        <span className="text-[#777777] text-[11px] font-medium">
                           + {d.minutes}:{d.seconds}.{d.ms}
                         </span>
                       </div>
@@ -535,7 +528,7 @@ export const TimerPage: React.FC = () => {
         {activeMode === 'timer' && (
           <div className="space-y-6 animate-fade-in">
             {/* Quick Preset Selector */}
-            <div className="grid grid-cols-2 sm:grid-cols-6 gap-2.5">
+            <div className="grid grid-cols-2 sm:grid-cols-6 gap-3">
               {[
                 { label: '5m Break', mins: 5, mode: 'short-break', icon: Coffee },
                 { label: '15m Recess', mins: 15, mode: 'long-break', icon: Coffee },
@@ -550,13 +543,13 @@ export const TimerPage: React.FC = () => {
                   <button
                     key={preset.label}
                     onClick={() => handleSetPreset(preset.mins, preset.mode as any)}
-                    className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 ${
+                    className={`p-3.5 rounded-2xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
                       isSelected
-                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm ring-2 ring-emerald-400/30'
-                        : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50 hover:border-slate-300'
+                        ? 'bg-[#111111] text-[#F4C542] border-[#111111] shadow-sm'
+                        : 'bg-white text-[#555555] border-[#E8E1D2] hover:bg-[#FFF8E8] hover:text-[#111111]'
                     }`}
                   >
-                    <Icon className={`w-4 h-4 ${isSelected ? 'text-white' : 'text-emerald-600'}`} />
+                    <Icon className={`w-4 h-4 ${isSelected ? 'text-[#F4C542]' : 'text-[#111111]'}`} />
                     <span className="text-xs font-bold block">{preset.label}</span>
                   </button>
                 );
@@ -564,30 +557,30 @@ export const TimerPage: React.FC = () => {
             </div>
 
             {/* Countdown Circular & Big Card */}
-            <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 text-white rounded-2xl p-8 sm:p-12 shadow-xl border border-slate-700/50 flex flex-col items-center justify-center relative overflow-hidden">
+            <div className="bg-[#111111] text-white rounded-3xl p-8 sm:p-12 shadow-xl border border-[#222222] flex flex-col items-center justify-center relative overflow-hidden">
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                <span className="text-[11px] font-bold uppercase tracking-wider px-3.5 py-1 rounded-full bg-[#222222] text-[#F4C542] border border-[#333333]">
                   {pomodoroMode === 'study' ? '📚 Focus Study Session' : '☕ Rest & Rejuvenate'}
                 </span>
               </div>
 
               {/* Countdown Digits */}
-              <div className="font-mono text-6xl sm:text-8xl font-black tracking-tight text-white select-none my-3 flex items-center">
+              <div className="font-mono text-6xl sm:text-8xl font-black tracking-tight text-white select-none my-4 flex items-center">
                 {cd.hours !== '00' && (
                   <>
                     <span>{cd.hours}</span>
-                    <span className="text-emerald-400 mx-1">:</span>
+                    <span className="text-[#F4C542] mx-1">:</span>
                   </>
                 )}
                 <span>{cd.minutes}</span>
-                <span className="text-emerald-400 mx-1">:</span>
+                <span className="text-[#F4C542] mx-1">:</span>
                 <span>{cd.seconds}</span>
               </div>
 
               {/* Progress Bar */}
-              <div className="w-full max-w-md bg-slate-700/60 h-2.5 rounded-full overflow-hidden mb-8 border border-white/5">
+              <div className="w-full max-w-md bg-[#222222] h-2.5 rounded-full overflow-hidden mb-8 border border-white/5">
                 <div
-                  className="bg-emerald-400 h-full rounded-full transition-all duration-500"
+                  className="bg-[#F4C542] h-full rounded-full transition-all duration-500"
                   style={{ width: `${timerProgress}%` }}
                 />
               </div>
@@ -596,19 +589,15 @@ export const TimerPage: React.FC = () => {
               <div className="flex items-center gap-3.5 flex-wrap justify-center">
                 <button
                   onClick={handleTimerStartPause}
-                  className={`px-8 py-3.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg transition-transform active:scale-95 ${
-                    isTimerRunning
-                      ? 'bg-amber-500 hover:bg-amber-600 text-white shadow-amber-500/20'
-                      : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20'
-                  }`}
+                  className="btn-primary text-sm py-3.5 px-8 gap-2 font-bold shadow-lg"
                 >
-                  {isTimerRunning ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-white" />}
+                  {isTimerRunning ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 fill-[#111111]" />}
                   <span>{isTimerRunning ? 'Pause Timer' : timerRemaining === 0 ? 'Start Again' : 'Start Focus'}</span>
                 </button>
 
                 <button
                   onClick={handleTimerReset}
-                  className="px-6 py-3.5 rounded-xl font-bold text-sm bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-2 transition-all"
+                  className="px-6 py-3.5 rounded-full font-bold text-sm bg-[#222222] hover:bg-[#333333] text-[#999999] border border-[#333333] flex items-center gap-2 transition-all"
                 >
                   <RotateCcw className="w-4 h-4" />
                   <span>Reset</span>
@@ -616,13 +605,13 @@ export const TimerPage: React.FC = () => {
               </div>
 
               {/* Alarm Sound Picker */}
-              <div className="mt-8 flex items-center gap-2 text-xs text-slate-300 bg-white/5 px-4 py-2 rounded-xl border border-white/10">
-                <Volume2 className="w-4 h-4 text-emerald-400" />
-                <span>Timer Alert Sound:</span>
+              <div className="mt-8 flex items-center gap-2 text-xs text-[#999999] bg-[#222222] px-4 py-2 rounded-full border border-[#333333]">
+                <Volume2 className="w-4 h-4 text-[#F4C542]" />
+                <span>Timer Alert:</span>
                 <select
                   value={soundChoice}
                   onChange={(e) => setSoundChoice(e.target.value as any)}
-                  className="bg-slate-800 border border-slate-700 text-white text-xs rounded-md px-2 py-1 outline-none"
+                  className="bg-[#111111] border border-[#333333] text-white text-xs rounded-full px-2.5 py-1 outline-none font-medium"
                 >
                   <option value="bell">🔔 Gentle Bell</option>
                   <option value="chime">🎵 Harmonic Chime</option>
@@ -633,22 +622,22 @@ export const TimerPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => playSynthesizedAlert(soundChoice, 'Focus timer')}
-                  className="text-[11px] px-2 py-1 bg-white/10 hover:bg-white/20 rounded text-emerald-300 ml-1"
+                  className="text-[11px] px-2.5 py-1 bg-white/10 hover:bg-white/20 rounded-full text-[#F4C542] ml-1 font-semibold"
                 >
-                  Test Sound
+                  Test
                 </button>
               </div>
             </div>
 
             {/* Custom Time Form */}
-            <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
-              <h3 className="text-xs font-bold text-slate-800 mb-3 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-emerald-600" />
+            <div className="bg-white border border-[#E8E1D2] rounded-3xl p-6 shadow-sm">
+              <h3 className="text-xs font-bold text-[#111111] mb-3 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[#111111]" />
                 <span>Set Custom Countdown Duration</span>
               </h3>
               <form onSubmit={handleCustomTimerApply} className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
                 <div className="sm:col-span-4">
-                  <label className="text-[10px] font-bold text-slate-500 block mb-1 uppercase">Minutes</label>
+                  <label className="text-[10px] font-bold text-[#777777] block mb-1 uppercase">Minutes</label>
                   <input
                     type="number"
                     min="0"
@@ -659,7 +648,7 @@ export const TimerPage: React.FC = () => {
                   />
                 </div>
                 <div className="sm:col-span-4">
-                  <label className="text-[10px] font-bold text-slate-500 block mb-1 uppercase">Seconds</label>
+                  <label className="text-[10px] font-bold text-[#777777] block mb-1 uppercase">Seconds</label>
                   <input
                     type="number"
                     min="0"
@@ -672,7 +661,7 @@ export const TimerPage: React.FC = () => {
                 <div className="sm:col-span-4 self-end">
                   <button
                     type="submit"
-                    className="btn-primary text-xs py-2 w-full font-semibold bg-emerald-600 hover:bg-emerald-700"
+                    className="btn-primary text-xs py-2 w-full font-bold"
                   >
                     Apply Duration
                   </button>
@@ -688,20 +677,20 @@ export const TimerPage: React.FC = () => {
         {activeMode === 'alarm' && (
           <div className="space-y-6 animate-fade-in">
             {/* Header & Add Alarm Action */}
-            <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center justify-between flex-wrap gap-3 pb-2">
               <div>
-                <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                  <Bell className="w-4 h-4 text-emerald-600" />
+                <h2 className="text-sm font-bold text-[#111111] flex items-center gap-2">
+                  <Bell className="w-4 h-4 text-[#111111]" />
                   <span>Scheduled Study Alarms & Wakeups</span>
                 </h2>
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-[#777777]">
                   Synexora alerts you with rich audio chimes, synthesizers, or spoken voice when alarm triggers.
                 </p>
               </div>
 
               <button
                 onClick={() => setIsAddingAlarm(!isAddingAlarm)}
-                className="btn-primary text-xs py-2 px-3.5 gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+                className="btn-primary text-xs py-2 px-4 gap-1.5 font-bold"
               >
                 <Plus className="w-4 h-4" />
                 <span>{isAddingAlarm ? 'Close Form' : 'Set New Alarm'}</span>
@@ -710,15 +699,15 @@ export const TimerPage: React.FC = () => {
 
             {/* Add Alarm Form Drawer */}
             {isAddingAlarm && (
-              <div className="bg-emerald-50/50 border border-emerald-200 rounded-xl p-5 animate-fade-in">
-                <h3 className="text-xs font-bold text-emerald-900 mb-3 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-emerald-600" />
+              <div className="bg-[#FFF8E8] border border-[#E8E1D2] rounded-3xl p-6 animate-fade-in shadow-sm">
+                <h3 className="text-xs font-bold text-[#111111] mb-3 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-[#111111]" />
                   <span>Configure Alarm Schedule</span>
                 </h3>
                 <form onSubmit={handleAddAlarmSubmit} className="space-y-3">
                   <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
                     <div className="sm:col-span-3">
-                      <label className="text-[10px] font-bold text-slate-600 block mb-1 uppercase">Time (24h)</label>
+                      <label className="text-[10px] font-bold text-[#555555] block mb-1 uppercase">Time (24h)</label>
                       <input
                         type="time"
                         value={newAlarmTime}
@@ -728,7 +717,7 @@ export const TimerPage: React.FC = () => {
                       />
                     </div>
                     <div className="sm:col-span-5">
-                      <label className="text-[10px] font-bold text-slate-600 block mb-1 uppercase">Alarm Label / Purpose</label>
+                      <label className="text-[10px] font-bold text-[#555555] block mb-1 uppercase">Alarm Label / Purpose</label>
                       <input
                         type="text"
                         value={newAlarmLabel}
@@ -738,7 +727,7 @@ export const TimerPage: React.FC = () => {
                       />
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="text-[10px] font-bold text-slate-600 block mb-1 uppercase">Category</label>
+                      <label className="text-[10px] font-bold text-[#555555] block mb-1 uppercase">Category</label>
                       <select
                         value={newAlarmCategory}
                         onChange={(e) => setNewAlarmCategory(e.target.value)}
@@ -753,7 +742,7 @@ export const TimerPage: React.FC = () => {
                       </select>
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="text-[10px] font-bold text-slate-600 block mb-1 uppercase">Ringtone</label>
+                      <label className="text-[10px] font-bold text-[#555555] block mb-1 uppercase">Ringtone</label>
                       <select
                         value={newAlarmSound}
                         onChange={(e) => setNewAlarmSound(e.target.value as any)}
@@ -772,13 +761,13 @@ export const TimerPage: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setIsAddingAlarm(false)}
-                      className="btn-secondary text-xs py-2 px-3"
+                      className="btn-secondary text-xs py-2 px-4"
                     >
                       Cancel
                     </button>
                     <button
                       type="submit"
-                      className="btn-primary text-xs py-2 px-5 bg-emerald-600 hover:bg-emerald-700"
+                      className="btn-primary text-xs py-2 px-5 font-bold"
                     >
                       Save Alarm
                     </button>
@@ -792,26 +781,26 @@ export const TimerPage: React.FC = () => {
               {alarms.map((alarm) => (
                 <div
                   key={alarm.id}
-                  className={`p-5 rounded-xl border transition-all ${
+                  className={`p-6 rounded-3xl border transition-all ${
                     alarm.enabled
-                      ? 'bg-white border-slate-200 shadow-xs ring-1 ring-emerald-500/20'
-                      : 'bg-slate-50 border-slate-200 opacity-60'
+                      ? 'bg-white border-[#E8E1D2] shadow-sm ring-1 ring-[#F4C542]/30'
+                      : 'bg-[#FFFDF7] border-[#E8E1D2] opacity-60'
                   }`}
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-3xl font-black font-mono text-slate-900 tracking-tight">
+                        <span className="text-3xl font-black font-mono text-[#111111] tracking-tight">
                           {alarm.time}
                         </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-[#FFF8E8] text-[#111111] border border-[#E8E1D2]">
                           {alarm.category}
                         </span>
                       </div>
-                      <h4 className="text-xs font-bold text-slate-800 mt-1">{alarm.label}</h4>
-                      <div className="flex items-center gap-2 mt-2 text-[11px] text-slate-500">
+                      <h4 className="text-xs font-bold text-[#111111] mt-1.5">{alarm.label}</h4>
+                      <div className="flex items-center gap-2 mt-2 text-[11px] text-[#777777]">
                         <span className="flex items-center gap-1">
-                          <Volume2 className="w-3 h-3 text-emerald-600" />
+                          <Volume2 className="w-3 h-3 text-[#111111]" />
                           <span className="capitalize">{alarm.sound} Sound</span>
                         </span>
                         <span>•</span>
@@ -824,12 +813,12 @@ export const TimerPage: React.FC = () => {
                       <button
                         onClick={() => handleToggleAlarm(alarm.id)}
                         className={`w-12 h-6 rounded-full transition-colors relative p-0.5 ${
-                          alarm.enabled ? 'bg-emerald-600' : 'bg-slate-300'
+                          alarm.enabled ? 'bg-[#111111]' : 'bg-[#E8E1D2]'
                         }`}
                         title={alarm.enabled ? 'Disable alarm' : 'Enable alarm'}
                       >
                         <span
-                          className={`block w-5 h-5 rounded-full bg-white shadow-sm transition-transform ${
+                          className={`block w-5 h-5 rounded-full ${alarm.enabled ? 'bg-[#F4C542]' : 'bg-white'} shadow-sm transition-transform ${
                             alarm.enabled ? 'translate-x-6' : 'translate-x-0'
                           }`}
                         />
@@ -837,7 +826,7 @@ export const TimerPage: React.FC = () => {
 
                       <button
                         onClick={() => handleDeleteAlarm(alarm.id)}
-                        className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50"
+                        className="p-2 text-[#999999] hover:text-red-600 rounded-full hover:bg-red-50"
                         title="Delete alarm"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -854,29 +843,28 @@ export const TimerPage: React.FC = () => {
         {/* ACTIVE ALARM POPUP ALERT MODAL                                 */}
         {/* ============================================================== */}
         {activeAlertNotification && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 backdrop-blur-md p-4 animate-fade-in">
-            <div className="bg-white rounded-2xl shadow-2xl border border-red-300 max-w-md w-full p-6 text-center space-y-4 ring-4 ring-red-500/20">
-              <div className="w-16 h-16 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto animate-bounce">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4 animate-fade-in">
+            <div className="bg-[#FFFDF7] rounded-3xl shadow-2xl border border-[#E8E1D2] max-w-md w-full p-8 text-center space-y-4">
+              <div className="w-16 h-16 rounded-3xl bg-[#111111] text-[#F4C542] flex items-center justify-center mx-auto animate-bounce">
                 <Bell className="w-8 h-8" />
               </div>
 
               <div>
-                <h2 className="text-xl font-extrabold text-slate-900">
+                <h2 className="text-xl font-black text-[#111111]">
                   {activeAlertNotification.title}
                 </h2>
-                <p className="text-xs text-slate-600 mt-1">
+                <p className="text-xs text-[#777777] mt-1.5 font-medium">
                   {activeAlertNotification.description}
                 </p>
               </div>
 
-              <div className="flex items-center justify-center gap-3 pt-2">
+              <div className="flex items-center justify-center gap-3 pt-3">
                 <button
                   onClick={() => {
-                    // Snooze for 5 minutes
                     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
                     setActiveAlertNotification(null);
                   }}
-                  className="btn-secondary text-xs py-2.5 px-4"
+                  className="btn-secondary text-xs py-2.5 px-5"
                 >
                   Snooze (5 Mins)
                 </button>
@@ -885,7 +873,7 @@ export const TimerPage: React.FC = () => {
                     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
                     setActiveAlertNotification(null);
                   }}
-                  className="btn-primary text-xs py-2.5 px-6 bg-red-600 hover:bg-red-700 text-white font-bold"
+                  className="btn-primary text-xs py-2.5 px-6 font-bold"
                 >
                   Dismiss Alarm
                 </button>

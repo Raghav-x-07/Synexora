@@ -1,26 +1,28 @@
 import React from 'react';
-import { BookOpen } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="bg-white border-t border-slate-200/80 py-10 text-slate-500 text-xs">
+    <footer className="bg-[#FFF8E8] border-t border-[#E8E1D2] py-12 text-[#777777] text-xs">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-6">
-        <div className="flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded-lg bg-slate-900 flex items-center justify-center text-white font-bold">
-            <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
-          </div>
-          <span className="font-semibold text-slate-800 text-sm">Synexora</span>
-          <span className="text-slate-400 text-xs">• Focused Academic Workspace</span>
+        <div className="flex items-center gap-3">
+          <img
+            src="/logo.png"
+            alt="Synexora"
+            className="h-8 w-auto object-contain"
+          />
+          <span className="text-[#777777] text-xs hidden sm:inline-block border-l border-[#E8E1D2] pl-3">
+            Modern AI Academic Operating System
+          </span>
         </div>
         
-        <div className="flex items-center gap-6 text-slate-500 font-medium">
-          <Link to="/login" className="hover:text-slate-900 transition-colors">Login</Link>
-          <Link to="/register" className="hover:text-slate-900 transition-colors">Register</Link>
-          <Link to="/dashboard" className="hover:text-slate-900 transition-colors">Dashboard</Link>
+        <div className="flex items-center gap-6 text-[#3F3F3F] font-semibold">
+          <Link to="/login" className="hover:text-[#111111] transition-colors">Login</Link>
+          <Link to="/register" className="hover:text-[#111111] transition-colors">Start Learning</Link>
+          <Link to="/dashboard" className="hover:text-[#111111] transition-colors">Dashboard</Link>
         </div>
 
-        <p className="text-slate-400">© {new Date().getFullYear()} Synexora. All rights reserved.</p>
+        <p className="text-[#777777]">© {new Date().getFullYear()} Synexora. Designed for focused, smarter learning.</p>
       </div>
     </footer>
   );

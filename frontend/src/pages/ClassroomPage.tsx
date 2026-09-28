@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { AppLayout } from '../components/AppLayout';
 import { useAuth } from '../context/AuthContext';
-import API from '../lib/api';
+import API, { resolveMediaUrl } from '../lib/api';
 import {
   GraduationCap,
   Plus,
@@ -18,14 +18,16 @@ import {
   Sparkles,
   Link as LinkIcon,
   CheckCircle2,
-  Clock,
   FolderOpen,
   ArrowLeft,
   Loader2,
   Search,
   Filter,
   Paperclip,
+  UserPlus,
+  X,
 } from 'lucide-react';
+import { StructuredPostRenderer } from '../components/StructuredPostRenderer';
 
 interface Attachment {
   title: string;
@@ -157,7 +159,7 @@ const THEME_STYLES: Record<string, { bg: string; text: string; light: string; ba
 };
 
 export const ClassroomPage: React.FC = () => {
-  const { user, isInstitutionAdmin, isInstitutionTeacher, isInstitutionStudent, isSuperAdmin } = useAuth();
+  const { user, isInstitutionAdmin, isInstitutionTeacher, isInstitutionStudent } = useAuth();
   const { id: paramClassId } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
@@ -229,6 +231,19 @@ export const ClassroomPage: React.FC = () => {
 
   // People Search
   const [peopleSearch, setPeopleSearch] = useState('');
+
+  // Add Student Modal State (Faculty & Admin)
+  const [isAddStudentModalOpen, setIsAddStudentModalOpen] = useState(false);
+  const [addStudentTab, setAddStudentTab] = useState<'directory' | 'new'>('directory');
+  const [campusStudents, setCampusStudents] = useState<Member[]>([]);
+  const [campusStudentSearch, setCampusStudentSearch] = useState('');
+  const [newStudentName, setNewStudentName] = useState('');
+  const [newStudentEmail, setNewStudentEmail] = useState('');
+  const [newStudentPassword, setNewStudentPassword] = useState('student123');
+  const [newStudentIdNum, setNewStudentIdNum] = useState('');
+  const [newStudentDept, setNewStudentDept] = useState('');
+  const [isAddingStudent, setIsAddingStudent] = useState(false);
+  const [addStudentMsg, setAddStudentMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   // Fetch all classrooms
   const fetchClassrooms = async () => {
@@ -597,6 +612,107 @@ export const ClassroomPage: React.FC = () => {
     }
   };
 
+  // Delete Announcement / Stream Post
+  const handleDeleteAnnouncement = async (announcementId: string) => {
+    if (!selectedClass) return;
+    if (!window.confirm('Are you sure you want to delete this announcement?')) return;
+
+    try {
+      const res = await API.delete(`/classrooms/${selectedClass._id}/announcements/${announcementId}`);
+      if (res.data.success) {
+        const updatedAnnouncements = selectedClass.announcements.filter((a) => a._id !== announcementId);
+        setSelectedClass({
+          ...selectedClass,
+          announcements: updatedAnnouncements,
+        });
+        setClassrooms(
+          classrooms.map((c) =>
+            c._id === selectedClass._id ? { ...c, announcements: updatedAnnouncements } : c
+          )
+        );
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete announcement.');
+    }
+  };
+
+  // Delete Classwork Material / Assignment
+  const handleDeleteClasswork = async (classworkId: string) => {
+    if (!selectedClass) return;
+    if (!window.confirm('Are you sure you want to delete this classwork item and all associated submissions?')) return;
+
+    try {
+      const res = await API.delete(`/classrooms/${selectedClass._id}/classwork/${classworkId}`);
+      if (res.data.success) {
+        const updatedClasswork = selectedClass.classwork.filter((cw) => cw._id !== classworkId);
+        setSelectedClass({
+          ...selectedClass,
+          classwork: updatedClasswork,
+        });
+        setClassrooms(
+          classrooms.map((c) =>
+            c._id === selectedClass._id ? { ...c, classwork: updatedClasswork } : c
+          )
+        );
+      }
+    } catch (err: any) {
+      alert(err.response?.data?.message || 'Failed to delete classwork.');
+    }
+  };
+
+  // Fetch campus student directory for quick class enrollment
+  const fetchCampusStudents = async () => {
+    try {
+      const res = await API.get('/institutions/my-institution/students');
+      if (res.data.success && res.data.students) {
+        setCampusStudents(res.data.students);
+      }
+    } catch (err) {
+      console.error('Fetch campus students error:', err);
+    }
+  };
+
+  // Add / Enroll Student to Selected Class
+  const handleAddStudentToClass = async (payload: any) => {
+    if (!selectedClass) return;
+    try {
+      setIsAddingStudent(true);
+      setAddStudentMsg(null);
+      const res = await API.post(`/classrooms/${selectedClass._id}/students`, payload);
+      if (res.data.success && res.data.classroom) {
+        setSelectedClass(res.data.classroom);
+        setClassrooms(classrooms.map((c) => (c._id === res.data.classroom._id ? res.data.classroom : c)));
+        setAddStudentMsg({ type: 'success', text: res.data.message || 'Student added successfully!' });
+        setNewStudentName('');
+        setNewStudentEmail('');
+        setNewStudentIdNum('');
+        setTimeout(() => {
+          setIsAddStudentModalOpen(false);
+          setAddStudentMsg(null);
+        }, 1200);
+      }
+    } catch (err: any) {
+      setAddStudentMsg({ type: 'error', text: err.response?.data?.message || 'Failed to add student.' });
+    } finally {
+      setIsAddingStudent(false);
+    }
+  };
+
+  // Remove Student from Selected Class
+  const handleRemoveStudentFromClass = async (studentId: string) => {
+    if (!selectedClass) return;
+    if (!window.confirm('Are you sure you want to remove this student from the classroom?')) return;
+    try {
+      const res = await API.delete(`/classrooms/${selectedClass._id}/students/${studentId}`);
+      if (res.data.success && res.data.classroom) {
+        setSelectedClass(res.data.classroom);
+        setClassrooms(classrooms.map((c) => (c._id === res.data.classroom._id ? res.data.classroom : c)));
+      }
+    } catch (err) {
+      console.error('Remove student error:', err);
+    }
+  };
+
   // Topic filter items
   const topics = ['all', ...Array.from(new Set(selectedClass?.classwork?.map((cw) => cw.topic) || []))];
   const filteredClasswork =
@@ -606,10 +722,18 @@ export const ClassroomPage: React.FC = () => {
 
   // Check if current user is teacher/creator of selected class
   const isTeacher =
-    selectedClass &&
-    user &&
-    (selectedClass.creator?._id === user._id ||
-      selectedClass.teachers?.some((t) => t._id === user._id));
+    isInstitutionTeacher ||
+    isInstitutionAdmin ||
+    user?.role === 'educator' ||
+    user?.role === 'teacher' ||
+    user?.role === 'institution_admin' ||
+    user?.role === 'super_admin' ||
+    Boolean(
+      selectedClass &&
+        user &&
+        (selectedClass.creator?._id === user._id ||
+          selectedClass.teachers?.some((t) => t._id === user._id))
+    );
 
   const currentTheme = selectedClass ? THEME_STYLES[selectedClass.bannerTheme] || THEME_STYLES.emerald : THEME_STYLES.emerald;
 
@@ -620,15 +744,37 @@ export const ClassroomPage: React.FC = () => {
         {/* TOP BAR / DIRECTORY OR CLASSROOM HEADER                         */}
         {/* ============================================================== */}
         {!selectedClass ? (
-          <div className="flex flex-wrap items-center justify-between gap-4 pb-4 border-b border-slate-200">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-700 flex items-center justify-center text-white shadow-md">
+          <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-[#E8E1D2]">
+            <div className="flex items-center gap-3.5">
+              <div className="w-12 h-12 rounded-2xl bg-[#111111] text-[#F4C542] flex items-center justify-center shadow-sm">
                 <GraduationCap className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-2xl font-black text-slate-900 tracking-tight">Classroom</h1>
-                <p className="text-xs text-slate-500 font-medium">
-                  Collaborative courses, stream discussions, assignments, and AI-assisted evaluations.
+                <div className="flex items-center gap-2.5">
+                  <h1 className="text-2xl font-black text-[#111111] tracking-tight">
+                    {isInstitutionAdmin
+                      ? 'Campus Classrooms'
+                      : isInstitutionTeacher
+                      ? 'My Teaching Classrooms'
+                      : 'Classroom Hub'}
+                  </h1>
+                  {isInstitutionAdmin && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#FFF8E8] text-[#111111] border border-[#E8E1D2]">
+                      Campus Admin (All Teachers)
+                    </span>
+                  )}
+                  {isInstitutionTeacher && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#FFF8E8] text-[#111111] border border-[#E8E1D2]">
+                      Instructor View (My Classes)
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-[#777777] font-medium mt-0.5">
+                  {isInstitutionAdmin
+                    ? `Campus Administrator Overview: Showing all ${classrooms.length} classrooms created by all faculty teachers in your institution.`
+                    : isInstitutionTeacher
+                    ? `Faculty Instructor Workspace: Showing only classrooms created by you (${classrooms.length} active).`
+                    : 'Collaborative courses, stream discussions, assignments, and AI-assisted evaluations.'}
                 </p>
               </div>
             </div>
@@ -637,16 +783,16 @@ export const ClassroomPage: React.FC = () => {
               {isInstitutionStudent && (
                 <button
                   onClick={() => setIsJoinModalOpen(true)}
-                  className="btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 font-semibold text-slate-700 hover:bg-slate-100"
+                  className="btn-secondary text-xs py-2 px-4 flex items-center gap-1.5 font-semibold"
                 >
-                  <Users className="w-3.5 h-3.5 text-slate-500" />
+                  <Users className="w-3.5 h-3.5 text-[#111111]" />
                   <span>Join Class with Code</span>
                 </button>
               )}
-              {(isInstitutionAdmin || isInstitutionTeacher || isSuperAdmin) && (
+              {(isInstitutionAdmin || isInstitutionTeacher) && (
                 <button
                   onClick={() => setIsCreateModalOpen(true)}
-                  className="btn-primary text-xs py-2 px-4 flex items-center gap-1.5 font-semibold bg-emerald-600 hover:bg-emerald-700 shadow-sm"
+                  className="btn-primary text-xs py-2.5 px-5 flex items-center gap-1.5 font-bold"
                 >
                   <Plus className="w-4 h-4" />
                   <span>Create Class</span>
@@ -655,43 +801,43 @@ export const ClassroomPage: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="flex flex-wrap items-center justify-between gap-3 pb-3 border-b border-slate-200">
+          <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b border-[#E8E1D2]">
             <button
               onClick={handleBackToAllClasses}
-              className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-emerald-700 hover:bg-emerald-50 px-2.5 py-1.5 rounded-lg transition-colors"
+              className="flex items-center gap-1.5 text-xs font-semibold text-[#111111] hover:bg-[#FFF8E8] px-3 py-2 rounded-xl transition-colors border border-[#E8E1D2]"
             >
               <ArrowLeft className="w-4 h-4" />
               <span>All Classes</span>
             </button>
 
             {/* Google Classroom Style Tabs */}
-            <div className="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+            <div className="flex items-center gap-1 bg-[#FFF8E8] p-1.5 rounded-full border border-[#E8E1D2] text-xs font-semibold">
               <button
                 onClick={() => setActiveTab('stream')}
-                className={`px-3.5 py-1.5 rounded-lg transition-all ${
+                className={`px-4 py-1.5 rounded-full transition-all ${
                   activeTab === 'stream'
-                    ? 'bg-white text-emerald-800 font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[#111111] text-[#F4C542] font-bold shadow-xs'
+                    : 'text-[#555555] hover:text-[#111111]'
                 }`}
               >
                 Stream
               </button>
               <button
                 onClick={() => setActiveTab('classwork')}
-                className={`px-3.5 py-1.5 rounded-lg transition-all ${
+                className={`px-4 py-1.5 rounded-full transition-all ${
                   activeTab === 'classwork'
-                    ? 'bg-white text-emerald-800 font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[#111111] text-[#F4C542] font-bold shadow-xs'
+                    : 'text-[#555555] hover:text-[#111111]'
                 }`}
               >
                 Classwork
               </button>
               <button
                 onClick={() => setActiveTab('people')}
-                className={`px-3.5 py-1.5 rounded-lg transition-all ${
+                className={`px-4 py-1.5 rounded-full transition-all ${
                   activeTab === 'people'
-                    ? 'bg-white text-emerald-800 font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[#111111] text-[#F4C542] font-bold shadow-xs'
+                    : 'text-[#555555] hover:text-[#111111]'
                 }`}
               >
                 People ({1 + (selectedClass.students?.length || 0)})
@@ -701,11 +847,11 @@ export const ClassroomPage: React.FC = () => {
             <div className="flex items-center gap-2">
               <button
                 onClick={() => handleCopyCode(selectedClass.code)}
-                className="text-xs py-1.5 px-3 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 flex items-center gap-1.5 font-semibold shadow-xs"
+                className="text-xs py-2 px-3.5 rounded-full border border-[#E8E1D2] bg-white hover:bg-[#FFF8E8] text-[#111111] flex items-center gap-2 font-semibold shadow-2xs transition-colors"
                 title="Copy class invite code"
               >
-                {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
-                <span>{selectedClass.code}</span>
+                {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-[#777777]" />}
+                <span className="font-mono">{selectedClass.code}</span>
               </button>
             </div>
           </div>
@@ -717,19 +863,19 @@ export const ClassroomPage: React.FC = () => {
         {!selectedClass && (
           <div>
             {isLoading ? (
-              <div className="p-16 text-center text-slate-400">
-                <Loader2 className="w-8 h-8 animate-spin text-emerald-600 mx-auto mb-3" />
+              <div className="p-16 text-center text-[#777777]">
+                <Loader2 className="w-8 h-8 animate-spin text-[#111111] mx-auto mb-3" />
                 <p className="text-sm font-medium">Loading your classrooms...</p>
               </div>
             ) : classrooms.length === 0 ? (
-              <div className="bg-white border-2 border-dashed border-slate-300 rounded-2xl p-12 text-center max-w-lg mx-auto mt-6">
-                <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+              <div className="bg-white border border-[#E8E1D2] rounded-3xl p-12 text-center max-w-lg mx-auto mt-6 shadow-sm">
+                <div className="w-16 h-16 rounded-2xl bg-[#FFF8E8] text-[#111111] flex items-center justify-center mx-auto mb-4 border border-[#E8E1D2]">
                   <GraduationCap className="w-8 h-8" />
                 </div>
-                <h3 className="text-lg font-bold text-slate-900 mb-1">
+                <h3 className="text-lg font-bold text-[#111111] mb-1">
                   {isInstitutionAdmin ? 'No Classes Created Yet' : 'No Classes Joined Yet'}
                 </h3>
-                <p className="text-xs text-slate-500 mb-6 leading-relaxed">
+                <p className="text-xs text-[#777777] mb-6 leading-relaxed">
                   {isInstitutionAdmin
                     ? 'Create your first classroom to publish coursework, post stream announcements, and manage campus students.'
                     : 'Ask your instructor for a 6-character Class Code to join an existing class and access coursework.'}
@@ -746,7 +892,7 @@ export const ClassroomPage: React.FC = () => {
                   {isInstitutionAdmin && (
                     <button
                       onClick={() => setIsCreateModalOpen(true)}
-                      className="btn-primary text-xs py-2 px-4 font-semibold bg-emerald-600 hover:bg-emerald-700"
+                      className="btn-primary text-xs py-2.5 px-5 font-bold"
                     >
                       Create New Class
                     </button>
@@ -754,7 +900,7 @@ export const ClassroomPage: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 {classrooms.map((c) => {
                   const theme = THEME_STYLES[c.bannerTheme] || THEME_STYLES.emerald;
                   const isCreator = c.creator?._id === user?._id;
@@ -763,12 +909,12 @@ export const ClassroomPage: React.FC = () => {
                     <div
                       key={c._id}
                       onClick={() => handleSelectClassroom(c)}
-                      className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group hover:-translate-y-0.5"
+                      className="bg-white rounded-3xl border border-[#E8E1D2] overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col justify-between group hover:-translate-y-1"
                     >
                       {/* Class Banner */}
-                      <div className={`p-5 bg-gradient-to-br ${theme.bg} text-white relative`}>
+                      <div className={`p-6 bg-gradient-to-br ${theme.bg} text-white relative`}>
                         <div className="flex items-start justify-between gap-2 mb-2">
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-white/20 backdrop-blur-xs">
+                          <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-white/20 backdrop-blur-xs">
                             {c.subject || 'General'}
                           </span>
                           <button
@@ -776,7 +922,7 @@ export const ClassroomPage: React.FC = () => {
                               e.stopPropagation();
                               handleDeleteOrLeaveClass(c._id, isCreator);
                             }}
-                            className="p-1 rounded-lg text-white/70 hover:text-white hover:bg-white/20 transition-colors"
+                            className="p-1.5 rounded-xl text-white/70 hover:text-white hover:bg-white/20 transition-colors"
                             title={isCreator ? 'Delete Classroom' : 'Leave Classroom'}
                           >
                             <Trash2 className="w-3.5 h-3.5" />
@@ -788,38 +934,38 @@ export const ClassroomPage: React.FC = () => {
                         </h3>
                         {c.section && <p className="text-xs text-white/80 mt-0.5">{c.section}</p>}
 
-                        <p className="text-[11px] text-white/70 mt-3 flex items-center gap-1.5">
+                        <p className="text-[11px] text-white/70 mt-4 flex items-center gap-1.5">
                           <span>Instructor: {c.creator?.name || 'Academic Faculty'}</span>
                         </p>
                       </div>
 
                       {/* Class Card Body */}
-                      <div className="p-4 flex-1 flex flex-col justify-between space-y-4">
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between text-xs text-slate-600">
+                      <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between text-xs text-[#555555]">
                             <span className="flex items-center gap-1.5">
-                              <BookOpen className="w-3.5 h-3.5 text-slate-400" />
+                              <BookOpen className="w-3.5 h-3.5 text-[#777777]" />
                               <span>{c.classwork?.length || 0} Assignments</span>
                             </span>
                             <span className="flex items-center gap-1.5">
-                              <Users className="w-3.5 h-3.5 text-slate-400" />
+                              <Users className="w-3.5 h-3.5 text-[#777777]" />
                               <span>{(c.students?.length || 0) + 1} Members</span>
                             </span>
                           </div>
 
                           {c.announcements && c.announcements.length > 0 && (
-                            <p className="text-[11px] text-slate-500 line-clamp-2 bg-slate-50 p-2 rounded-lg border border-slate-100">
+                            <p className="text-[11px] text-[#555555] line-clamp-2 bg-[#FFF8E8] p-3 rounded-2xl border border-[#E8E1D2]">
                               "{c.announcements[0].content}"
                             </p>
                           )}
                         </div>
 
                         {/* Card Footer */}
-                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                          <span className="text-[11px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                        <div className="pt-3 border-t border-[#E8E1D2] flex items-center justify-between text-xs">
+                          <span className="text-[11px] font-mono font-bold text-[#111111] bg-[#FFF8E8] px-2.5 py-1 rounded-full border border-[#E8E1D2]">
                             Code: {c.code}
                           </span>
-                          <span className="font-semibold text-emerald-700 flex items-center gap-1 text-[11px] group-hover:translate-x-0.5 transition-transform">
+                          <span className="font-bold text-[#111111] flex items-center gap-1 text-xs group-hover:translate-x-0.5 transition-transform">
                             Open Class →
                           </span>
                         </div>
@@ -839,30 +985,30 @@ export const ClassroomPage: React.FC = () => {
           <div className="space-y-6">
             {/* Class Hero Banner */}
             <div
-              className={`p-6 sm:p-8 rounded-2xl bg-gradient-to-r ${currentTheme.bg} text-white shadow-lg relative overflow-hidden`}
+              className={`p-6 sm:p-8 rounded-3xl bg-gradient-to-r ${currentTheme.bg} text-white shadow-md relative overflow-hidden`}
             >
               <div className="max-w-2xl">
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded bg-white/20 backdrop-blur-xs mb-2 inline-block">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-white/20 backdrop-blur-xs mb-2 inline-block">
                   {selectedClass.subject} • {selectedClass.section || 'General Section'}
                 </span>
                 <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-1">
                   {selectedClass.title}
                 </h2>
                 {selectedClass.room && <p className="text-xs text-white/80 mb-2">Room / Lab: {selectedClass.room}</p>}
-                <p className="text-xs text-white/90 flex items-center gap-2 mt-2">
+                <p className="text-xs text-white/90 flex items-center gap-2 mt-3">
                   <span>Instructor: <strong>{selectedClass.creator?.name || 'Faculty'}</strong> ({selectedClass.creator?.email})</span>
                 </p>
               </div>
 
               {/* Class Code Card overlay */}
-              <div className="mt-5 sm:mt-0 sm:absolute sm:right-6 sm:bottom-6 bg-white/10 backdrop-blur-md border border-white/20 p-3 rounded-xl text-xs flex items-center gap-3 shadow-md">
+              <div className="mt-5 sm:mt-0 sm:absolute sm:right-6 sm:bottom-6 bg-white/10 backdrop-blur-md border border-white/20 p-3.5 rounded-2xl text-xs flex items-center gap-3 shadow-sm">
                 <div>
                   <span className="text-[10px] text-white/70 block uppercase font-bold">Class Code</span>
                   <span className="text-sm font-mono font-black text-white">{selectedClass.code}</span>
                 </div>
                 <button
                   onClick={() => handleCopyCode(selectedClass.code)}
-                  className="p-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors"
+                  className="p-2 rounded-xl bg-white/20 hover:bg-white/30 text-white transition-colors"
                   title="Copy Code"
                 >
                   {copiedCode ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
@@ -872,47 +1018,16 @@ export const ClassroomPage: React.FC = () => {
 
             {/* TAB 1: STREAM (Announcements & Discussions) */}
             {activeTab === 'stream' && (
-              <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-                {/* Left Sidebar: Upcoming Work */}
-                <div className="lg:col-span-1 space-y-4">
-                  <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs">
-                    <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Upcoming Due</span>
-                    </h4>
-                    {selectedClass.classwork && selectedClass.classwork.length > 0 ? (
-                      <div className="space-y-2.5">
-                        {selectedClass.classwork.slice(0, 4).map((cw) => (
-                          <div
-                            key={cw._id}
-                            onClick={() => {
-                              setActiveTab('classwork');
-                            }}
-                            className="p-2.5 bg-slate-50 hover:bg-emerald-50/50 rounded-lg border border-slate-100 transition-colors cursor-pointer text-xs"
-                          >
-                            <p className="font-semibold text-slate-800 line-clamp-1">{cw.title}</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5 flex items-center justify-between">
-                              <span>Due: {cw.dueDate ? new Date(cw.dueDate).toLocaleDateString() : 'No date'}</span>
-                              <span className="font-bold text-emerald-700">{cw.points} pts</span>
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-xs text-slate-400">Woohoo, no work due soon!</p>
-                    )}
-                  </div>
-                </div>
-
+              <div className="max-w-4xl mx-auto space-y-6">
                 {/* Main Column: Announcement Composer & Feed */}
-                <div className="lg:col-span-3 space-y-5">
+                <div className="space-y-5">
                   {/* Announcement Composer */}
                   <form
                     onSubmit={handlePostAnnouncement}
-                    className="bg-white border border-slate-200 rounded-xl p-4 shadow-xs space-y-3"
+                    className="bg-white border border-[#E8E1D2] rounded-3xl p-5 shadow-sm space-y-3.5"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-[#111111] text-[#F4C542] font-bold text-xs flex items-center justify-center shrink-0">
                         {user?.name?.charAt(0).toUpperCase() || 'U'}
                       </div>
                       <textarea
@@ -920,34 +1035,34 @@ export const ClassroomPage: React.FC = () => {
                         onChange={(e) => setAnnouncementText(e.target.value)}
                         placeholder="Announce something to your class..."
                         rows={2}
-                        className="w-full text-xs text-slate-800 bg-slate-50 border border-slate-200 rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-emerald-500 resize-none"
+                        className="w-full text-xs text-[#111111] bg-[#FFF8E8] border border-[#E8E1D2] rounded-2xl p-3 focus:outline-none focus:ring-2 focus:ring-[#111111] resize-none"
                       />
                     </div>
 
                     {showAttachmentInput && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 bg-[#FFF8E8] p-3 rounded-2xl border border-[#E8E1D2] text-xs">
                         <input
                           type="text"
                           value={announcementAttachmentTitle}
                           onChange={(e) => setAnnouncementAttachmentTitle(e.target.value)}
                           placeholder="Attachment label / title (e.g. Lecture Slides)"
-                          className="px-2.5 py-1.5 rounded border border-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          className="px-3 py-2 rounded-xl bg-white border border-[#E8E1D2] focus:outline-none focus:ring-1 focus:ring-[#111111]"
                         />
                         <input
                           type="url"
                           value={announcementAttachmentUrl}
                           onChange={(e) => setAnnouncementAttachmentUrl(e.target.value)}
                           placeholder="Link URL (Google Drive, GitHub, Web link)"
-                          className="px-2.5 py-1.5 rounded border border-slate-300 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                          className="px-3 py-2 rounded-xl bg-white border border-[#E8E1D2] focus:outline-none focus:ring-1 focus:ring-[#111111]"
                         />
                       </div>
                     )}
 
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
+                    <div className="flex items-center justify-between pt-3 border-t border-[#E8E1D2] text-xs">
                       <button
                         type="button"
                         onClick={() => setShowAttachmentInput(!showAttachmentInput)}
-                        className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded-md transition-colors flex items-center gap-1 font-medium"
+                        className="p-2 text-[#555555] hover:text-[#111111] hover:bg-[#FFF8E8] rounded-xl transition-colors flex items-center gap-1.5 font-semibold"
                       >
                         <Paperclip className="w-3.5 h-3.5" />
                         <span>{showAttachmentInput ? 'Remove Link' : 'Add Link / Resource'}</span>
@@ -956,7 +1071,7 @@ export const ClassroomPage: React.FC = () => {
                       <button
                         type="submit"
                         disabled={isPostingAnnouncement || !announcementText.trim()}
-                        className="btn-primary text-xs py-1.5 px-4 font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 flex items-center gap-1"
+                        className="btn-primary text-xs py-2 px-5 font-bold disabled:opacity-50 flex items-center gap-1.5"
                       >
                         {isPostingAnnouncement ? (
                           <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -974,19 +1089,19 @@ export const ClassroomPage: React.FC = () => {
                       selectedClass.announcements.map((ann) => (
                         <div
                           key={ann._id}
-                          className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs space-y-3"
+                          className="bg-white border border-[#E8E1D2] rounded-3xl p-6 shadow-sm space-y-3.5"
                         >
                           {/* Post Header */}
                           <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center">
+                            <div className="flex items-center gap-3">
+                              <div className="w-9 h-9 rounded-full bg-[#111111] text-[#F4C542] font-bold text-xs flex items-center justify-center">
                                 {ann.authorName?.charAt(0).toUpperCase() || 'A'}
                               </div>
                               <div>
-                                <span className="font-bold text-xs text-slate-900 block leading-tight">
+                                <span className="font-bold text-xs text-[#111111] block leading-tight">
                                   {ann.authorName}
                                 </span>
-                                <span className="text-[10px] text-slate-400">
+                                <span className="text-[10px] text-[#777777]">
                                   {new Date(ann.createdAt).toLocaleDateString([], {
                                     month: 'short',
                                     day: 'numeric',
@@ -996,49 +1111,45 @@ export const ClassroomPage: React.FC = () => {
                                 </span>
                               </div>
                             </div>
+
+                            {/* Delete Post Button for Teacher / Author */}
+                            {(isTeacher || (ann.authorId && ann.authorId === user?._id) || (ann.authorEmail && ann.authorEmail === user?.email)) && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteAnnouncement(ann._id)}
+                                className="p-1.5 rounded-xl text-[#777777] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                title="Delete Announcement"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </div>
 
-                          {/* Post Content */}
-                          <p className="text-xs text-slate-800 whitespace-pre-wrap leading-relaxed">
-                            {ann.content}
-                          </p>
-
-                          {/* Attachments */}
-                          {ann.attachments && ann.attachments.length > 0 && (
-                            <div className="flex flex-wrap gap-2 pt-1">
-                              {ann.attachments.map((att, idx) => (
-                                <a
-                                  key={idx}
-                                  href={att.url}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-200 text-xs font-semibold text-slate-700 transition-colors"
-                                >
-                                  <LinkIcon className="w-3 h-3 text-emerald-600" />
-                                  <span>{att.title || 'Attached Resource'}</span>
-                                  <ExternalLink className="w-3 h-3 text-slate-400" />
-                                </a>
-                              ))}
-                            </div>
-                          )}
+                          {/* Post Content & Rich AI Render */}
+                          <StructuredPostRenderer
+                            content={ann.content}
+                            authorName={ann.authorName}
+                            attachments={ann.attachments}
+                            createdAt={ann.createdAt}
+                          />
 
                           {/* Class Comments Thread */}
-                          <div className="pt-3 border-t border-slate-100 space-y-2">
+                          <div className="pt-3.5 border-t border-[#E8E1D2] space-y-2.5">
                             {ann.comments && ann.comments.length > 0 && (
                               <div className="space-y-2 mb-3">
                                 {ann.comments.map((cm, cIdx) => (
-                                  <div key={cIdx} className="flex items-start gap-2 text-xs bg-slate-50 p-2.5 rounded-lg">
-                                    <div className="w-5 h-5 rounded-full bg-emerald-200 text-emerald-900 font-bold text-[10px] flex items-center justify-center shrink-0">
+                                  <div key={cIdx} className="flex items-start gap-2.5 text-xs bg-[#FFF8E8] p-3 rounded-2xl border border-[#E8E1D2]">
+                                    <div className="w-6 h-6 rounded-full bg-[#111111] text-[#F4C542] font-bold text-[10px] flex items-center justify-center shrink-0">
                                       {cm.authorName?.charAt(0).toUpperCase() || 'S'}
                                     </div>
                                     <div>
                                       <div className="flex items-center gap-2">
-                                        <strong className="text-slate-900 text-[11px]">{cm.authorName}</strong>
-                                        <span className="text-[10px] text-slate-400">
+                                        <strong className="text-[#111111] text-xs">{cm.authorName}</strong>
+                                        <span className="text-[10px] text-[#777777]">
                                           {new Date(cm.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
                                       </div>
-                                      <p className="text-slate-700 mt-0.5">{cm.text}</p>
+                                      <p className="text-[#333333] mt-0.5">{cm.text}</p>
                                     </div>
                                   </div>
                                 ))}
@@ -1055,17 +1166,17 @@ export const ClassroomPage: React.FC = () => {
                                   if (e.key === 'Enter') handleAddComment(ann._id);
                                 }}
                                 placeholder="Add a class comment or doubt..."
-                                className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                                className="flex-1 text-xs bg-[#FFF8E8] border border-[#E8E1D2] rounded-full px-4 py-2 focus:outline-none focus:ring-1 focus:ring-[#111111]"
                               />
                               <button
                                 type="button"
                                 onClick={() => handleAddComment(ann._id)}
                                 disabled={isPostingComment[ann._id] || !commentInputs[ann._id]?.trim()}
-                                className="p-1.5 text-emerald-700 hover:bg-emerald-50 rounded-lg disabled:opacity-40 transition-colors"
+                                className="p-2 text-[#111111] hover:bg-[#FFF8E8] rounded-full disabled:opacity-40 transition-colors"
                                 title="Send Comment"
                               >
                                 {isPostingComment[ann._id] ? (
-                                  <Loader2 className="w-4 h-4 animate-spin text-emerald-600" />
+                                  <Loader2 className="w-4 h-4 animate-spin text-[#111111]" />
                                 ) : (
                                   <Send className="w-4 h-4" />
                                 )}
@@ -1075,8 +1186,8 @@ export const ClassroomPage: React.FC = () => {
                         </div>
                       ))
                     ) : (
-                      <div className="p-8 text-center text-slate-400 bg-white rounded-xl border border-slate-200">
-                        <MessageSquare className="w-6 h-6 text-slate-300 mx-auto mb-2" />
+                      <div className="p-10 text-center text-[#777777] bg-white rounded-3xl border border-[#E8E1D2]">
+                        <MessageSquare className="w-7 h-7 text-[#777777] mx-auto mb-2" />
                         <p className="text-xs">No announcements yet. Be the first to post!</p>
                       </div>
                     )}
@@ -1087,11 +1198,11 @@ export const ClassroomPage: React.FC = () => {
 
             {/* TAB 2: CLASSWORK (Assignments & Materials) */}
             {activeTab === 'classwork' && (
-              <div className="space-y-5">
+              <div className="max-w-4xl mx-auto space-y-5">
                 {/* Header & Topic Filters */}
-                <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
+                <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-4 sm:p-5 rounded-3xl border border-[#E8E1D2] shadow-sm">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-xs font-bold text-slate-500 flex items-center gap-1">
+                    <span className="text-xs font-bold text-[#555555] flex items-center gap-1 mr-1">
                       <Filter className="w-3.5 h-3.5" />
                       <span>Topics:</span>
                     </span>
@@ -1099,10 +1210,10 @@ export const ClassroomPage: React.FC = () => {
                       <button
                         key={t}
                         onClick={() => setSelectedTopic(t)}
-                        className={`text-xs px-3 py-1 rounded-full font-semibold transition-all ${
+                        className={`text-xs px-3.5 py-1.5 rounded-full font-semibold transition-all ${
                           selectedTopic === t
-                            ? 'bg-emerald-600 text-white shadow-xs'
-                            : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                            ? 'bg-[#111111] text-[#F4C542] shadow-xs'
+                            : 'bg-[#FFF8E8] text-[#555555] hover:text-[#111111] border border-[#E8E1D2]'
                         }`}
                       >
                         {t === 'all' ? 'All Topics' : t}
@@ -1113,7 +1224,7 @@ export const ClassroomPage: React.FC = () => {
                   {isTeacher && (
                     <button
                       onClick={() => setIsClassworkModalOpen(true)}
-                      className="btn-primary text-xs py-2 px-4 font-semibold bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5 shadow-xs"
+                      className="btn-primary text-xs py-2 px-4 font-bold flex items-center gap-1.5"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>Create Assignment / Material</span>
@@ -1122,12 +1233,12 @@ export const ClassroomPage: React.FC = () => {
                 </div>
 
                 {/* Classwork List */}
-                <div className="space-y-3">
+                <div className="space-y-3.5">
                   {filteredClasswork.length === 0 ? (
-                    <div className="p-12 text-center text-slate-400 bg-white rounded-xl border border-slate-200">
-                      <BookOpen className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                      <p className="text-sm font-semibold text-slate-700">No classwork assigned yet</p>
-                      <p className="text-xs text-slate-500 mt-1">
+                    <div className="p-12 text-center text-[#777777] bg-white rounded-3xl border border-[#E8E1D2]">
+                      <BookOpen className="w-8 h-8 text-[#777777] mx-auto mb-2" />
+                      <p className="text-sm font-semibold text-[#111111]">No classwork assigned yet</p>
+                      <p className="text-xs text-[#777777] mt-1">
                         {isTeacher
                           ? 'Click "+ Create Assignment / Material" to post coursework, lab assignments, or learning resources.'
                           : 'Your instructor has not posted any coursework in this topic yet.'}
@@ -1137,63 +1248,85 @@ export const ClassroomPage: React.FC = () => {
                     filteredClasswork.map((cw) => (
                       <div
                         key={cw._id}
-                        className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs hover:border-emerald-300 transition-all space-y-3"
+                        className="bg-white border border-[#E8E1D2] rounded-3xl p-6 shadow-sm hover:border-[#111111] transition-all space-y-3.5"
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <div className="flex items-start gap-3">
-                            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center shrink-0">
+                          <div className="flex items-start gap-3.5">
+                            <div className="w-10 h-10 rounded-2xl bg-[#FFF8E8] text-[#111111] border border-[#E8E1D2] flex items-center justify-center shrink-0">
                               <FileText className="w-5 h-5" />
                             </div>
                             <div>
                               <div className="flex items-center gap-2">
-                                <h4 className="text-sm font-bold text-slate-900">{cw.title}</h4>
-                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600">
+                                <h4 className="text-sm font-bold text-[#111111]">{cw.title}</h4>
+                                <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-[#FFF8E8] text-[#555555] border border-[#E8E1D2]">
                                   {cw.type}
                                 </span>
-                                <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                                <span className="text-[10px] font-semibold px-2.5 py-0.5 rounded-full bg-[#111111] text-[#F4C542]">
                                   {cw.topic}
                                 </span>
                               </div>
-                              <p className="text-xs text-slate-600 mt-1">{cw.description}</p>
+                              {cw.topic === 'AI Generated Study Materials' || cw.title?.startsWith('[AI Resource]') ? (
+                                <div className="mt-2 w-full">
+                                  <StructuredPostRenderer
+                                    content={cw.description || ''}
+                                    attachments={cw.attachments}
+                                    createdAt={cw.createdAt}
+                                  />
+                                </div>
+                              ) : (
+                                <>
+                                  <p className="text-xs text-[#555555] mt-1.5 leading-relaxed">{cw.description}</p>
+                                  {cw.attachments && cw.attachments.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 pt-2">
+                                      {cw.attachments.map((att, aIdx) => (
+                                        <a
+                                          key={aIdx}
+                                          href={resolveMediaUrl(att.url)}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[#E8E1D2] bg-[#FFF8E8] text-xs font-semibold text-[#111111] hover:bg-white transition-colors"
+                                        >
+                                          <LinkIcon className="w-3 h-3 text-[#111111]" />
+                                          <span>{att.title}</span>
+                                          <ExternalLink className="w-3 h-3 text-[#777777]" />
+                                        </a>
+                                      ))}
+                                    </div>
+                                  )}
+                                </>
+                              )}
                             </div>
                           </div>
 
-                          <div className="text-right shrink-0">
-                            <span className="text-xs font-bold text-slate-900 block">{cw.points} points</span>
-                            <span className="text-[10px] text-slate-400 block">
+                          <div className="text-right shrink-0 flex flex-col items-end gap-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-[#111111] block">{cw.points} points</span>
+                              {isTeacher && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteClasswork(cw._id)}
+                                  className="p-1.5 rounded-xl text-[#777777] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  title="Delete Classwork Item"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-[#777777] block">
                               Due: {cw.dueDate ? new Date(cw.dueDate).toLocaleDateString() : 'No Due Date'}
                             </span>
                           </div>
                         </div>
 
-                        {/* Attachments */}
-                        {cw.attachments && cw.attachments.length > 0 && (
-                          <div className="flex flex-wrap gap-2 pt-1">
-                            {cw.attachments.map((att, aIdx) => (
-                              <a
-                                key={aIdx}
-                                href={att.url}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-slate-200 bg-slate-50 text-xs font-semibold text-slate-700 hover:bg-emerald-50"
-                              >
-                                <LinkIcon className="w-3 h-3 text-emerald-600" />
-                                <span>{att.title}</span>
-                                <ExternalLink className="w-3 h-3 text-slate-400" />
-                              </a>
-                            ))}
-                          </div>
-                        )}
-
                         {/* Action Footer */}
-                        <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                          <span className="text-[11px] text-slate-400">
+                        <div className="pt-3.5 border-t border-[#E8E1D2] flex items-center justify-between text-xs">
+                          <span className="text-[11px] text-[#777777]">
                             Posted on {new Date(cw.createdAt).toLocaleDateString()}
                           </span>
 
                           <button
                             onClick={() => handleOpenSubmissions(cw)}
-                            className="btn-primary text-xs py-1.5 px-3.5 bg-emerald-600 hover:bg-emerald-700 font-semibold flex items-center gap-1.5"
+                            className="btn-primary text-xs py-2 px-4 font-bold flex items-center gap-1.5"
                           >
                             <FolderOpen className="w-3.5 h-3.5" />
                             <span>{isTeacher ? 'View All Submissions' : 'Turn In / View Work'}</span>
@@ -1211,52 +1344,67 @@ export const ClassroomPage: React.FC = () => {
               <div className="space-y-6 max-w-4xl mx-auto">
                 {/* Search members */}
                 <div className="relative">
-                  <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+                  <Search className="w-4 h-4 text-[#777777] absolute left-4 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
                     value={peopleSearch}
                     onChange={(e) => setPeopleSearch(e.target.value)}
                     placeholder="Search teachers and classmates..."
-                    className="w-full text-xs pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    className="w-full text-xs pl-11 pr-4 py-3 rounded-full border border-[#E8E1D2] bg-white focus:outline-none focus:ring-2 focus:ring-[#111111]"
                   />
                 </div>
 
                 {/* Teachers Section */}
-                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
-                  <div className="pb-3 border-b border-emerald-500 flex items-center justify-between mb-4">
-                    <h3 className="text-base font-black text-emerald-800">Teachers & Instructors</h3>
-                    <span className="text-xs font-semibold text-slate-400">1 Faculty Lead</span>
+                <div className="bg-white border border-[#E8E1D2] rounded-3xl p-6 shadow-sm">
+                  <div className="pb-3 border-b border-[#E8E1D2] flex items-center justify-between mb-4">
+                    <h3 className="text-base font-black text-[#111111]">Teachers & Instructors</h3>
+                    <span className="text-xs font-semibold text-[#777777]">1 Faculty Lead</span>
                   </div>
 
-                  <div className="flex items-center justify-between p-3 rounded-lg hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center justify-between p-3.5 rounded-2xl hover:bg-[#FFF8E8] transition-colors">
                     <div className="flex items-center gap-3">
-                      <div className="w-9 h-9 rounded-full bg-emerald-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
+                      <div className="w-10 h-10 rounded-full bg-[#111111] text-[#F4C542] font-bold text-xs flex items-center justify-center shadow-xs">
                         {selectedClass.creator?.name?.charAt(0).toUpperCase() || 'T'}
                       </div>
                       <div>
-                        <p className="font-bold text-xs text-slate-900 flex items-center gap-2">
+                        <p className="font-bold text-xs text-[#111111] flex items-center gap-2">
                           <span>{selectedClass.creator?.name || 'Classroom Instructor'}</span>
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                          <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#FFF8E8] text-[#111111] border border-[#E8E1D2]">
                             Host / Creator
                           </span>
                         </p>
-                        <p className="text-[11px] text-slate-500">{selectedClass.creator?.email}</p>
+                        <p className="text-[11px] text-[#777777]">{selectedClass.creator?.email}</p>
                       </div>
                     </div>
                   </div>
                 </div>
 
                 {/* Classmates Section */}
-                <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-xs">
-                  <div className="pb-3 border-b border-slate-200 flex items-center justify-between mb-4">
-                    <h3 className="text-base font-black text-slate-900">Classmates & Enrolled Students</h3>
-                    <span className="text-xs font-semibold text-slate-400">
-                      {selectedClass.students?.length || 0} students
-                    </span>
+                <div className="bg-white border border-[#E8E1D2] rounded-3xl p-6 shadow-sm">
+                  <div className="pb-3 border-b border-[#E8E1D2] flex items-center justify-between mb-4 gap-2 flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base font-black text-[#111111]">Enrolled Students</h3>
+                      <span className="text-xs font-semibold text-[#777777]">
+                        ({selectedClass.students?.length || 0} students)
+                      </span>
+                    </div>
+
+                    {(isTeacher || isInstitutionAdmin || isInstitutionTeacher) && (
+                      <button
+                        onClick={() => {
+                          fetchCampusStudents();
+                          setIsAddStudentModalOpen(true);
+                        }}
+                        className="btn-primary text-xs py-1.5 px-3.5 font-bold flex items-center gap-1.5"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" />
+                        <span>Add Student</span>
+                      </button>
+                    )}
                   </div>
 
                   {selectedClass.students && selectedClass.students.length > 0 ? (
-                    <div className="divide-y divide-slate-100">
+                    <div className="divide-y divide-[#E8E1D2]">
                       {selectedClass.students
                         .filter(
                           (s) =>
@@ -1266,29 +1414,52 @@ export const ClassroomPage: React.FC = () => {
                         .map((st) => (
                           <div
                             key={st._id}
-                            className="flex items-center justify-between py-3 px-2 hover:bg-slate-50 rounded-lg transition-colors"
+                            className="flex items-center justify-between py-3.5 px-2 hover:bg-[#FFF8E8] rounded-2xl transition-colors"
                           >
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-full bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center">
+                              <div className="w-9 h-9 rounded-full bg-[#FFF8E8] text-[#111111] border border-[#E8E1D2] font-bold text-xs flex items-center justify-center">
                                 {st.name?.charAt(0).toUpperCase() || 'S'}
                               </div>
                               <div>
-                                <p className="font-semibold text-xs text-slate-900">{st.name}</p>
-                                <p className="text-[11px] text-slate-400">{st.email}</p>
+                                <p className="font-semibold text-xs text-[#111111]">{st.name}</p>
+                                <p className="text-[11px] text-[#777777]">{st.email}</p>
                               </div>
                             </div>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-600">
-                              Student
-                            </span>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#FFF8E8] text-[#555555] border border-[#E8E1D2]">
+                                Student
+                              </span>
+                              {(isTeacher || isInstitutionAdmin || isInstitutionTeacher) && (
+                                <button
+                                  onClick={() => handleRemoveStudentFromClass(st._id)}
+                                  className="p-1.5 text-[#777777] hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                                  title="Remove from classroom"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ))}
                     </div>
                   ) : (
-                    <div className="p-8 text-center text-slate-400">
-                      <p className="text-xs">No students have joined yet.</p>
-                      <p className="text-[11px] text-slate-500 mt-1">
-                        Share class code <strong>{selectedClass.code}</strong> with your students to invite them.
+                    <div className="p-8 text-center text-[#777777] space-y-3">
+                      <p className="text-xs">No students have joined or been added yet.</p>
+                      <p className="text-[11px] text-[#777777]">
+                        Share class code <strong className="font-mono bg-[#FFF8E8] px-2 py-0.5 rounded border border-[#E8E1D2]">{selectedClass.code}</strong> with your students, or add them directly using the button above.
                       </p>
+                      {(isTeacher || isInstitutionAdmin || isInstitutionTeacher) && (
+                        <button
+                          onClick={() => {
+                            fetchCampusStudents();
+                            setIsAddStudentModalOpen(true);
+                          }}
+                          className="btn-secondary text-xs py-2 px-4 font-semibold mx-auto flex items-center gap-1.5"
+                        >
+                          <UserPlus className="w-3.5 h-3.5 text-[#111111]" />
+                          <span>Add Students to Classroom</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -1302,67 +1473,67 @@ export const ClassroomPage: React.FC = () => {
         {/* ============================================================== */}
         {isCreateModalOpen && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-150">
-              <h3 className="text-lg font-black text-slate-900 mb-1">Create Class</h3>
-              <p className="text-xs text-slate-500 mb-4">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-[#E8E1D2] animate-in fade-in zoom-in duration-150">
+              <h3 className="text-lg font-black text-[#111111] mb-1">Create Class</h3>
+              <p className="text-xs text-[#777777] mb-4">
                 Set up a new classroom space with a unique student enrollment code.
               </p>
 
               {createError && (
-                <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs mb-4">
+                <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-2xl text-xs mb-4">
                   {createError}
                 </div>
               )}
 
               <form onSubmit={handleCreateClassroom} className="space-y-3.5 text-xs">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Class Name (Required)</label>
+                  <label className="font-bold text-[#111111] block mb-1">Class Name (Required)</label>
                   <input
                     type="text"
                     required
                     value={newTitle}
                     onChange={(e) => setNewTitle(e.target.value)}
                     placeholder="e.g. Distributed Systems & Cloud Computing"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="input-clean"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">Section</label>
+                    <label className="font-bold text-[#111111] block mb-1">Section</label>
                     <input
                       type="text"
                       value={newSection}
                       onChange={(e) => setNewSection(e.target.value)}
                       placeholder="e.g. Section A / CS-401"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      className="input-clean"
                     />
                   </div>
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">Subject</label>
+                    <label className="font-bold text-[#111111] block mb-1">Subject</label>
                     <input
                       type="text"
                       value={newSubject}
                       onChange={(e) => setNewSubject(e.target.value)}
                       placeholder="e.g. Computer Science"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      className="input-clean"
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Room / Lab</label>
+                  <label className="font-bold text-[#111111] block mb-1">Room / Lab</label>
                   <input
                     type="text"
                     value={newRoom}
                     onChange={(e) => setNewRoom(e.target.value)}
                     placeholder="e.g. Hall 402 / Virtual Lab"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="input-clean"
                   />
                 </div>
 
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1.5">Theme Color</label>
+                  <label className="font-bold text-[#111111] block mb-1.5">Theme Color</label>
                   <div className="flex items-center gap-2">
                     {(['emerald', 'indigo', 'rose', 'amber', 'cyan', 'purple'] as const).map((th) => (
                       <button
@@ -1370,7 +1541,7 @@ export const ClassroomPage: React.FC = () => {
                         type="button"
                         onClick={() => setNewTheme(th)}
                         className={`w-7 h-7 rounded-full border-2 transition-all ${
-                          newTheme === th ? 'scale-110 border-slate-900 shadow-sm' : 'border-transparent opacity-80'
+                          newTheme === th ? 'scale-110 border-[#111111] shadow-sm' : 'border-transparent opacity-80'
                         } ${
                           th === 'emerald'
                             ? 'bg-emerald-600'
@@ -1389,7 +1560,7 @@ export const ClassroomPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-end gap-2.5 pt-4 border-t border-[#E8E1D2]">
                   <button
                     type="button"
                     onClick={() => setIsCreateModalOpen(false)}
@@ -1400,7 +1571,7 @@ export const ClassroomPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={isSubmittingCreate}
-                    className="btn-primary text-xs py-2 px-5 font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
+                    className="btn-primary text-xs py-2.5 px-5 font-bold disabled:opacity-50"
                   >
                     {isSubmittingCreate ? 'Creating...' : 'Create'}
                   </button>
@@ -1415,33 +1586,33 @@ export const ClassroomPage: React.FC = () => {
         {/* ============================================================== */}
         {isJoinModalOpen && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in duration-150">
-              <h3 className="text-lg font-black text-slate-900 mb-1">Join Class</h3>
-              <p className="text-xs text-slate-500 mb-4">
+            <div className="bg-white rounded-3xl max-w-sm w-full p-6 sm:p-7 shadow-2xl border border-[#E8E1D2] animate-in fade-in zoom-in duration-150">
+              <h3 className="text-lg font-black text-[#111111] mb-1">Join Class</h3>
+              <p className="text-xs text-[#777777] mb-4">
                 Ask your teacher for the class code, then enter it below.
               </p>
 
               {joinError && (
-                <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-lg text-xs mb-4">
+                <div className="p-3 bg-red-50 text-red-700 border border-red-200 rounded-2xl text-xs mb-4">
                   {joinError}
                 </div>
               )}
 
               <form onSubmit={handleJoinClassroom} className="space-y-4 text-xs">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Class Code</label>
+                  <label className="font-bold text-[#111111] block mb-1">Class Code</label>
                   <input
                     type="text"
                     required
                     value={joinCode}
                     onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                     placeholder="e.g. SX-9A4B"
-                    className="w-full px-3 py-2.5 border border-slate-300 rounded-lg font-mono font-bold text-center tracking-widest text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="w-full px-3 py-2.5 border border-[#E8E1D2] rounded-2xl font-mono font-bold text-center tracking-widest text-sm focus:ring-2 focus:ring-[#111111] focus:outline-none bg-[#FFF8E8]"
                   />
-                  <p className="text-[10px] text-slate-400 mt-1">Use a 6-character code with no spaces</p>
+                  <p className="text-[10px] text-[#777777] mt-1">Use a 6-character code with no spaces</p>
                 </div>
 
-                <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#E8E1D2]">
                   <button
                     type="button"
                     onClick={() => setIsJoinModalOpen(false)}
@@ -1452,7 +1623,7 @@ export const ClassroomPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={isSubmittingJoin || !joinCode.trim()}
-                    className="btn-primary text-xs py-2 px-5 font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
+                    className="btn-primary text-xs py-2.5 px-5 font-bold disabled:opacity-50"
                   >
                     {isSubmittingJoin ? 'Joining...' : 'Join Class'}
                   </button>
@@ -1467,37 +1638,37 @@ export const ClassroomPage: React.FC = () => {
         {/* ============================================================== */}
         {isClassworkModalOpen && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-                <h3 className="text-base font-black text-slate-900">Create Classwork Item</h3>
+            <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-7 shadow-2xl border border-[#E8E1D2] max-h-[90vh] overflow-y-auto space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-[#E8E1D2]">
+                <h3 className="text-base font-black text-[#111111]">Create Classwork Item</h3>
                 <button
                   onClick={() => setIsClassworkModalOpen(false)}
-                  className="text-slate-400 hover:text-slate-600 p-1"
+                  className="text-[#777777] hover:text-[#111111] p-1.5 rounded-full hover:bg-[#FFF8E8]"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
               <form onSubmit={handleCreateClasswork} className="space-y-3.5 text-xs">
                 <div>
-                  <label className="font-bold text-slate-700 block mb-1">Title (Required)</label>
+                  <label className="font-bold text-[#111111] block mb-1">Title (Required)</label>
                   <input
                     type="text"
                     required
                     value={cwTitle}
                     onChange={(e) => setCwTitle(e.target.value)}
                     placeholder="e.g. Lab 4: Consensus Algorithms & Raft Implementation"
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                    className="input-clean"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">Type</label>
+                    <label className="font-bold text-[#111111] block mb-1">Type</label>
                     <select
                       value={cwType}
                       onChange={(e: any) => setCwType(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none bg-white"
+                      className="input-clean"
                     >
                       <option value="assignment">Assignment</option>
                       <option value="material">Study Material / Lecture Notes</option>
@@ -1505,49 +1676,49 @@ export const ClassroomPage: React.FC = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">Topic / Unit</label>
+                    <label className="font-bold text-[#111111] block mb-1">Topic / Unit</label>
                     <input
                       type="text"
                       value={cwTopic}
                       onChange={(e) => setCwTopic(e.target.value)}
                       placeholder="e.g. Unit 2: Consensus"
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      className="input-clean"
                     />
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">Points</label>
+                    <label className="font-bold text-[#111111] block mb-1">Points</label>
                     <input
                       type="number"
                       min={0}
                       value={cwPoints}
                       onChange={(e) => setCwPoints(parseInt(e.target.value, 10) || 0)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      className="input-clean"
                     />
                   </div>
                   <div>
-                    <label className="font-bold text-slate-700 block mb-1">Due Date</label>
+                    <label className="font-bold text-[#111111] block mb-1">Due Date</label>
                     <input
                       type="date"
                       value={cwDueDate}
                       onChange={(e) => setCwDueDate(e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                      className="input-clean"
                     />
                   </div>
                 </div>
 
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="font-bold text-slate-700 block">Instructions & Description</label>
+                    <label className="font-bold text-[#111111] block">Instructions & Description</label>
                     <button
                       type="button"
                       onClick={handleGenerateAiGuide}
                       disabled={isGeneratingCwAi || !cwTitle.trim()}
-                      className="text-[11px] text-emerald-700 font-bold hover:underline flex items-center gap-1 disabled:opacity-50"
+                      className="text-[11px] text-[#111111] font-bold hover:underline flex items-center gap-1 disabled:opacity-50"
                     >
-                      <Sparkles className="w-3 h-3" />
+                      <Sparkles className="w-3 h-3 text-[#F4C542]" />
                       <span>{isGeneratingCwAi ? 'Generating Rubric...' : '✨ Generate AI Rubric'}</span>
                     </button>
                   </div>
@@ -1556,15 +1727,15 @@ export const ClassroomPage: React.FC = () => {
                     onChange={(e) => setCwDescription(e.target.value)}
                     placeholder="Provide full problem statement, grading rubric, or submission guidelines..."
                     rows={4}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none resize-none"
+                    className="w-full px-3 py-2 border border-[#E8E1D2] rounded-2xl focus:ring-2 focus:ring-[#111111] focus:outline-none resize-none bg-[#FFF8E8]"
                   />
                 </div>
 
                 {cwAiGuide && (
-                  <div className="p-3.5 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1.5">
+                  <div className="p-4 bg-[#FFF8E8] border border-[#E8E1D2] rounded-2xl space-y-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-[11px] text-emerald-900 flex items-center gap-1">
-                        <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                      <span className="font-bold text-[11px] text-[#111111] flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-[#F4C542]" />
                         <span>AI Generated Rubric & Expectations:</span>
                       </span>
                       <button
@@ -1573,41 +1744,41 @@ export const ClassroomPage: React.FC = () => {
                           setCwDescription((prev) => (prev ? prev + '\n\n' + cwAiGuide : cwAiGuide));
                           setCwAiGuide(null);
                         }}
-                        className="text-[10px] font-bold text-emerald-700 hover:underline"
+                        className="text-[10px] font-bold text-[#111111] hover:underline"
                       >
                         Append to Instructions
                       </button>
                     </div>
-                    <p className="text-[11px] text-emerald-800 whitespace-pre-wrap leading-relaxed">
+                    <p className="text-[11px] text-[#333333] whitespace-pre-wrap leading-relaxed">
                       {cwAiGuide}
                     </p>
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-3 bg-slate-50 p-3 rounded-lg border border-slate-200">
+                <div className="grid grid-cols-2 gap-3 bg-[#FFF8E8] p-3.5 rounded-2xl border border-[#E8E1D2]">
                   <div>
-                    <label className="font-semibold text-slate-600 block mb-1">Attachment Title</label>
+                    <label className="font-semibold text-[#555555] block mb-1">Attachment Title</label>
                     <input
                       type="text"
                       value={cwAttachmentTitle}
                       onChange={(e) => setCwAttachmentTitle(e.target.value)}
                       placeholder="e.g. Starter Code / Starter Repo"
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded"
+                      className="w-full px-2.5 py-1.5 bg-white border border-[#E8E1D2] rounded-xl text-xs"
                     />
                   </div>
                   <div>
-                    <label className="font-semibold text-slate-600 block mb-1">Attachment Link URL</label>
+                    <label className="font-semibold text-[#555555] block mb-1">Attachment Link URL</label>
                     <input
                       type="url"
                       value={cwAttachmentUrl}
                       onChange={(e) => setCwAttachmentUrl(e.target.value)}
                       placeholder="e.g. https://github.com/..."
-                      className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded"
+                      className="w-full px-2.5 py-1.5 bg-white border border-[#E8E1D2] rounded-xl text-xs"
                     />
                   </div>
                 </div>
 
-                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+                <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#E8E1D2]">
                   <button
                     type="button"
                     onClick={() => setIsClassworkModalOpen(false)}
@@ -1618,7 +1789,7 @@ export const ClassroomPage: React.FC = () => {
                   <button
                     type="submit"
                     disabled={isCreatingCw || !cwTitle.trim()}
-                    className="btn-primary text-xs py-2 px-5 font-semibold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
+                    className="btn-primary text-xs py-2.5 px-5 font-bold disabled:opacity-50"
                   >
                     {isCreatingCw ? 'Publishing...' : 'Assign Classwork'}
                   </button>
@@ -1633,26 +1804,26 @@ export const ClassroomPage: React.FC = () => {
         {/* ============================================================== */}
         {activeSubmissionCw && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl border border-slate-200 max-h-[90vh] overflow-y-auto space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div className="bg-white rounded-3xl max-w-2xl w-full p-6 sm:p-7 shadow-2xl border border-[#E8E1D2] max-h-[90vh] overflow-y-auto space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-[#E8E1D2]">
                 <div>
-                  <h3 className="text-base font-black text-slate-900">{activeSubmissionCw.title}</h3>
-                  <span className="text-xs text-slate-500">
+                  <h3 className="text-base font-black text-[#111111]">{activeSubmissionCw.title}</h3>
+                  <span className="text-xs text-[#777777]">
                     Due: {activeSubmissionCw.dueDate ? new Date(activeSubmissionCw.dueDate).toLocaleDateString() : 'No date'} • {activeSubmissionCw.points} points
                   </span>
                 </div>
                 <button
                   onClick={() => setActiveSubmissionCw(null)}
-                  className="text-slate-400 hover:text-slate-600 p-1"
+                  className="text-[#777777] hover:text-[#111111] p-1.5 rounded-full hover:bg-[#FFF8E8]"
                 >
-                  ✕
+                  <X className="w-4 h-4" />
                 </button>
               </div>
 
               {/* Instructions summary */}
               {activeSubmissionCw.description && (
-                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 leading-relaxed whitespace-pre-wrap">
-                  <strong className="text-slate-900 block mb-1">Instructions:</strong>
+                <div className="p-4 bg-[#FFF8E8] border border-[#E8E1D2] rounded-2xl text-xs text-[#333333] leading-relaxed whitespace-pre-wrap">
+                  <strong className="text-[#111111] block mb-1">Instructions:</strong>
                   {activeSubmissionCw.description}
                 </div>
               )}
@@ -1660,23 +1831,23 @@ export const ClassroomPage: React.FC = () => {
               {/* STUDENT VIEW: TURN IN WORK */}
               {!isTeacherOfActiveCw && (
                 <div className="space-y-4 pt-2">
-                  <h4 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+                  <h4 className="text-sm font-bold text-[#111111] flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
                     <span>Your Work</span>
                   </h4>
 
                   {submitMessage && (
-                    <div className="p-3 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold">
+                    <div className="p-3.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-2xl text-xs font-semibold">
                       {submitMessage}
                     </div>
                   )}
 
                   {submissionsList.length > 0 && (
-                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+                    <div className="p-4 bg-[#FFF8E8] border border-[#E8E1D2] rounded-2xl space-y-2.5 text-xs">
                       <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900">Current Submission Status:</span>
+                        <span className="font-bold text-[#111111]">Current Submission Status:</span>
                         <span
-                          className={`font-bold px-2 py-0.5 rounded uppercase text-[10px] ${
+                          className={`font-bold px-2.5 py-0.5 rounded-full uppercase text-[10px] ${
                             submissionsList[0].status === 'graded'
                               ? 'bg-emerald-100 text-emerald-800'
                               : 'bg-blue-100 text-blue-800'
@@ -1685,17 +1856,17 @@ export const ClassroomPage: React.FC = () => {
                           {submissionsList[0].status}
                         </span>
                       </div>
-                      <p className="text-slate-700 bg-white p-2.5 rounded border border-slate-200 font-mono">
+                      <p className="text-[#111111] bg-white p-3 rounded-xl border border-[#E8E1D2] font-mono">
                         {submissionsList[0].content}
                       </p>
 
                       {submissionsList[0].grade !== null && submissionsList[0].grade !== undefined && (
-                        <div className="p-3 bg-emerald-100/60 border border-emerald-300 rounded-lg mt-2">
-                          <span className="font-bold text-emerald-900 block text-xs">
+                        <div className="p-3 bg-white border border-[#E8E1D2] rounded-xl mt-2">
+                          <span className="font-bold text-[#111111] block text-xs">
                             Score: {submissionsList[0].grade} / {activeSubmissionCw.points} points
                           </span>
                           {submissionsList[0].feedback && (
-                            <p className="text-emerald-800 text-[11px] mt-0.5">
+                            <p className="text-[#555555] text-[11px] mt-0.5">
                               Feedback: {submissionsList[0].feedback}
                             </p>
                           )}
@@ -1706,7 +1877,7 @@ export const ClassroomPage: React.FC = () => {
                         <button
                           type="button"
                           onClick={() => handleUnsubmitWork(submissionsList[0]._id)}
-                          className="text-xs text-red-600 font-semibold hover:underline"
+                          className="text-xs text-rose-600 font-semibold hover:underline"
                         >
                           Unsubmit Work
                         </button>
@@ -1715,9 +1886,9 @@ export const ClassroomPage: React.FC = () => {
                   )}
 
                   {submissionsList.length === 0 && (
-                    <form onSubmit={handleSubmitWork} className="space-y-3 text-xs">
+                    <form onSubmit={handleSubmitWork} className="space-y-3.5 text-xs">
                       <div>
-                        <label className="font-bold text-slate-700 block mb-1">
+                        <label className="font-bold text-[#111111] block mb-1">
                           Submission Link or Solution Response
                         </label>
                         <textarea
@@ -1726,14 +1897,14 @@ export const ClassroomPage: React.FC = () => {
                           onChange={(e) => setMySubmissionContent(e.target.value)}
                           placeholder="Paste your GitHub repository link, Google Drive document link, or written answer..."
                           rows={3}
-                          className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:outline-none"
+                          className="w-full px-3 py-2 border border-[#E8E1D2] rounded-2xl focus:ring-2 focus:ring-[#111111] focus:outline-none bg-[#FFF8E8]"
                         />
                       </div>
 
                       <button
                         type="submit"
                         disabled={isSubmittingWork || !mySubmissionContent.trim()}
-                        className="btn-primary w-full text-xs py-2.5 font-bold bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-1.5"
+                        className="btn-primary w-full text-xs py-3 font-bold disabled:opacity-50 flex items-center justify-center gap-1.5"
                       >
                         {isSubmittingWork ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
                         <span>Turn In Assignment</span>
@@ -1747,19 +1918,19 @@ export const ClassroomPage: React.FC = () => {
               {isTeacherOfActiveCw && (
                 <div className="space-y-4 pt-2">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-bold text-slate-900">
+                    <h4 className="text-sm font-bold text-[#111111]">
                       Student Submissions ({submissionsList.length})
                     </h4>
-                    <span className="text-xs text-slate-500">Max Points: {activeSubmissionCw.points}</span>
+                    <span className="text-xs text-[#777777]">Max Points: {activeSubmissionCw.points}</span>
                   </div>
 
                   {isLoadingSubmissions ? (
-                    <div className="p-8 text-center text-slate-400">
-                      <Loader2 className="w-6 h-6 animate-spin text-emerald-600 mx-auto mb-2" />
+                    <div className="p-8 text-center text-[#777777]">
+                      <Loader2 className="w-6 h-6 animate-spin text-[#111111] mx-auto mb-2" />
                       <span className="text-xs">Loading submissions...</span>
                     </div>
                   ) : submissionsList.length === 0 ? (
-                    <div className="p-8 text-center text-slate-400 bg-slate-50 rounded-xl border border-slate-200">
+                    <div className="p-8 text-center text-[#777777] bg-[#FFF8E8] rounded-2xl border border-[#E8E1D2]">
                       <p className="text-xs">No students have turned in work yet.</p>
                     </div>
                   ) : (
@@ -1767,21 +1938,21 @@ export const ClassroomPage: React.FC = () => {
                       {submissionsList.map((sub) => (
                         <div
                           key={sub._id}
-                          className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5 text-xs"
+                          className="p-4 bg-[#FFF8E8] border border-[#E8E1D2] rounded-2xl space-y-2.5 text-xs"
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <span className="font-bold text-slate-900 block">{sub.studentName}</span>
-                              <span className="text-[10px] text-slate-400">
+                              <span className="font-bold text-[#111111] block">{sub.studentName}</span>
+                              <span className="text-[10px] text-[#777777]">
                                 Submitted on {new Date(sub.submittedAt).toLocaleString()}
                               </span>
                             </div>
                             <span
-                              className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${
+                              className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
                                 sub.status === 'graded'
                                   ? 'bg-emerald-100 text-emerald-800'
                                   : sub.status === 'late'
-                                  ? 'bg-red-100 text-red-800'
+                                  ? 'bg-rose-100 text-rose-800'
                                   : 'bg-blue-100 text-blue-800'
                               }`}
                             >
@@ -1789,14 +1960,14 @@ export const ClassroomPage: React.FC = () => {
                             </span>
                           </div>
 
-                          <div className="p-2.5 bg-white rounded border border-slate-200 font-mono text-slate-800 break-all">
+                          <div className="p-3 bg-white rounded-xl border border-[#E8E1D2] font-mono text-[#111111] break-all">
                             {sub.content}
                           </div>
 
                           {/* Grade & Feedback form */}
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2">
                             <div>
-                              <label className="font-bold text-slate-700 block mb-0.5 text-[11px]">
+                              <label className="font-bold text-[#111111] block mb-0.5 text-[11px]">
                                 Grade (Out of {activeSubmissionCw.points})
                               </label>
                               <input
@@ -1811,11 +1982,11 @@ export const ClassroomPage: React.FC = () => {
                                   })
                                 }
                                 placeholder="Marks"
-                                className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs"
+                                className="w-full px-2.5 py-1.5 bg-white border border-[#E8E1D2] rounded-xl text-xs"
                               />
                             </div>
                             <div className="sm:col-span-2">
-                              <label className="font-bold text-slate-700 block mb-0.5 text-[11px]">
+                              <label className="font-bold text-[#111111] block mb-0.5 text-[11px]">
                                 Teacher Feedback
                               </label>
                               <div className="flex gap-1.5">
@@ -1829,13 +2000,13 @@ export const ClassroomPage: React.FC = () => {
                                     })
                                   }
                                   placeholder="Great work, clear analysis..."
-                                  className="flex-1 px-2.5 py-1.5 bg-white border border-slate-300 rounded text-xs"
+                                  className="flex-1 px-2.5 py-1.5 bg-white border border-[#E8E1D2] rounded-xl text-xs"
                                 />
                                 <button
                                   type="button"
                                   onClick={() => handleGradeSubmission(sub._id)}
                                   disabled={isSavingGrade[sub._id]}
-                                  className="btn-primary text-xs py-1.5 px-3 bg-emerald-600 hover:bg-emerald-700 font-semibold shrink-0"
+                                  className="btn-primary text-xs py-1.5 px-3.5 font-bold shrink-0"
                                 >
                                   {isSavingGrade[sub._id] ? 'Saving...' : 'Save Grade'}
                                 </button>
@@ -1847,6 +2018,236 @@ export const ClassroomPage: React.FC = () => {
                     </div>
                   )}
                 </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ============================================================== */}
+        {/* MODAL: ADD / ENROLL STUDENT TO CLASSROOM                       */}
+        {/* ============================================================== */}
+        {isAddStudentModalOpen && selectedClass && (
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-3xl max-w-md w-full p-6 sm:p-7 shadow-2xl border border-[#E8E1D2] animate-in fade-in zoom-in duration-150 space-y-4 text-xs">
+              <div className="flex items-center justify-between pb-2 border-b border-[#E8E1D2]">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-2xl bg-[#FFF8E8] text-[#111111] border border-[#E8E1D2] flex items-center justify-center">
+                    <UserPlus className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-[#111111]">Add Student to Classroom</h3>
+                    <p className="text-[10px] text-[#777777]">{selectedClass.title}</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setIsAddStudentModalOpen(false)}
+                  className="text-[#777777] hover:text-[#111111] p-1.5 rounded-full hover:bg-[#FFF8E8]"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Add Student Message Alert */}
+              {addStudentMsg && (
+                <div
+                  className={`p-3 rounded-2xl text-xs font-semibold ${
+                    addStudentMsg.type === 'success'
+                      ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                      : 'bg-rose-50 text-rose-800 border border-rose-200'
+                  }`}
+                >
+                  {addStudentMsg.text}
+                </div>
+              )}
+
+              {/* Mode Tabs */}
+              <div className="flex items-center gap-1.5 p-1 bg-[#FFF8E8] rounded-full text-xs font-semibold border border-[#E8E1D2]">
+                <button
+                  type="button"
+                  onClick={() => setAddStudentTab('directory')}
+                  className={`flex-1 py-1.5 rounded-full transition-all ${
+                    addStudentTab === 'directory'
+                      ? 'bg-[#111111] text-[#F4C542] shadow-2xs font-bold'
+                      : 'text-[#555555] hover:text-[#111111]'
+                  }`}
+                >
+                  Campus Directory
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAddStudentTab('new')}
+                  className={`flex-1 py-1.5 rounded-full transition-all ${
+                    addStudentTab === 'new'
+                      ? 'bg-[#111111] text-[#F4C542] shadow-2xs font-bold'
+                      : 'text-[#555555] hover:text-[#111111]'
+                  }`}
+                >
+                  + Enroll New Student
+                </button>
+              </div>
+
+              {/* TAB A: SELECT FROM CAMPUS DIRECTORY */}
+              {addStudentTab === 'directory' && (
+                <div className="space-y-3">
+                  <div className="relative">
+                    <Search className="w-3.5 h-3.5 text-[#777777] absolute left-3.5 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={campusStudentSearch}
+                      onChange={(e) => setCampusStudentSearch(e.target.value)}
+                      placeholder="Search campus students by name or email..."
+                      className="w-full text-xs pl-9 pr-3 py-2 bg-[#FFF8E8] border border-[#E8E1D2] rounded-2xl focus:outline-none focus:ring-1 focus:ring-[#111111]"
+                    />
+                  </div>
+
+                  <div className="max-h-56 overflow-y-auto divide-y divide-[#E8E1D2] border border-[#E8E1D2] rounded-2xl">
+                    {campusStudents
+                      .filter(
+                        (cs) =>
+                          cs.name.toLowerCase().includes(campusStudentSearch.toLowerCase()) ||
+                          cs.email.toLowerCase().includes(campusStudentSearch.toLowerCase())
+                      )
+                      .map((student) => {
+                        const isEnrolled = selectedClass.students?.some((s) => s._id === student._id);
+
+                        return (
+                          <div
+                            key={student._id}
+                            className="p-2.5 flex items-center justify-between hover:bg-[#FFF8E8] transition-colors"
+                          >
+                            <div className="flex items-center gap-2.5 overflow-hidden">
+                              <div className="w-7 h-7 rounded-full bg-[#111111] text-[#F4C542] font-bold text-xs flex items-center justify-center shrink-0">
+                                {student.name?.charAt(0).toUpperCase() || 'S'}
+                              </div>
+                              <div className="truncate">
+                                <p className="font-bold text-[#111111] truncate">{student.name}</p>
+                                <p className="text-[10px] text-[#777777] truncate">{student.email}</p>
+                              </div>
+                            </div>
+
+                            {isEnrolled ? (
+                              <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-[#FFF8E8] text-[#777777] border border-[#E8E1D2] shrink-0">
+                                Enrolled
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleAddStudentToClass({ studentId: student._id })}
+                                disabled={isAddingStudent}
+                                className="btn-primary text-xs py-1 px-3 font-bold shrink-0"
+                              >
+                                {isAddingStudent ? 'Adding...' : 'Add to Class'}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                    {campusStudents.length === 0 && (
+                      <div className="p-4 text-center text-[#777777] text-xs">
+                        No students found in campus directory. You can enroll a new student using the tab above.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* TAB B: CREATE AND ENROLL NEW STUDENT */}
+              {addStudentTab === 'new' && (
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    if (!newStudentName.trim() || !newStudentEmail.trim()) return;
+                    handleAddStudentToClass({
+                      name: newStudentName.trim(),
+                      email: newStudentEmail.trim(),
+                      password: newStudentPassword,
+                      studentIdNumber: newStudentIdNum.trim(),
+                      department: newStudentDept.trim() || selectedClass.subject,
+                    });
+                  }}
+                  className="space-y-3"
+                >
+                  <div>
+                    <label className="font-bold text-[#111111] block mb-1">
+                      Student Full Name <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={newStudentName}
+                      onChange={(e) => setNewStudentName(e.target.value)}
+                      placeholder="e.g. Maya Lin"
+                      className="input-clean"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-[#111111] block mb-1">
+                      Student Email Address <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={newStudentEmail}
+                      onChange={(e) => setNewStudentEmail(e.target.value)}
+                      placeholder="e.g. maya.lin@synexora.edu"
+                      className="input-clean"
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="font-bold text-[#111111] block mb-1">Student ID #</label>
+                      <input
+                        type="text"
+                        value={newStudentIdNum}
+                        onChange={(e) => setNewStudentIdNum(e.target.value)}
+                        placeholder="CS-2026-099"
+                        className="input-clean"
+                      />
+                    </div>
+                    <div>
+                      <label className="font-bold text-[#111111] block mb-1">Initial Password</label>
+                      <input
+                        type="text"
+                        required
+                        value={newStudentPassword}
+                        onChange={(e) => setNewStudentPassword(e.target.value)}
+                        className="input-clean font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-[#111111] block mb-1">Department</label>
+                    <input
+                      type="text"
+                      value={newStudentDept}
+                      onChange={(e) => setNewStudentDept(e.target.value)}
+                      placeholder={selectedClass.subject || 'Computer Science'}
+                      className="input-clean"
+                    />
+                  </div>
+
+                  <div className="pt-3 border-t border-[#E8E1D2] flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsAddStudentModalOpen(false)}
+                      className="btn-secondary py-1.5 px-3.5 font-semibold"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isAddingStudent || !newStudentName.trim() || !newStudentEmail.trim()}
+                      className="btn-primary py-2 px-4.5 font-bold flex items-center gap-1.5"
+                    >
+                      {isAddingStudent ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <UserPlus className="w-3.5 h-3.5" />}
+                      <span>{isAddingStudent ? 'Enrolling...' : 'Enroll & Add Student'}</span>
+                    </button>
+                  </div>
+                </form>
               )}
             </div>
           </div>

@@ -358,26 +358,22 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
   // Render Minimized Floating Dock
   if (isMinimized) {
     return (
-      <aside aria-label="Audio Playback Bar" className="fixed bottom-5 right-5 z-50 bg-slate-900/95 text-white backdrop-blur-md rounded-2xl shadow-2xl border border-emerald-500/40 p-3.5 flex items-center gap-3.5 max-w-md animate-fade-in ring-1 ring-emerald-500/30">
-        <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/40 flex items-center justify-center text-emerald-400 shrink-0">
-          <Headphones className="w-5 h-5 animate-pulse" />
+      <aside className="fixed bottom-4 right-4 z-50 bg-[#111111] text-white rounded-full shadow-2xl border border-[#333333] px-4 py-2.5 flex items-center gap-3 animate-slide-up max-w-sm">
+        <div className="w-7 h-7 rounded-full bg-[#F4C542] text-[#111111] flex items-center justify-center shrink-0">
+          <Headphones className="w-3.5 h-3.5" />
         </div>
-
         <div className="truncate flex-1">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-            <p className="text-xs font-bold text-white truncate">{doc.name}</p>
-          </div>
-          <p className="text-[10px] text-emerald-300">
-            {isSummaryMode ? 'AI Summary' : `Paragraph ${currentChunkIndex + 1} of ${totalChunks}`} • {playbackSpeed}x
+          <p className="text-xs font-bold truncate text-[#FFFDF7]">{doc.name}</p>
+          <p className="text-[10px] text-[#F4C542]">
+            {isSummaryMode ? 'AI Summary' : `Paragraph ${currentChunkIndex + 1} of ${totalChunks}`}
           </p>
         </div>
 
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1">
           <button
             onClick={handlePrev}
             disabled={isLoading || isSummaryMode || currentChunkIndex === 0}
-            className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-30"
+            className="p-1.5 rounded-full text-[#999999] hover:text-white hover:bg-white/10 disabled:opacity-30"
           >
             <SkipBack className="w-3.5 h-3.5" />
           </button>
@@ -385,7 +381,7 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
           {isPlaying ? (
             <button
               onClick={handlePause}
-              className="p-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white shadow-xs"
+              className="p-2 rounded-full bg-[#F4C542] text-[#111111] hover:bg-[#E5B635] transition-colors"
             >
               <Pause className="w-3.5 h-3.5" />
             </button>
@@ -393,23 +389,23 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
             <button
               onClick={handleStartPlay}
               disabled={isLoading}
-              className="p-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs disabled:opacity-50"
+              className="p-2 rounded-full bg-[#F4C542] text-[#111111] hover:bg-[#E5B635] transition-colors disabled:opacity-50"
             >
-              <Play className="w-3.5 h-3.5 fill-white" />
+              <Play className="w-3.5 h-3.5 fill-[#111111]" />
             </button>
           )}
 
           <button
             onClick={handleNext}
             disabled={isLoading || isSummaryMode || currentChunkIndex >= totalChunks - 1}
-            className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 disabled:opacity-30"
+            className="p-1.5 rounded-full text-[#999999] hover:text-white hover:bg-white/10 disabled:opacity-30"
           >
             <SkipForward className="w-3.5 h-3.5" />
           </button>
 
           <button
             onClick={() => setIsMinimized(false)}
-            className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-white/10"
+            className="p-1.5 rounded-full text-[#999999] hover:text-white hover:bg-white/10"
             title="Expand Full Reader"
           >
             <Maximize2 className="w-3.5 h-3.5" />
@@ -420,7 +416,7 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
               handleStop();
               onClose();
             }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-white/10"
+            className="p-1.5 rounded-full text-[#999999] hover:text-red-400 hover:bg-white/10"
             title="Close Player"
           >
             <X className="w-3.5 h-3.5" />
@@ -432,20 +428,20 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
 
   // Render Full Audiobook & Document Modal
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-3 sm:p-6 animate-fade-in">
-      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-3 sm:p-6 animate-fade-in">
+      <div className="bg-[#FFFDF7] rounded-3xl shadow-2xl border border-[#E8E1D2] w-full max-w-3xl max-h-[92vh] flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-slate-200 bg-gradient-to-r from-emerald-900 via-teal-900 to-slate-900 text-white flex items-center justify-between shrink-0">
+        <div className="px-6 py-4 border-b border-[#E8E1D2] bg-[#111111] text-white flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400">
+            <div className="w-10 h-10 rounded-2xl bg-[#222222] border border-[#333333] flex items-center justify-center text-[#F4C542]">
               <Headphones className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+                <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#222222] text-[#F4C542] border border-[#333333]">
                   {doc.fileType === 'youtube' ? 'YouTube Audio Reader' : 'Document & Text Audiobook'}
                 </span>
-                <span className="text-xs text-slate-300">{doc.category}</span>
+                <span className="text-xs text-[#999999]">{doc.category}</span>
               </div>
               <h2 className="text-sm font-bold text-white truncate max-w-md sm:max-w-lg mt-0.5">
                 {doc.name}
@@ -456,7 +452,7 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setIsMinimized(true)}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-full text-[#999999] hover:text-white hover:bg-white/10 transition-colors"
               title="Minimize to floating bottom player"
             >
               <Minimize2 className="w-4 h-4" />
@@ -466,7 +462,7 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
                 handleStop();
                 onClose();
               }}
-              className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+              className="p-1.5 rounded-full text-[#999999] hover:text-white hover:bg-white/10 transition-colors"
               title="Close reader"
             >
               <X className="w-5 h-5" />
@@ -475,13 +471,13 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
         </div>
 
         {/* Dynamic Equalizer / Player Controls Bar */}
-        <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <div className="px-6 py-3.5 bg-[#FFF8E8] border-b border-[#E8E1D2] flex flex-wrap items-center justify-between gap-3 shrink-0">
           {/* Playback main controls */}
           <div className="flex items-center gap-2">
             <button
               onClick={handlePrev}
               disabled={isLoading || isSummaryMode || currentChunkIndex === 0}
-              className="p-2 rounded-lg text-slate-600 hover:bg-slate-200 disabled:opacity-30 transition-colors"
+              className="p-2 rounded-full text-[#555555] hover:bg-[#E8E1D2] disabled:opacity-30 transition-colors"
               title="Previous Paragraph"
             >
               <SkipBack className="w-4 h-4" />
@@ -490,18 +486,18 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
             {isPlaying ? (
               <button
                 onClick={handlePause}
-                className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-600 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-colors"
+                className="px-4 py-2 rounded-full bg-[#111111] hover:bg-[#222222] text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-colors"
               >
-                <Pause className="w-4 h-4" />
+                <Pause className="w-4 h-4 text-[#F4C542]" />
                 <span>Pause</span>
               </button>
             ) : (
               <button
                 onClick={handleStartPlay}
                 disabled={isLoading}
-                className="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs flex items-center gap-1.5 shadow-sm transition-colors disabled:opacity-50"
+                className="btn-primary text-xs py-2 px-4 gap-1.5 disabled:opacity-50"
               >
-                <Play className="w-4 h-4 fill-white" />
+                <Play className="w-4 h-4 fill-[#111111]" />
                 <span>{isPaused ? 'Resume' : 'Listen Now'}</span>
               </button>
             )}
@@ -509,7 +505,7 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
             <button
               onClick={handleStop}
               disabled={!isPlaying && !isPaused}
-              className="p-2 rounded-lg text-slate-600 hover:bg-slate-200 disabled:opacity-30 transition-colors"
+              className="p-2 rounded-full text-[#555555] hover:bg-[#E8E1D2] disabled:opacity-30 transition-colors"
               title="Stop Playback"
             >
               <Square className="w-4 h-4" />
@@ -518,7 +514,7 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
             <button
               onClick={handleNext}
               disabled={isLoading || isSummaryMode || currentChunkIndex >= totalChunks - 1}
-              className="p-2 rounded-lg text-slate-600 hover:bg-slate-200 disabled:opacity-30 transition-colors"
+              className="p-2 rounded-full text-[#555555] hover:bg-[#E8E1D2] disabled:opacity-30 transition-colors"
               title="Next Paragraph"
             >
               <SkipForward className="w-4 h-4" />
@@ -527,29 +523,29 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
 
           {/* Animated waveform when playing */}
           {isPlaying && (
-            <div className="hidden sm:flex items-center gap-1 h-5 px-3 py-1 bg-emerald-50 border border-emerald-200 rounded-full">
-              <span className="w-1 h-3 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="w-1 h-4 bg-emerald-600 rounded-full animate-pulse delay-75" />
-              <span className="w-1 h-2 bg-emerald-400 rounded-full animate-pulse delay-150" />
-              <span className="w-1 h-5 bg-emerald-700 rounded-full animate-pulse delay-100" />
-              <span className="w-1 h-3 bg-emerald-500 rounded-full animate-pulse delay-200" />
-              <span className="text-[11px] font-semibold text-emerald-700 ml-1">Narrating Audio</span>
+            <div className="hidden sm:flex items-center gap-1 h-6 px-3.5 py-1 bg-[#FFFDF7] border border-[#E8E1D2] rounded-full">
+              <span className="w-1 h-3 bg-[#F4C542] rounded-full animate-pulse" />
+              <span className="w-1 h-4 bg-[#111111] rounded-full animate-pulse delay-75" />
+              <span className="w-1 h-2 bg-[#F4C542] rounded-full animate-pulse delay-150" />
+              <span className="w-1 h-5 bg-[#111111] rounded-full animate-pulse delay-100" />
+              <span className="w-1 h-3 bg-[#F4C542] rounded-full animate-pulse delay-200" />
+              <span className="text-[11px] font-bold text-[#111111] ml-1.5">Narrating Audio</span>
             </div>
           )}
 
           {/* Speed & Voice & Summary Actions */}
           <div className="flex items-center gap-2 ml-auto flex-wrap">
             {/* Speed Selector */}
-            <div className="flex items-center gap-1 bg-white border border-slate-200 rounded-lg p-0.5 text-xs">
-              <Gauge className="w-3.5 h-3.5 text-slate-400 ml-1.5" />
+            <div className="flex items-center gap-1 bg-white border border-[#E8E1D2] rounded-full p-1 text-xs">
+              <Gauge className="w-3.5 h-3.5 text-[#999999] ml-1.5" />
               {[0.75, 1.0, 1.25, 1.5, 2.0].map((rate) => (
                 <button
                   key={rate}
                   onClick={() => handleSpeedChange(rate)}
-                  className={`px-2 py-0.5 rounded text-[11px] font-medium transition-colors ${
+                  className={`px-2 py-0.5 rounded-full text-[11px] font-semibold transition-colors ${
                     playbackSpeed === rate
-                      ? 'bg-emerald-600 text-white shadow-xs'
-                      : 'text-slate-600 hover:bg-slate-100'
+                      ? 'bg-[#111111] text-white shadow-xs'
+                      : 'text-[#555555] hover:bg-[#FFF8E8]'
                   }`}
                 >
                   {rate}x
@@ -559,8 +555,8 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
 
             {/* Voice picker if multiple voices exist */}
             {voices.length > 1 && (
-              <div className="hidden md:flex items-center gap-1 bg-white border border-slate-200 rounded-lg px-2 py-1 text-xs text-slate-600">
-                <User className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <div className="hidden md:flex items-center gap-1 bg-white border border-[#E8E1D2] rounded-full px-3 py-1 text-xs text-[#555555]">
+                <User className="w-3.5 h-3.5 text-[#999999] shrink-0" />
                 <select
                   value={selectedVoiceURI}
                   onChange={(e) => {
@@ -573,7 +569,7 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
                       }
                     }
                   }}
-                  className="bg-transparent text-[11px] text-slate-700 outline-none max-w-[110px] truncate"
+                  className="bg-transparent text-[11px] text-[#111111] font-medium outline-none max-w-[110px] truncate"
                 >
                   {voices.map((v) => (
                     <option key={v.voiceURI} value={v.voiceURI}>
@@ -600,17 +596,15 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
                 }
               }}
               disabled={isLoading || isGeneratingSummary}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-colors ${
-                isSummaryMode
-                  ? 'bg-purple-100 text-purple-800 border border-purple-300'
-                  : 'bg-white text-purple-700 border border-purple-200 hover:bg-purple-50'
+              className={`btn-secondary text-xs py-1.5 px-3 gap-1.5 ${
+                isSummaryMode ? 'bg-[#111111] text-[#F4C542] border-[#111111]' : ''
               }`}
               title="Generate and listen to concise AI summary"
             >
               {isGeneratingSummary ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-600" />
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-[#111111]" />
               ) : (
-                <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                <Sparkles className="w-3.5 h-3.5 text-[#111111]" />
               )}
               <span>{isSummaryMode ? 'Full Text Mode' : 'AI Summary Audio'}</span>
             </button>
@@ -619,17 +613,17 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
 
         {/* Progress status */}
         {!isSummaryMode && totalChunks > 0 && (
-          <div className="px-5 py-2 bg-slate-100/70 border-b border-slate-200 text-[11px] text-slate-600 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold text-slate-800">
+          <div className="px-6 py-2.5 bg-[#FFF8E8]/50 border-b border-[#E8E1D2] text-[11px] text-[#555555] flex items-center justify-between">
+            <div className="flex items-center gap-2 font-medium">
+              <span className="font-bold text-[#111111]">
                 Paragraph {currentChunkIndex + 1} of {totalChunks}
               </span>
               <span>•</span>
               <span>{progressPercent}% completed</span>
             </div>
-            <div className="w-32 bg-slate-200 h-1.5 rounded-full overflow-hidden">
+            <div className="w-32 bg-[#E8E1D2] h-2 rounded-full overflow-hidden">
               <div
-                className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+                className="bg-[#F4C542] h-full rounded-full transition-all duration-300"
                 style={{ width: `${progressPercent}%` }}
               />
             </div>
@@ -638,30 +632,30 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
 
         {/* Error Banner */}
         {error && (
-          <div className="m-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-xs">
+          <div className="m-4 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs">
             {error}
           </div>
         )}
 
         {/* Interactive Text / Reading View */}
-        <div className="p-5 overflow-y-auto flex-1 space-y-3 bg-slate-50/40">
+        <div className="p-6 overflow-y-auto flex-1 space-y-3 bg-[#FFFDF7]">
           {isLoading ? (
-            <div className="py-16 text-center text-slate-400">
-              <Loader2 className="w-6 h-6 animate-spin text-emerald-600 mx-auto mb-2" />
+            <div className="py-16 text-center text-[#777777]">
+              <Loader2 className="w-6 h-6 animate-spin text-[#111111] mx-auto mb-2" />
               <p className="text-xs">Preparing document audio chunks and transcript...</p>
             </div>
           ) : isSummaryMode ? (
-            <div className="p-4 bg-white border border-purple-200 rounded-xl shadow-xs">
-              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-purple-100 text-purple-800 font-bold text-xs">
-                <Sparkles className="w-4 h-4 text-purple-600" />
+            <div className="p-5 bg-white border border-[#E8E1D2] rounded-3xl shadow-xs">
+              <div className="flex items-center gap-2 mb-2 pb-2 border-b border-[#F0EBE0] text-[#111111] font-bold text-xs">
+                <Sparkles className="w-4 h-4 text-[#F4C542]" />
                 <span>AI Spoken Executive Summary</span>
               </div>
-              <p className="text-xs text-slate-800 leading-relaxed whitespace-pre-wrap">
+              <p className="text-xs text-[#333333] leading-relaxed whitespace-pre-wrap">
                 {summaryText}
               </p>
             </div>
           ) : chunks.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-xs">
+            <div className="py-12 text-center text-[#777777] text-xs">
               No extracted text found in this document.
             </div>
           ) : (
@@ -672,29 +666,29 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
                   key={chunk.chunkIndex || idx}
                   ref={(el) => (chunkRefs.current[idx] = el)}
                   onClick={() => playChunk(idx)}
-                  className={`p-3.5 rounded-xl border text-xs leading-relaxed cursor-pointer transition-all ${
+                  className={`p-4 rounded-2xl border text-xs leading-relaxed cursor-pointer transition-all ${
                     isActive
-                      ? 'bg-emerald-50 border-emerald-400 text-emerald-950 shadow-sm ring-1 ring-emerald-400'
-                      : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                      ? 'bg-[#FFF8E8] border-[#F4C542] text-[#111111] shadow-xs ring-1 ring-[#F4C542]'
+                      : 'bg-white border-[#E8E1D2] text-[#444444] hover:bg-[#FFFDF7] hover:border-[#D8D0BE]'
                   }`}
                 >
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center justify-between mb-2">
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full ${
                         isActive
-                          ? 'bg-emerald-200/70 text-emerald-900'
-                          : 'bg-slate-100 text-slate-500'
+                          ? 'bg-[#111111] text-[#F4C542]'
+                          : 'bg-[#FFF8E8] text-[#777777] border border-[#E8E1D2]'
                       }`}
                     >
                       Section {idx + 1}
                     </span>
                     {isActive ? (
-                      <span className="text-[10px] font-semibold text-emerald-700 flex items-center gap-1">
-                        <Volume2 className="w-3 h-3 animate-pulse" />
+                      <span className="text-[10px] font-bold text-[#111111] flex items-center gap-1">
+                        <Volume2 className="w-3.5 h-3.5 text-[#F4C542] animate-pulse" />
                         <span>Now Playing</span>
                       </span>
                     ) : (
-                      <span className="text-[10px] text-slate-400 hover:text-emerald-600">
+                      <span className="text-[10px] text-[#888888] hover:text-[#111111]">
                         Click to listen here
                       </span>
                     )}
@@ -707,14 +701,14 @@ export const DocumentAudioModal: React.FC<DocumentAudioModalProps> = ({ doc, onC
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t border-slate-200 bg-white flex items-center justify-between text-xs shrink-0">
+        <div className="px-6 py-3.5 border-t border-[#E8E1D2] bg-white flex items-center justify-between text-xs shrink-0">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsMinimized(true)}
-              className="text-xs text-emerald-700 hover:underline font-semibold flex items-center gap-1"
+              className="text-xs text-[#111111] hover:underline font-bold flex items-center gap-1.5"
             >
-              <Minimize2 className="w-3.5 h-3.5" />
-              <span>Minimize to Background Player</span>
+              <Minimize2 className="w-3.5 h-3.5 text-[#F4C542]" />
+              <span>Minimize to Floating Player</span>
             </button>
           </div>
           <button

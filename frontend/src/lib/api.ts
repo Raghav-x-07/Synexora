@@ -35,4 +35,20 @@ API.interceptors.response.use(
   }
 );
 
+// Helper to resolve media URLs (videos, audio, uploaded files)
+export const resolveMediaUrl = (rawUrl?: string): string => {
+  if (!rawUrl) return '';
+  if (
+    rawUrl.startsWith('http://') ||
+    rawUrl.startsWith('https://') ||
+    rawUrl.startsWith('blob:') ||
+    rawUrl.startsWith('data:')
+  ) {
+    return rawUrl;
+  }
+  const backendBase = (import.meta as any).env?.VITE_BACKEND_URL || 'http://localhost:5000';
+  const cleanPath = rawUrl.startsWith('/') ? rawUrl : `/${rawUrl}`;
+  return `${backendBase}${cleanPath}`;
+};
+
 export default API;

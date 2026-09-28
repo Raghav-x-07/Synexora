@@ -217,6 +217,14 @@ async function seedData() {
   ];
 
   console.log('Seeding Demo Users and associated realistic records...');
+  // Clean up old demo classrooms
+  await Classroom.deleteMany({
+    $or: [
+      { institutionId: inst._id },
+      { institutionCode: 'INST-DEMO' },
+      { code: { $in: ['CS301-ML', 'CS204-DS', 'DS210-BD', 'EE412-RO'] } },
+    ],
+  });
 
   for (const userData of demoUsers) {
     let user = await User.findOne({ email: userData.email });
@@ -226,7 +234,9 @@ async function seedData() {
       console.log(`   Created User: ${user.name} (${user.email}) - ${user.role}`);
     } else {
       user.name = userData.name;
+      user.password = userData.password;
       user.role = userData.role;
+      user.accountStatus = 'active';
       user.department = userData.department;
       user.major = userData.major;
       user.university = userData.university;
@@ -344,76 +354,8 @@ async function seedData() {
         },
       ]);
 
-      // Seed Classrooms created by Institution Admin
-      await Classroom.deleteMany({ creator: user._id });
-      await Classroom.create({
-        title: 'CS301: Deep Learning & Neural Architectures',
-        section: 'Section A1',
-        subject: 'Computer Science & AI',
-        room: 'Turing Hall 102',
-        code: 'CS301-ML',
-        bannerTheme: 'emerald',
-        creator: user._id,
-        teachers: [user._id],
-        announcements: [
-          {
-            authorId: user._id,
-            authorName: user.name,
-            authorEmail: user.email,
-            content: 'Welcome to CS301! Lecture slides and initial problem set on Backpropagation calculus are now live.',
-          },
-        ],
-        classwork: [
-          {
-            title: 'Assignment 1: Neural Network Backprop from Scratch in Python',
-            description: 'Implement forward and backward pass for a 3-layer MLP without high-level autograd frameworks.',
-            points: 100,
-            topic: 'Neural Networks',
-            dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-            creatorId: user._id,
-          },
-        ],
-      });
-
-      await Classroom.create({
-        title: 'CS204: Data Structures & Algorithmic Analysis',
-        section: 'Section B2',
-        subject: 'Computer Science',
-        room: 'Lovelace Hall 204',
-        code: 'CS204-DS',
-        bannerTheme: 'indigo',
-        creator: user._id,
-        teachers: [user._id],
-        announcements: [
-          {
-            authorId: user._id,
-            authorName: user.name,
-            authorEmail: user.email,
-            content: 'Reminder: Graph traversal algorithms (BFS, DFS, Dijkstra) will be tested in our lab milestone next week.',
-          },
-        ],
-      });
-
-      await Classroom.create({
-        title: 'DS210: Big Data Analytics & Vector Embeddings',
-        section: 'Section C1',
-        subject: 'Data Science & Analytics',
-        room: 'Shannon Complex 305',
-        code: 'DS210-BD',
-        bannerTheme: 'purple',
-        creator: user._id,
-        teachers: [user._id],
-        announcements: [
-          {
-            authorId: user._id,
-            authorName: user.name,
-            authorEmail: user.email,
-            content: 'Hands-on lab on Approximate Nearest Neighbor Search using HNSW and Faiss.',
-          },
-        ],
-      });
-
-      // Seed Assessments
+      // Seed Assessments for Admin
+      await Assessment.deleteMany({ user: user._id });
       await Assessment.create([
         {
           user: user._id,
@@ -440,16 +382,108 @@ async function seedData() {
           status: 'upcoming',
         },
       ]);
-      console.log('   Created Classrooms and Assessments for Campus Admin');
+      console.log('   Created Assessments for Campus Admin');
     }
 
     if (user.role === 'institution_teacher') {
-      const classrooms = await Classroom.find({});
-      for (const cl of classrooms) {
-        if (!cl.teachers.includes(user._id)) {
-          cl.teachers.push(user._id);
-          await cl.save();
-        }
+      // Clear previous classrooms created by this teacher
+      await Classroom.deleteMany({ creator: user._id });
+
+      // Create distinctive classroom created by THIS teacher
+      if (user.email === 'teacher@synexora.edu') {
+        await Classroom.create({
+          title: 'CS301: Deep Learning & Neural Architectures',
+          section: 'Section A1',
+          subject: 'Computer Science & AI',
+          room: 'Turing Hall 102',
+          code: 'CS301-ML',
+          bannerTheme: 'emerald',
+          institutionId: inst._id,
+          institutionCode: 'INST-DEMO',
+          creator: user._id,
+          teachers: [user._id],
+          announcements: [
+            {
+              authorId: user._id,
+              authorName: user.name,
+              authorEmail: user.email,
+              content: 'Welcome to CS301! Lecture slides and initial problem set on Backpropagation calculus are now live.',
+            },
+          ],
+          classwork: [
+            {
+              title: 'Assignment 1: Neural Network Backprop from Scratch in Python',
+              description: 'Implement forward and backward pass for a 3-layer MLP without high-level autograd frameworks.',
+              points: 100,
+              topic: 'Neural Networks',
+              dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+              creatorId: user._id,
+            },
+          ],
+        });
+      } else if (user.email === 'sarah.mitchell@synexora.edu') {
+        await Classroom.create({
+          title: 'CS204: Data Structures & Algorithmic Analysis',
+          section: 'Section B2',
+          subject: 'Computer Science',
+          room: 'Lovelace Hall 204',
+          code: 'CS204-DS',
+          bannerTheme: 'indigo',
+          institutionId: inst._id,
+          institutionCode: 'INST-DEMO',
+          creator: user._id,
+          teachers: [user._id],
+          announcements: [
+            {
+              authorId: user._id,
+              authorName: user.name,
+              authorEmail: user.email,
+              content: 'Reminder: Graph traversal algorithms (BFS, DFS, Dijkstra) will be tested in our lab milestone next week.',
+            },
+          ],
+        });
+      } else if (user.email === 'elena.rostova@synexora.edu') {
+        await Classroom.create({
+          title: 'DS210: Big Data Analytics & Vector Embeddings',
+          section: 'Section C1',
+          subject: 'Data Science & Analytics',
+          room: 'Shannon Complex 305',
+          code: 'DS210-BD',
+          bannerTheme: 'purple',
+          institutionId: inst._id,
+          institutionCode: 'INST-DEMO',
+          creator: user._id,
+          teachers: [user._id],
+          announcements: [
+            {
+              authorId: user._id,
+              authorName: user.name,
+              authorEmail: user.email,
+              content: 'Hands-on lab on Approximate Nearest Neighbor Search using HNSW and Faiss.',
+            },
+          ],
+        });
+      } else if (user.email === 'vikram.anand@synexora.edu') {
+        await Classroom.create({
+          title: 'EE412: Autonomous Robotics & Control Systems',
+          section: 'Section R1',
+          subject: 'Robotics Engineering',
+          room: 'Tesla Lab 412',
+          code: 'EE412-RO',
+          bannerTheme: 'amber',
+          institutionId: inst._id,
+          institutionCode: 'INST-DEMO',
+          creator: user._id,
+          teachers: [user._id],
+          announcements: [
+            {
+              authorId: user._id,
+              authorName: user.name,
+              authorEmail: user.email,
+              content: 'PID controller calibration lab notes and ROS2 workspace templates uploaded.',
+            },
+          ],
+        });
       }
 
       await Task.create([

@@ -111,135 +111,132 @@ export const NotesPage: React.FC = () => {
 
   return (
     <AppLayout>
-      <div className="space-y-4">
+      <div className="space-y-6 animate-fade-in">
         {/* Top Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+        <div className="bg-[#FFFFFF] border border-[#E8E1D2] rounded-3xl p-6 shadow-sm flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <StickyNote className="w-5 h-5 text-green-600" />
-              <span>Study Notes</span>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-[#111111] flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-[#111111] text-[#F4C542] flex items-center justify-center font-bold">
+                <StickyNote className="w-4 h-4" />
+              </div>
+              <span>Smart Study Notes</span>
             </h1>
-            <p className="text-xs text-slate-500">Capture lecture summaries and study outlines saved to MongoDB</p>
+            <p className="text-xs text-[#777777] mt-1">Capture lecture summaries and structured outlines saved to your workspace.</p>
           </div>
-          <button onClick={handleCreateNote} className="btn-primary gap-1.5 text-xs">
+          <button onClick={handleCreateNote} className="btn-primary gap-1.5 text-xs font-bold shadow-sm">
             <Plus className="w-4 h-4" />
             <span>New Note</span>
           </button>
         </div>
 
         {/* Master-Detail Note View */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 min-h-[500px]">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 min-h-[550px]">
           {/* Notes List Column */}
-          <div className="bg-white border border-slate-200 rounded-lg p-3 flex flex-col justify-between">
-            <div className="space-y-2">
-              <div className="relative mb-3">
-                <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <div className="bg-[#FFFFFF] border border-[#E8E1D2] rounded-3xl p-4 flex flex-col justify-between shadow-xs">
+            <div className="space-y-3">
+              <div className="relative">
+                <Search className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#777777]" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Filter notes..."
-                  className="input-clean text-xs pl-8 py-1.5"
+                  placeholder="Search notes..."
+                  className="input-clean pl-9 py-2 text-xs font-medium"
                 />
               </div>
 
-              <div className="space-y-1 overflow-y-auto max-h-[420px]">
+              <div className="space-y-2 overflow-y-auto max-h-[460px]">
                 {isLoading ? (
-                  <p className="text-xs text-slate-400 p-3 text-center flex items-center justify-center gap-2">
-                    <Loader2 className="w-3.5 h-3.5 animate-spin text-green-600" />
+                  <div className="p-6 text-center text-[#777777] text-xs flex items-center justify-center gap-2">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#111111]" />
                     <span>Loading notes...</span>
-                  </p>
+                  </div>
                 ) : filteredNotes.length === 0 ? (
-                  <p className="text-xs text-slate-400 p-3 text-center">No notes found. Click "New Note" to create one.</p>
+                  <div className="p-6 text-center text-[#777777] text-xs">
+                    No notes found. Create your first note above!
+                  </div>
                 ) : (
-                  filteredNotes.map((note) => (
-                    <div
-                      key={note._id}
-                      onClick={() => setSelectedNoteId(note._id)}
-                      className={`p-2.5 rounded-md cursor-pointer transition-colors border ${
-                        note._id === selectedNoteId
-                          ? 'bg-green-50/70 border-green-300'
-                          : 'border-transparent hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-semibold text-slate-900 truncate">
-                          {note.title}
-                        </span>
-                        <span className="text-[10px] font-medium bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">
-                          {note.tag}
-                        </span>
+                  filteredNotes.map((n) => {
+                    const isSelected = activeNote?._id === n._id;
+                    return (
+                      <div
+                        key={n._id}
+                        onClick={() => setSelectedNoteId(n._id)}
+                        className={`p-3.5 rounded-2xl border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-[#FFF8E8] border-[#F4C542] text-[#111111] shadow-xs'
+                            : 'bg-[#FFFDF7] border-[#E8E1D2] text-[#3F3F3F] hover:bg-[#FFF8E8]/40 hover:border-[#D6CCA8]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <h4 className="font-bold text-xs truncate">{n.title || 'Untitled Note'}</h4>
+                          <span className="text-[10px] font-bold bg-[#FFFFFF] border border-[#E8E1D2] text-[#777777] px-2 py-0.5 rounded-full">
+                            {n.tag || 'General'}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-[#777777] truncate">
+                          {n.content || 'Empty note...'}
+                        </p>
                       </div>
-                      <p className="text-[11px] text-slate-500 line-clamp-1 mt-1">
-                        {note.content || 'Empty note...'}
-                      </p>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
             </div>
-            <div className="text-[11px] text-slate-400 pt-2 border-t border-slate-100">
-              {notes.length} notes stored in database
+
+            <div className="pt-3 border-t border-[#E8E1D2] text-[11px] text-[#777777] font-medium text-center">
+              {notes.length} total notebook documents
             </div>
           </div>
 
-          {/* Note Editor Column */}
-          <div className="md:col-span-2 bg-white border border-slate-200 rounded-lg p-4 flex flex-col justify-between">
+          {/* Active Note Editor Column */}
+          <div className="md:col-span-2 bg-[#FFFFFF] border border-[#E8E1D2] rounded-3xl p-6 flex flex-col justify-between shadow-xs">
             {activeNote ? (
-              <div className="space-y-3 flex-1 flex flex-col">
-                <div className="flex items-center justify-between gap-2">
+              <div className="space-y-4 flex-1 flex flex-col">
+                <div className="flex items-center justify-between gap-3 border-b border-[#E8E1D2] pb-3 flex-wrap">
                   <input
                     type="text"
                     value={editTitle}
                     onChange={(e) => setEditTitle(e.target.value)}
-                    placeholder="Note Title"
-                    className="text-lg font-bold text-slate-900 border-b border-transparent focus:border-green-500 outline-none flex-1 py-1"
+                    placeholder="Note Title..."
+                    className="text-lg font-extrabold text-[#111111] outline-none bg-transparent flex-1"
                   />
-                  <input
-                    type="text"
-                    value={editTag}
-                    onChange={(e) => setEditTag(e.target.value)}
-                    placeholder="Tag / Subject"
-                    className="text-xs bg-slate-100 px-2 py-1 rounded text-slate-700 outline-none w-28 text-center"
-                  />
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={editTag}
+                      onChange={(e) => setEditTag(e.target.value)}
+                      placeholder="Tag / Course"
+                      className="input-clean text-xs font-bold py-1.5 px-3 w-32"
+                    />
+                    <button
+                      onClick={handleSaveNote}
+                      disabled={isSaving}
+                      className="btn-primary py-1.5 px-4 text-xs font-bold flex items-center gap-1.5"
+                    >
+                      {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin text-[#111111]" /> : <Save className="w-3.5 h-3.5" />}
+                      <span>Save</span>
+                    </button>
+                    <button
+                      onClick={() => handleDeleteNote(activeNote._id)}
+                      className="p-2 text-[#777777] hover:text-rose-600 hover:bg-rose-50 rounded-full transition-colors"
+                      title="Delete note"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
 
                 <textarea
                   value={editContent}
                   onChange={(e) => setEditContent(e.target.value)}
-                  placeholder="Write your study notes here..."
-                  className="w-full flex-1 min-h-[340px] p-3 text-sm text-slate-800 bg-slate-50 border border-slate-200 rounded-md outline-none focus:border-green-500 font-sans resize-none leading-relaxed"
+                  placeholder="Start taking notes, outlines, key formulas, or code snippets..."
+                  className="w-full flex-1 min-h-[360px] text-xs sm:text-sm text-[#111111] outline-none resize-none bg-transparent leading-relaxed font-normal"
                 />
-
-                <div className="flex items-center justify-between pt-2 border-t border-slate-100">
-                  <span className="text-xs text-slate-400">
-                    Last updated: {new Date(activeNote.updatedAt).toLocaleDateString()}
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleDeleteNote(activeNote._id)}
-                      className="btn-secondary text-xs text-red-600 hover:bg-red-50"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Delete</span>
-                    </button>
-                    <button
-                      onClick={handleSaveNote}
-                      disabled={isSaving}
-                      className="btn-primary text-xs gap-1.5 disabled:opacity-50"
-                    >
-                      {isSaving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                      <span>Save Changes</span>
-                    </button>
-                  </div>
-                </div>
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400 text-sm">
-                <p>No note selected.</p>
-                <button onClick={handleCreateNote} className="btn-primary text-xs mt-3">
-                  Create First Note
-                </button>
+              <div className="flex-1 flex items-center justify-center text-[#777777] text-xs">
+                Select or create a note to begin editing.
               </div>
             )}
           </div>

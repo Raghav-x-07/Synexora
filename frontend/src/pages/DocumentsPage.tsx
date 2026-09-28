@@ -754,61 +754,67 @@ export const DocumentsPage: React.FC = () => {
     <AppLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="pb-4 border-b border-slate-200">
-          <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-              <FileText className="w-5 h-5 text-green-600" />
-              <span>Documents & YouTube RAG Intelligence Hub</span>
+        <div className="pb-4 border-b border-[#E8E1D2] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FFF8E8] border border-[#E8E1D2] text-[11px] font-semibold text-[#111111] mb-2">
+              <Sparkles className="w-3.5 h-3.5 text-[#F4C542]" />
+              <span>Grounded Knowledge Base</span>
+            </div>
+            <h1 className="text-2xl font-black text-[#111111] tracking-tight">
+              Documents & YouTube RAG Intelligence Hub
             </h1>
-            <span className="text-[10px] font-bold bg-green-50 text-green-700 px-2 py-0.5 rounded border border-green-200">
-              RAG Active
+            <p className="text-xs text-[#777777] mt-1">
+              Upload PDFs, study notes, or index YouTube video lectures to chat with AI grounded directly in the content.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 self-start sm:self-auto">
+            <span className="text-[11px] font-bold bg-[#FFF8E8] text-[#111111] px-3 py-1 rounded-full border border-[#E8E1D2] flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-[#F4C542]" />
+              <span>RAG Engine Ready</span>
             </span>
           </div>
-          <p className="text-xs text-slate-500 mt-1">
-            Upload PDFs, notes, or index YouTube video lectures to chat with AI grounded directly in the content.
-          </p>
         </div>
 
         {/* Ingestion Hub Card with 3 Tabs */}
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-5">
+        <div className="bg-[#FFF8E8]/70 border border-[#E8E1D2] rounded-3xl p-6 shadow-sm">
           {/* Mode Selector Tabs */}
-          <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200 flex-wrap">
+          <div className="flex items-center gap-2 mb-5 pb-3 border-b border-[#E8E1D2] flex-wrap">
             <button
               type="button"
               onClick={() => setIngestMode('file')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+              className={`px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-all ${
                 ingestMode === 'file'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-100'
+                  ? 'bg-[#111111] text-white shadow-sm'
+                  : 'bg-white text-[#555555] border border-[#E8E1D2] hover:bg-[#FFFDF7] hover:text-[#111111]'
               }`}
             >
-              <Upload className="w-3.5 h-3.5 text-green-400" />
+              <Upload className="w-3.5 h-3.5 text-[#F4C542]" />
               <span>Upload Document Files</span>
             </button>
 
             <button
               type="button"
               onClick={() => setIngestMode('link')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+              className={`px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-all ${
                 ingestMode === 'link'
-                  ? 'bg-red-600 text-white shadow-sm'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-red-50 hover:text-red-700'
+                  ? 'bg-[#111111] text-white shadow-sm'
+                  : 'bg-white text-[#555555] border border-[#E8E1D2] hover:bg-[#FFFDF7] hover:text-[#111111]'
               }`}
             >
-              <Youtube className="w-3.5 h-3.5" />
+              <Youtube className="w-3.5 h-3.5 text-red-500" />
               <span>Index YouTube Link / Web</span>
             </button>
 
             <button
               type="button"
               onClick={() => setIngestMode('text')}
-              className={`px-3 py-1.5 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-colors ${
+              className={`px-4 py-2 rounded-full text-xs font-semibold flex items-center gap-2 transition-all ${
                 ingestMode === 'text'
-                  ? 'bg-emerald-700 text-white shadow-sm'
-                  : 'bg-white text-slate-600 border border-slate-200 hover:bg-emerald-50 hover:text-emerald-700'
+                  ? 'bg-[#111111] text-white shadow-sm'
+                  : 'bg-white text-[#555555] border border-[#E8E1D2] hover:bg-[#FFFDF7] hover:text-[#111111]'
               }`}
             >
-              <Headphones className="w-3.5 h-3.5 text-emerald-400" />
+              <Headphones className="w-3.5 h-3.5 text-[#F4C542]" />
               <span>Paste Text & Listen Audio</span>
             </button>
           </div>
@@ -816,19 +822,19 @@ export const DocumentsPage: React.FC = () => {
           {/* Tab 1: File Upload Form */}
           {ingestMode === 'file' && (
             <div>
-              <h2 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
-                <Upload className="w-4 h-4 text-green-600" /> Upload Course PDF, Word or Notes (RAG & Audio Reader)
+              <h2 className="text-sm font-bold text-[#111111] mb-3 flex items-center gap-2">
+                <Upload className="w-4 h-4 text-[#111111]" /> Upload Course PDF, Word or Notes (RAG & Audio Reader)
               </h2>
 
               {uploadMessage && (
-                <div className="mb-4 p-3 rounded-md bg-green-50 border border-green-200 text-green-800 text-xs flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                <div className="mb-4 p-3 rounded-2xl bg-white border border-[#E8E1D2] text-[#111111] text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#F4C542] shrink-0" />
                   <span>{uploadMessage}</span>
                 </div>
               )}
 
               {uploadError && (
-                <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                <div className="mb-4 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
                   <span>{uploadError}</span>
                 </div>
@@ -842,7 +848,7 @@ export const DocumentsPage: React.FC = () => {
                       type="file"
                       accept=".pdf,.docx,.txt,.md,.csv,.json"
                       onChange={handleFileChange}
-                      className="block w-full text-xs text-slate-600 file:mr-3 file:py-2 file:px-3 file:rounded-md file:border-0 file:text-xs file:font-semibold file:bg-green-600 file:text-white hover:file:bg-green-700 cursor-pointer"
+                      className="block w-full text-xs text-[#555555] file:mr-3 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-[#111111] file:text-[#F4C542] hover:file:bg-[#222222] cursor-pointer"
                     />
                   </div>
 
@@ -881,7 +887,7 @@ export const DocumentsPage: React.FC = () => {
                     </button>
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-[#777777]">
                   Supported formats: <strong>.pdf</strong>, <strong>.docx</strong>, <strong>.txt</strong>, <strong>.md</strong>. You can listen to full audio or query with RAG.
                 </p>
               </form>
@@ -892,11 +898,11 @@ export const DocumentsPage: React.FC = () => {
           {ingestMode === 'link' && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                <h2 className="text-sm font-bold text-[#111111] flex items-center gap-2">
                   <Youtube className="w-4 h-4 text-red-600" /> Index YouTube Lecture or Web Link (RAG & Audio Reader)
                 </h2>
                 {isYouTubeUrl(linkUrl) && (
-                  <span className="text-[10px] font-bold bg-red-50 text-red-700 px-2 py-0.5 rounded border border-red-200 flex items-center gap-1">
+                  <span className="text-[10px] font-bold bg-[#FFF8E8] text-red-700 px-2.5 py-1 rounded-full border border-[#E8E1D2] flex items-center gap-1">
                     <Youtube className="w-3 h-3 text-red-600" />
                     <span>YouTube Video Detected</span>
                   </span>
@@ -904,14 +910,14 @@ export const DocumentsPage: React.FC = () => {
               </div>
 
               {linkMessage && (
-                <div className="mb-4 p-3 rounded-md bg-green-50 border border-green-200 text-green-800 text-xs flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                <div className="mb-4 p-3 rounded-2xl bg-white border border-[#E8E1D2] text-[#111111] text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#F4C542] shrink-0" />
                   <span>{linkMessage}</span>
                 </div>
               )}
 
               {linkError && (
-                <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                <div className="mb-4 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
                   <span>{linkError}</span>
                 </div>
@@ -921,14 +927,14 @@ export const DocumentsPage: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center">
                   <div className="sm:col-span-7">
                     <div className="relative">
-                      <LinkIcon className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                      <LinkIcon className="w-3.5 h-3.5 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#999999]" />
                       <input
                         type="url"
                         value={linkUrl}
                         onChange={(e) => setLinkUrl(e.target.value)}
                         placeholder="https://www.youtube.com/watch?v=... or article URL"
                         required
-                        className="input-clean text-xs pl-9"
+                        className="input-clean text-xs pl-10"
                       />
                     </div>
                   </div>
@@ -952,7 +958,7 @@ export const DocumentsPage: React.FC = () => {
                     <button
                       type="submit"
                       disabled={!linkUrl.trim() || isIndexingLink}
-                      className="w-full btn-primary text-xs py-2 gap-1.5 disabled:opacity-50 bg-red-600 hover:bg-red-700"
+                      className="w-full btn-primary text-xs py-2 gap-1.5 disabled:opacity-50"
                     >
                       {isIndexingLink ? (
                         <>
@@ -968,7 +974,7 @@ export const DocumentsPage: React.FC = () => {
                     </button>
                   </div>
                 </div>
-                <p className="text-[11px] text-slate-400">
+                <p className="text-[11px] text-[#777777]">
                   Synexora automatically extracts the <strong>video transcript</strong>, enabling audiobook listening and grounded Q&A.
                 </p>
               </form>
@@ -978,19 +984,19 @@ export const DocumentsPage: React.FC = () => {
           {/* Tab 3: Raw Text / Direct Note & Audio Form */}
           {ingestMode === 'text' && (
             <div>
-              <h2 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
-                <Headphones className="w-4 h-4 text-emerald-600" /> Paste Any Study Text & Listen Immediately
+              <h2 className="text-sm font-bold text-[#111111] mb-3 flex items-center gap-2">
+                <Headphones className="w-4 h-4 text-[#111111]" /> Paste Any Study Text & Listen Immediately
               </h2>
 
               {rawTextMessage && (
-                <div className="mb-4 p-3 rounded-md bg-green-50 border border-green-200 text-green-800 text-xs flex items-center gap-2">
-                  <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+                <div className="mb-4 p-3 rounded-2xl bg-white border border-[#E8E1D2] text-[#111111] text-xs flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-[#F4C542] shrink-0" />
                   <span>{rawTextMessage}</span>
                 </div>
               )}
 
               {rawTextError && (
-                <div className="mb-4 p-3 rounded-md bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
+                <div className="mb-4 p-3 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs flex items-center gap-2">
                   <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
                   <span>{rawTextError}</span>
                 </div>
@@ -1035,7 +1041,7 @@ export const DocumentsPage: React.FC = () => {
                 </div>
 
                 <div className="flex items-center justify-between gap-2 flex-wrap">
-                  <p className="text-[11px] text-slate-400">
+                  <p className="text-[11px] text-[#777777]">
                     Saves your text note with paragraph chunking, audio narration, and RAG grounding.
                   </p>
                   <div className="flex items-center gap-2">
@@ -1043,17 +1049,17 @@ export const DocumentsPage: React.FC = () => {
                       type="button"
                       onClick={handleInstantTextPlayback}
                       disabled={!rawTextContent.trim() || isSavingRawText}
-                      className="px-3 py-2 rounded-md text-xs font-semibold flex items-center gap-1.5 bg-white text-emerald-700 border border-emerald-300 hover:bg-emerald-50 transition-colors disabled:opacity-50"
+                      className="btn-secondary text-xs py-2 px-3 gap-1.5"
                       title="Listen to this text immediately without saving"
                     >
-                      <Play className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
+                      <Play className="w-3.5 h-3.5 fill-[#111111] text-[#111111]" />
                       <span>Instant Playback</span>
                     </button>
 
                     <button
                       type="submit"
                       disabled={!rawTextContent.trim() || isSavingRawText}
-                      className="btn-primary text-xs py-2 px-4 gap-1.5 disabled:opacity-50 bg-emerald-600 hover:bg-emerald-700"
+                      className="btn-primary text-xs py-2 px-4 gap-1.5 disabled:opacity-50"
                     >
                       {isSavingRawText ? (
                         <>
@@ -1080,39 +1086,39 @@ export const DocumentsPage: React.FC = () => {
           <div className={activeRagDoc ? 'lg:col-span-6 space-y-4' : 'lg:col-span-12 space-y-4'}>
             <div className="flex items-center justify-between">
               <div className="relative flex-1 max-w-md">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[#999999]" />
                 <input
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Filter uploaded documents and YouTube videos..."
-                  className="input-clean pl-9 text-xs"
+                  className="input-clean pl-10 text-xs"
                 />
               </div>
-              <span className="text-xs text-slate-500">{docs.length} materials indexed</span>
+              <span className="text-xs text-[#777777] font-semibold">{docs.length} materials indexed</span>
             </div>
 
-            <div className="bg-white border border-slate-200 rounded-lg overflow-hidden shadow-xs">
+            <div className="bg-white border border-[#E8E1D2] rounded-3xl overflow-hidden shadow-sm">
               <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-600 uppercase">
+                <thead className="bg-[#FFF8E8] border-b border-[#E8E1D2] font-bold text-[#111111] uppercase tracking-wider text-[10px]">
                   <tr>
-                    <th className="px-4 py-3">Material / Lecture</th>
-                    <th className="px-3 py-3 hidden sm:table-cell">Category</th>
-                    <th className="px-3 py-3 hidden md:table-cell">Type / Size</th>
-                    <th className="px-4 py-3 text-right">Actions</th>
+                    <th className="px-5 py-3.5">Material / Lecture</th>
+                    <th className="px-4 py-3.5 hidden sm:table-cell">Category</th>
+                    <th className="px-4 py-3.5 hidden md:table-cell">Type / Size</th>
+                    <th className="px-5 py-3.5 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-[#F0EBE0]">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={4} className="p-8 text-center text-slate-400">
-                        <Loader2 className="w-4 h-4 animate-spin text-green-600 mx-auto mb-2" />
+                      <td colSpan={4} className="p-8 text-center text-[#777777]">
+                        <Loader2 className="w-5 h-5 animate-spin text-[#111111] mx-auto mb-2" />
                         <span>Loading indexed materials...</span>
                       </td>
                     </tr>
                   ) : filteredDocs.length === 0 ? (
                     <tr>
-                      <td colSpan={4} className="p-8 text-center text-slate-400">
+                      <td colSpan={4} className="p-8 text-center text-[#777777]">
                         No materials indexed yet. Upload a document, paste a YouTube link, or type study notes above to listen and query.
                       </td>
                     </tr>
@@ -1120,67 +1126,63 @@ export const DocumentsPage: React.FC = () => {
                     filteredDocs.map((doc) => (
                       <tr
                         key={doc._id}
-                        className={`hover:bg-slate-50 transition-colors ${
-                          activeRagDoc?._id === doc._id ? 'bg-green-50/50' : ''
+                        className={`hover:bg-[#FFFDF7] transition-colors ${
+                          activeRagDoc?._id === doc._id ? 'bg-[#FFF8E8]/70' : ''
                         }`}
                       >
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2.5">
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
                             {getFileIcon(doc.fileType)}
                             <div className="truncate max-w-[220px]">
                               <div className="flex items-center gap-1.5">
-                                <p className="font-semibold text-slate-900 truncate">{doc.name}</p>
+                                <p className="font-bold text-[#111111] truncate">{doc.name}</p>
                                 {doc.url && (
                                   <a
                                     href={doc.url}
                                     target="_blank"
                                     rel="noreferrer"
-                                    className="text-slate-400 hover:text-red-600 shrink-0"
+                                    className="text-[#999999] hover:text-[#111111] shrink-0"
                                     title="Open link in new tab"
                                   >
                                     <ExternalLink className="w-3 h-3" />
                                   </a>
                                 )}
                               </div>
-                              <p className="text-[10px] text-slate-400 sm:hidden">
+                              <p className="text-[10px] text-[#777777] sm:hidden">
                                 {doc.category} • {doc.size}
                               </p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-3 py-3 hidden sm:table-cell">
-                          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium text-[11px]">
+                        <td className="px-4 py-3.5 hidden sm:table-cell">
+                          <span className="bg-[#FFF8E8] border border-[#E8E1D2] text-[#111111] px-2.5 py-1 rounded-full font-semibold text-[10px]">
                             {doc.category}
                           </span>
                         </td>
-                        <td className="px-3 py-3 text-slate-500 hidden md:table-cell">
+                        <td className="px-4 py-3.5 text-[#555555] hidden md:table-cell">
                           {doc.fileType === 'youtube' ? (
-                            <span className="text-[10px] font-semibold text-red-700 bg-red-50 px-1.5 py-0.5 rounded border border-red-200">
+                            <span className="text-[10px] font-bold text-red-700 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
                               YouTube
                             </span>
                           ) : (
                             doc.size
                           )}
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-5 py-3.5 text-right">
                           <div className="flex items-center justify-end gap-1.5 flex-wrap">
                             {/* Listen Audio Button */}
                             <button
                               onClick={() => setActiveAudioDoc(doc)}
-                              className="text-xs py-1 px-2.5 gap-1 rounded-md font-semibold flex items-center bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 transition-colors shadow-xs"
+                              className="btn-secondary text-xs py-1 px-3 gap-1.5"
                               title="Listen to this document as audio"
                             >
-                              <Headphones className="w-3.5 h-3.5 text-emerald-600" />
+                              <Headphones className="w-3.5 h-3.5 text-[#111111]" />
                               <span>Listen Audio</span>
                             </button>
 
                             <button
                               onClick={() => openRagAssistant(doc)}
-                              className={`text-xs py-1 px-2.5 gap-1 shadow-sm rounded-md font-semibold flex items-center transition-colors ${
-                                doc.fileType === 'youtube'
-                                  ? 'bg-red-600 hover:bg-red-700 text-white'
-                                  : 'btn-primary'
-                              }`}
+                              className="btn-primary text-xs py-1 px-3 gap-1.5"
                               title="Ask AI questions grounded in this material"
                             >
                               <Bot className="w-3.5 h-3.5" />
@@ -1189,15 +1191,15 @@ export const DocumentsPage: React.FC = () => {
                             {/* Download PDF Button */}
                             <button
                               onClick={() => handleDownloadDocPdf(doc)}
-                              className="p-1.5 text-slate-500 hover:text-emerald-700 hover:bg-emerald-50 rounded transition-colors"
+                              className="p-1.5 text-[#777777] hover:text-[#111111] hover:bg-[#FFF8E8] rounded-full transition-colors"
                               title="Download study notes / transcript as PDF"
                             >
-                              <FileDown className="w-3.5 h-3.5 text-emerald-600" />
+                              <FileDown className="w-3.5 h-3.5 text-[#111111]" />
                             </button>
 
                             <button
                               onClick={() => handleDelete(doc._id)}
-                              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                              className="p-1.5 text-[#999999] hover:text-red-600 hover:bg-red-50 rounded-full"
                               title="Delete material"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -1214,18 +1216,16 @@ export const DocumentsPage: React.FC = () => {
 
           {/* RAG Interactive Q&A Panel */}
           {activeRagDoc && (
-            <div className="lg:col-span-6 bg-white border border-slate-200 rounded-lg flex flex-col h-[600px]">
+            <div className="lg:col-span-6 bg-white border border-[#E8E1D2] rounded-3xl flex flex-col h-[600px] shadow-sm overflow-hidden">
               {/* Panel Header */}
-              <div className="p-3.5 border-b border-slate-200 flex items-center justify-between bg-slate-50 rounded-t-lg">
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <div className={`w-7 h-7 rounded flex items-center justify-center text-white shrink-0 ${
-                    activeRagDoc.fileType === 'youtube' ? 'bg-red-600' : 'bg-green-600'
-                  }`}>
-                    {activeRagDoc.fileType === 'youtube' ? <Youtube className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
+              <div className="p-4 border-b border-[#E8E1D2] flex items-center justify-between bg-[#FFF8E8]">
+                <div className="flex items-center gap-2.5 overflow-hidden">
+                  <div className="w-8 h-8 rounded-2xl bg-[#111111] text-[#F4C542] flex items-center justify-center shrink-0">
+                    {activeRagDoc.fileType === 'youtube' ? <Youtube className="w-4 h-4 text-red-400" /> : <Bot className="w-4 h-4" />}
                   </div>
                   <div className="truncate">
-                    <h3 className="text-xs font-bold text-slate-900 truncate">{activeRagDoc.name}</h3>
-                    <p className="text-[10px] text-slate-500">
+                    <h3 className="text-xs font-bold text-[#111111] truncate">{activeRagDoc.name}</h3>
+                    <p className="text-[10px] text-[#777777]">
                       {activeRagDoc.fileType === 'youtube'
                         ? 'YouTube Video Transcript Grounded Chat'
                         : 'Retrieval-Augmented Generation Grounded Chat'}
@@ -1236,16 +1236,16 @@ export const DocumentsPage: React.FC = () => {
                 <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => setActiveAudioDoc(activeRagDoc)}
-                    className="text-[11px] font-semibold px-2 py-1 rounded bg-emerald-50 text-emerald-800 border border-emerald-300 hover:bg-emerald-100 flex items-center gap-1 transition-colors"
+                    className="btn-secondary text-[11px] py-1 px-2.5 gap-1"
                     title="Listen to this whole document as audio"
                   >
-                    <Headphones className="w-3 h-3 text-emerald-600" />
+                    <Headphones className="w-3 h-3 text-[#111111]" />
                     <span className="hidden sm:inline">Listen Document</span>
                   </button>
 
                   <button
                     onClick={() => setActiveRagDoc(null)}
-                    className="p-1 rounded text-slate-400 hover:text-slate-700"
+                    className="p-1.5 rounded-full text-[#777777] hover:text-[#111111] hover:bg-[#E8E1D2]/50"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -1253,36 +1253,34 @@ export const DocumentsPage: React.FC = () => {
               </div>
 
               {ragMemoryNotification && (
-                <div className="m-3 mb-0 p-2.5 rounded-md bg-green-50 border border-green-200 text-green-800 text-xs flex items-center gap-2 animate-fade-in">
-                  <Brain className="w-4 h-4 text-green-600 shrink-0" />
+                <div className="m-3 mb-0 p-3 rounded-2xl bg-[#FFF8E8] border border-[#E8E1D2] text-[#111111] text-xs flex items-center gap-2 animate-fade-in font-medium">
+                  <Brain className="w-4 h-4 text-[#F4C542] shrink-0" />
                   <span>{ragMemoryNotification}</span>
                 </div>
               )}
 
               {/* RAG Conversation History */}
-              <div className="p-4 overflow-y-auto flex-1 space-y-4">
+              <div className="p-4 overflow-y-auto flex-1 space-y-4 bg-[#FFFDF7]">
                 {ragMessages.map((msg, idx) => (
                   <div
                     key={msg.id}
                     className={`flex items-start gap-2.5 ${msg.sender === 'user' ? 'flex-row-reverse' : ''}`}
                   >
                     <div
-                      className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 ${
+                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${
                         msg.sender === 'user'
-                          ? 'bg-slate-800 text-white'
-                          : activeRagDoc.fileType === 'youtube'
-                          ? 'bg-red-600 text-white'
-                          : 'bg-green-600 text-white'
+                          ? 'bg-[#111111] text-[#F4C542]'
+                          : 'bg-[#F4C542] text-[#111111]'
                       }`}
                     >
                       {msg.sender === 'user' ? 'U' : 'AI'}
                     </div>
 
                     <div
-                      className={`max-w-md p-3 rounded-lg text-xs leading-relaxed ${
+                      className={`max-w-md p-3.5 rounded-2xl text-xs leading-relaxed ${
                         msg.sender === 'user'
-                          ? 'bg-green-50 text-slate-900 border border-green-200'
-                          : 'bg-slate-50 text-slate-800 border border-slate-200'
+                          ? 'bg-[#111111] text-white'
+                          : 'bg-white text-[#333333] border border-[#E8E1D2]'
                       }`}
                     >
                       {msg.sender === 'ai' ? (
@@ -1293,11 +1291,11 @@ export const DocumentsPage: React.FC = () => {
 
                       {/* Expandable Document Excerpt Sources */}
                       {msg.sources && msg.sources.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-slate-200">
+                        <div className="mt-2 pt-2 border-t border-[#E8E1D2]">
                           <button
                             type="button"
                             onClick={() => toggleSourceView(msg.id)}
-                            className="text-[10px] font-semibold text-green-700 hover:underline flex items-center gap-1"
+                            className="text-[10px] font-semibold text-[#111111] hover:underline flex items-center gap-1"
                           >
                             <span>{msg.sources.length} Context Excerpts Used</span>
                             {showSources[msg.id] ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
@@ -1306,8 +1304,8 @@ export const DocumentsPage: React.FC = () => {
                           {showSources[msg.id] && (
                             <div className="mt-1 space-y-1.5">
                               {msg.sources.map((src: string, i: number) => (
-                                <div key={i} className="p-2 bg-white rounded border border-slate-200 text-[10px] text-slate-600 font-mono">
-                                  <span className="font-bold text-slate-800 block mb-0.5">Excerpt {i + 1}:</span>
+                                <div key={i} className="p-2.5 bg-[#FFFDF7] rounded-xl border border-[#E8E1D2] text-[10px] text-[#444444] font-mono">
+                                  <span className="font-bold text-[#111111] block mb-0.5">Excerpt {i + 1}:</span>
                                   {src.slice(0, 180)}...
                                 </div>
                               ))}
@@ -1316,8 +1314,8 @@ export const DocumentsPage: React.FC = () => {
                         </div>
                       )}
 
-                      <div className="mt-2.5 pt-2 border-t border-slate-200 flex items-center justify-between gap-2 flex-wrap">
-                        <span className="text-[9px] text-slate-400">{msg.timestamp}</span>
+                      <div className="mt-2.5 pt-2 border-t border-[#E8E1D2]/60 flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-[9px] text-[#777777]">{msg.timestamp}</span>
 
                         <div className="flex items-center gap-1.5 ml-auto">
                           {/* Audio narration button for AI responses */}
@@ -1325,21 +1323,21 @@ export const DocumentsPage: React.FC = () => {
                             <button
                               type="button"
                               onClick={() => toggleSpeak(msg.text, msg.id)}
-                              className={`text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors ${
+                              className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1 transition-colors ${
                                 speakingId === msg.id
-                                  ? 'bg-amber-100 text-amber-900 border-amber-300'
-                                  : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-100'
+                                  ? 'bg-red-50 text-red-700 border-red-300'
+                                  : 'bg-[#FFF8E8] text-[#111111] border-[#E8E1D2] hover:bg-[#E8E1D2]'
                               }`}
                               title={speakingId === msg.id ? 'Stop audio' : 'Listen to answer'}
                             >
                               {speakingId === msg.id ? (
                                 <>
-                                  <VolumeX className="w-3 h-3 text-amber-700 animate-pulse" />
+                                  <VolumeX className="w-3 h-3 text-red-600 animate-pulse" />
                                   <span>Stop Audio</span>
                                 </>
                               ) : (
                                 <>
-                                  <Volume2 className="w-3 h-3 text-slate-600" />
+                                  <Volume2 className="w-3 h-3 text-[#111111]" />
                                   <span>Listen</span>
                                 </>
                               )}
@@ -1352,25 +1350,25 @@ export const DocumentsPage: React.FC = () => {
                               type="button"
                               onClick={() => handleStoreRagToMemory(idx, msg)}
                               disabled={savingRagMemoryId === msg.id || savedRagMemoryMap[msg.id]}
-                              className={`text-[11px] font-medium px-2 py-0.5 rounded border flex items-center gap-1 transition-colors ${
+                              className={`text-[11px] font-semibold px-2.5 py-1 rounded-full border flex items-center gap-1 transition-colors ${
                                 savedRagMemoryMap[msg.id]
-                                  ? 'bg-green-100 text-green-800 border-green-300 cursor-default'
-                                  : 'bg-white text-slate-700 border-slate-300 hover:bg-green-50 hover:border-green-400 hover:text-green-700'
+                                  ? 'bg-[#111111] text-[#F4C542] border-[#111111] cursor-default'
+                                  : 'bg-[#FFF8E8] text-[#111111] border-[#E8E1D2] hover:bg-[#F4C542]'
                               }`}
                             >
                               {savingRagMemoryId === msg.id ? (
                                 <>
-                                  <Loader2 className="w-3 h-3 animate-spin text-green-600" />
+                                  <Loader2 className="w-3 h-3 animate-spin text-[#111111]" />
                                   <span>Saving...</span>
                                 </>
                               ) : savedRagMemoryMap[msg.id] ? (
                                 <>
-                                  <Check className="w-3 h-3 text-green-600" />
-                                  <span>Stored in Memory</span>
+                                  <Check className="w-3 h-3 text-[#F4C542]" />
+                                  <span>Stored</span>
                                 </>
                               ) : (
                                 <>
-                                  <Brain className="w-3 h-3 text-green-600" />
+                                  <Brain className="w-3 h-3 text-[#111111]" />
                                   <span>Store to Memory</span>
                                 </>
                               )}
@@ -1383,21 +1381,21 @@ export const DocumentsPage: React.FC = () => {
                 ))}
 
                 {isQueryingRag && (
-                  <div className="flex items-center gap-2 text-xs text-slate-500 italic p-2">
-                    <Sparkles className="w-3.5 h-3.5 text-green-600 animate-spin" />
-                    <span>Searching transcript chunks and reasoning with Groq...</span>
+                  <div className="flex items-center gap-2 text-xs text-[#111111] italic p-2 font-medium">
+                    <Sparkles className="w-3.5 h-3.5 text-[#F4C542] animate-spin" />
+                    <span>Searching transcript chunks and reasoning...</span>
                   </div>
                 )}
               </div>
 
               {micError && (
-                <div className="mx-3 text-[11px] text-red-600 bg-red-50 border border-red-200 p-1.5 rounded">
+                <div className="mx-3 text-[11px] text-red-600 bg-red-50 border border-red-200 p-2 rounded-2xl">
                   {micError}
                 </div>
               )}
 
               {/* Sample Suggestions */}
-              <div className="px-3 py-1.5 border-t border-slate-100 bg-slate-50 flex items-center gap-2 overflow-x-auto text-[11px]">
+              <div className="px-3 py-2 border-t border-[#E8E1D2] bg-[#FFF8E8] flex items-center gap-2 overflow-x-auto text-[11px]">
                 <button
                   type="button"
                   onClick={() =>
@@ -1407,7 +1405,7 @@ export const DocumentsPage: React.FC = () => {
                         : 'Summarize the key points in this document'
                     )
                   }
-                  className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 shrink-0"
+                  className="px-3 py-1 rounded-full bg-white border border-[#E8E1D2] text-[#444444] hover:bg-[#F4C542] hover:text-[#111111] shrink-0 font-medium transition-colors"
                 >
                   {activeRagDoc.fileType === 'youtube' ? 'Summarize Video' : 'Summarize Document'}
                 </button>
@@ -1420,7 +1418,7 @@ export const DocumentsPage: React.FC = () => {
                         : 'What are the main formulas or algorithms described?'
                     )
                   }
-                  className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 shrink-0"
+                  className="px-3 py-1 rounded-full bg-white border border-[#E8E1D2] text-[#444444] hover:bg-[#F4C542] hover:text-[#111111] shrink-0 font-medium transition-colors"
                 >
                   Key Formulas & Topics
                 </button>
@@ -1433,14 +1431,14 @@ export const DocumentsPage: React.FC = () => {
                         : 'Generate 3 practice questions based on this text'
                     )
                   }
-                  className="px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 shrink-0"
+                  className="px-3 py-1 rounded-full bg-white border border-[#E8E1D2] text-[#444444] hover:bg-[#F4C542] hover:text-[#111111] shrink-0 font-medium transition-colors"
                 >
                   Practice Questions
                 </button>
               </div>
 
               {/* RAG Query Input */}
-              <form onSubmit={handleAskRag} className="p-3 border-t border-slate-200 flex gap-2">
+              <form onSubmit={handleAskRag} className="p-3 border-t border-[#E8E1D2] bg-[#FFFDF7] flex gap-2">
                 <button
                   type="button"
                   onClick={() => {
@@ -1451,10 +1449,10 @@ export const DocumentsPage: React.FC = () => {
                     }
                   }}
                   disabled={isQueryingRag}
-                  className={`px-2.5 py-1.5 rounded-md border flex items-center gap-1 text-xs transition-colors shrink-0 ${
+                  className={`px-3 py-1.5 rounded-full border flex items-center gap-1.5 text-xs transition-colors shrink-0 ${
                     isListening
                       ? 'bg-red-500 text-white border-red-600 animate-pulse'
-                      : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+                      : 'bg-[#FFF8E8] text-[#111111] border-[#E8E1D2] hover:bg-[#E8E1D2]'
                   }`}
                   title={isListening ? 'Stop listening' : 'Voice input dictation'}
                 >
@@ -1473,11 +1471,7 @@ export const DocumentsPage: React.FC = () => {
                 <button
                   type="submit"
                   disabled={!ragInput.trim() || isQueryingRag}
-                  className={`text-xs px-3 gap-1 disabled:opacity-50 rounded-md font-semibold text-white flex items-center ${
-                    activeRagDoc.fileType === 'youtube'
-                      ? 'bg-red-600 hover:bg-red-700'
-                      : 'bg-green-600 hover:bg-green-700'
-                  }`}
+                  className="btn-primary text-xs px-4 gap-1.5 disabled:opacity-50"
                 >
                   <Send className="w-3.5 h-3.5" />
                   <span>Ask</span>

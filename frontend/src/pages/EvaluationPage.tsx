@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import { AppLayout } from '../components/AppLayout';
+import { useAuth } from '../context/AuthContext';
 import API from '../lib/api';
 import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
 import {
@@ -17,7 +18,8 @@ import {
   Volume2,
   VolumeX,
   TrendingUp,
-  FileDown,
+  FileText,
+  FileSpreadsheet,
 } from 'lucide-react';
 
 interface AssessmentRecord {
@@ -38,6 +40,7 @@ interface QuizQuestion {
 }
 
 export const EvaluationPage: React.FC = () => {
+  const { user } = useAuth();
   const [assessments, setAssessments] = useState<AssessmentRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -344,6 +347,377 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
     doc.save(`Synexora_Evaluation_${safeTitle}.pdf`);
   };
 
+  // Download single evaluation record as CSV
+  const handleDownloadRecordCsv = (record: AssessmentRecord) => {
+    const escapeCsv = (str: string | number) => `"${String(str || '').replace(/"/g, '""')}"`;
+    const numSc = parseInt(record.score, 10) || 0;
+    const tier = numSc >= 85 ? 'Advanced Academic Mastery' : numSc >= 70 ? 'Proficient Concept Mastery' : numSc >= 50 ? 'Developing Competency' : 'Foundational Review Needed';
+
+    const csvContent = [
+      'SYNEXORA ACADEMIC EVALUATION RECORD',
+      `Title,${escapeCsv(record.title)}`,
+      `Course / Field,${escapeCsv(record.course)}`,
+      `Score,${escapeCsv(record.score)}`,
+      `Numeric Score,${numSc}`,
+      `Date,${escapeCsv(record.date)}`,
+      `Status,${escapeCsv(record.status)}`,
+      `Performance Tier,${escapeCsv(tier)}`,
+    ].join('\n');
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const safeTitle = (record.title || 'evaluation').replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30);
+    link.download = `Synexora_Evaluation_${safeTitle}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Download entire evaluation progress report as PDF
+  const handleExportProgressPdf = () => {
+    if (assessments.length === 0) return;
+
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4',
+    });
+
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const margin = 14;
+    const maxContentWidth = pageWidth - margin * 2;
+
+    const scoresArray = assessments
+      .map((a) => parseInt(a.score, 10))
+      .filter((n) => !isNaN(n));
+    const avgScore =
+      scoresArray.length > 0
+        ? Math.round(scoresArray.reduce((acc, v) => acc + v, 0) / scoresArray.length)
+        : 0;
+    const maxScore = scoresArray.length > 0 ? Math.max(...scoresArray) : 0;
+    const minScore = scoresArray.length > 0 ? Math.min(...scoresArray) : 0;
+
+    // Header bar
+    doc.setFillColor(16, 185, 129); // Emerald
+    doc.rect(0, 0, pageWidth, 20, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text('SYNEXORA — ACADEMIC EVALUATION PROGRESS REPORT', margin, 13);
+
+    // Meta Header Info
+    doc.setTextColor(100, 116, 139);
+    doc.setFontSize(8.5);
+    doc.setFont('helvetica', 'normal');
+    doc.text('Official Comprehensive Diagnostic & Quiz Telemetry Summary', margin, 26);
+
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.4);
+    doc.line(margin, 29, pageWidth - margin, 29);
+
+    // Student & Report Overview Card
+    let currentY = 34;
+    doc.setFillColor(248, 250, 252);
+    doc.roundedRect(margin, currentY, maxContentWidth, 26, 2.5, 2.5, 'F');
+    doc.setDrawColor(226, 232, 240);
+    doc.roundedRect(margin, currentY, maxContentWidth, 26, 2.5, 2.5, 'D');
+
+    doc.setFontSize(8.5);
+    doc.setTextColor(71, 85, 105);
+    doc.setFont('helvetica', 'bold');
+    doc.text('STUDENT LEARNER:', margin + 6, currentY + 8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(15, 23, 42);
+    doc.text(user?.name || 'Student Learner', margin + 40, currentY + 8);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(71, 85, 105);
+    doc.text('INSTITUTIONAL EMAIL:', margin + 6, currentY + 16);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(15, 23, 42);
+    doc.text(user?.email || 'N/A', margin + 40, currentY + 16);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(71, 85, 105);
+    doc.text('GENERATED ON:', margin + 105, currentY + 8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(15, 23, 42);
+    doc.text(new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }), margin + 133, currentY + 8);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(71, 85, 105);
+    doc.text('EVALUATIONS:', margin + 105, currentY + 16);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(16, 185, 129);
+    doc.text(`${assessments.length} Completed Tests`, margin + 133, currentY + 16);
+
+    currentY += 32;
+
+    // 4 High-Yield Metric KPI Cards
+    const boxW = (maxContentWidth - 9) / 4;
+    const boxH = 22;
+
+    // Box 1: Average Score
+    doc.setFillColor(255, 253, 247);
+    doc.roundedRect(margin, currentY, boxW, boxH, 2, 2, 'F');
+    doc.setDrawColor(232, 225, 210);
+    doc.roundedRect(margin, currentY, boxW, boxH, 2, 2, 'D');
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(100, 116, 139);
+    doc.text('AVERAGE SCORE', margin + 5, currentY + 7);
+    doc.setFontSize(13);
+    doc.setTextColor(16, 185, 129);
+    doc.text(`${avgScore}%`, margin + 5, currentY + 17);
+
+    // Box 2: Highest Score
+    doc.setFillColor(255, 253, 247);
+    doc.roundedRect(margin + boxW + 3, currentY, boxW, boxH, 2, 2, 'F');
+    doc.setDrawColor(232, 225, 210);
+    doc.roundedRect(margin + boxW + 3, currentY, boxW, boxH, 2, 2, 'D');
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(100, 116, 139);
+    doc.text('HIGHEST SCORE', margin + boxW + 8, currentY + 7);
+    doc.setFontSize(13);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${maxScore}%`, margin + boxW + 8, currentY + 17);
+
+    // Box 3: Lowest Score
+    doc.setFillColor(255, 253, 247);
+    doc.roundedRect(margin + (boxW + 3) * 2, currentY, boxW, boxH, 2, 2, 'F');
+    doc.setDrawColor(232, 225, 210);
+    doc.roundedRect(margin + (boxW + 3) * 2, currentY, boxW, boxH, 2, 2, 'D');
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(100, 116, 139);
+    doc.text('LOWEST SCORE', margin + (boxW + 3) * 2 + 5, currentY + 7);
+    doc.setFontSize(13);
+    doc.setTextColor(15, 23, 42);
+    doc.text(`${minScore}%`, margin + (boxW + 3) * 2 + 5, currentY + 17);
+
+    // Box 4: Mastery Status
+    doc.setFillColor(255, 253, 247);
+    doc.roundedRect(margin + (boxW + 3) * 3, currentY, boxW, boxH, 2, 2, 'F');
+    doc.setDrawColor(232, 225, 210);
+    doc.roundedRect(margin + (boxW + 3) * 3, currentY, boxW, boxH, 2, 2, 'D');
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(100, 116, 139);
+    doc.text('OVERALL MASTERY', margin + (boxW + 3) * 3 + 5, currentY + 7);
+    doc.setFontSize(8.5);
+    doc.setTextColor(16, 185, 129);
+    const shortTier = avgScore >= 85 ? 'Exemplary' : avgScore >= 70 ? 'Proficient' : avgScore >= 50 ? 'Developing' : 'Review';
+    doc.text(shortTier, margin + (boxW + 3) * 3 + 5, currentY + 16);
+
+    currentY += 28;
+
+    // Table Header function
+    const renderTableHeader = (yPos: number) => {
+      doc.setFillColor(241, 245, 249);
+      doc.rect(margin, yPos, maxContentWidth, 8, 'F');
+      doc.setDrawColor(203, 213, 225);
+      doc.rect(margin, yPos, maxContentWidth, 8, 'D');
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(51, 65, 85);
+      doc.text('#', margin + 3, yPos + 5.5);
+      doc.text('EVALUATION TOPIC', margin + 12, yPos + 5.5);
+      doc.text('COURSE / FIELD', margin + 95, yPos + 5.5);
+      doc.text('DATE', margin + 138, yPos + 5.5);
+      doc.text('SCORE', margin + 165, yPos + 5.5);
+      return yPos + 8;
+    };
+
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(10.5);
+    doc.setFont('helvetica', 'bold');
+    doc.text('EVALUATION RECORDS LOG:', margin, currentY);
+    currentY += 6;
+
+    currentY = renderTableHeader(currentY);
+
+    // Render Table Rows
+    assessments.forEach((item, idx) => {
+      if (currentY > pageHeight - 25) {
+        doc.addPage();
+        currentY = 20;
+        currentY = renderTableHeader(currentY);
+      }
+
+      const rowH = 7.5;
+      const isEven = idx % 2 === 0;
+      if (isEven) {
+        doc.setFillColor(250, 250, 250);
+        doc.rect(margin, currentY, maxContentWidth, rowH, 'F');
+      }
+
+      doc.setDrawColor(241, 245, 249);
+      doc.line(margin, currentY + rowH, margin + maxContentWidth, currentY + rowH);
+
+      doc.setFontSize(7.8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(String(idx + 1), margin + 3, currentY + 5);
+
+      doc.setTextColor(15, 23, 42);
+      doc.setFont('helvetica', 'bold');
+      const cleanTitle = (item.title || 'Untitled Evaluation').slice(0, 48);
+      doc.text(cleanTitle, margin + 12, currentY + 5);
+
+      doc.setTextColor(71, 85, 105);
+      doc.setFont('helvetica', 'normal');
+      doc.text((item.course || 'General').slice(0, 22), margin + 95, currentY + 5);
+
+      doc.setTextColor(100, 116, 139);
+      doc.text(item.date || '—', margin + 138, currentY + 5);
+
+      const numSc = parseInt(item.score, 10) || 0;
+      if (numSc >= 75) {
+        doc.setTextColor(16, 185, 129);
+      } else if (numSc >= 50) {
+        doc.setTextColor(217, 119, 6);
+      } else {
+        doc.setTextColor(220, 38, 38);
+      }
+      doc.setFont('helvetica', 'bold');
+      doc.text(item.score || '—', margin + 165, currentY + 5);
+
+      currentY += rowH;
+    });
+
+    // Page numbers & footer
+    const pageCount = doc.internal.pages.length - 1;
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setDrawColor(226, 232, 240);
+      doc.line(margin, pageHeight - 12, pageWidth - margin, pageHeight - 12);
+      doc.setTextColor(148, 163, 184);
+      doc.setFontSize(7.5);
+      doc.text('Synexora AI Adaptive Learning Platform • Evaluation Progress Diagnostic Report', margin, pageHeight - 7);
+      doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin - 15, pageHeight - 7);
+    }
+
+    const dateStr = new Date().toISOString().slice(0, 10);
+    doc.save(`Synexora_Evaluation_Progress_Report_${dateStr}.pdf`);
+  };
+
+  // Download entire evaluation progress report as CSV
+  const handleExportProgressCsv = () => {
+    if (assessments.length === 0) return;
+
+    const escapeCsv = (str: string | number) => `"${String(str || '').replace(/"/g, '""')}"`;
+
+    const scoresArray = assessments
+      .map((a) => parseInt(a.score, 10))
+      .filter((n) => !isNaN(n));
+    const avgScore =
+      scoresArray.length > 0
+        ? Math.round(scoresArray.reduce((acc, v) => acc + v, 0) / scoresArray.length)
+        : 0;
+    const maxScore = scoresArray.length > 0 ? Math.max(...scoresArray) : 0;
+
+    const getMasteryTier = (score: number) => {
+      if (score >= 85) return 'Advanced Academic Mastery';
+      if (score >= 70) return 'Proficient Concept Mastery';
+      if (score >= 50) return 'Developing Competency';
+      return 'Foundational Review Needed';
+    };
+
+    const csvLines = [
+      'SYNEXORA ACADEMIC EVALUATION PROGRESS REPORT',
+      `Student Name,${escapeCsv(user?.name || 'Student Learner')}`,
+      `Email,${escapeCsv(user?.email || 'N/A')}`,
+      `Export Date,${escapeCsv(new Date().toLocaleDateString('en-US'))}`,
+      `Total Evaluations,${assessments.length}`,
+      `Average Score,${avgScore}%`,
+      `Highest Score,${maxScore}%`,
+      `Overall Mastery Tier,${escapeCsv(getMasteryTier(avgScore))}`,
+      '',
+      'Index,Evaluation Title,Course / Subject,Score,Numeric Score,Status,Date,Performance Tier',
+    ];
+
+    assessments.forEach((item, idx) => {
+      const numSc = parseInt(item.score, 10) || 0;
+      csvLines.push(
+        [
+          idx + 1,
+          escapeCsv(item.title),
+          escapeCsv(item.course || 'General'),
+          escapeCsv(item.score),
+          numSc,
+          escapeCsv(item.status || 'completed'),
+          escapeCsv(item.date),
+          escapeCsv(getMasteryTier(numSc)),
+        ].join(',')
+      );
+    });
+
+    const csvContent = csvLines.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Synexora_Evaluation_Progress_Report_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  // Download active quiz question-by-question as CSV
+  const handleDownloadActiveQuizCsv = () => {
+    if (quizQuestions.length === 0) return;
+
+    const escapeCsv = (str: string | number) => `"${String(str || '').replace(/"/g, '""')}"`;
+
+    const csvLines = [
+      'SYNEXORA AI QUIZ EVALUATION REPORT',
+      `Topic,${escapeCsv(activeQuizTopic)}`,
+      `Course Domain,${escapeCsv(activeQuizCourse)}`,
+      `Score,${escapeCsv(`${quizScore !== null ? quizScore : 'N/A'}%`)}`,
+      `Date,${escapeCsv(new Date().toLocaleDateString('en-US'))}`,
+      '',
+      'Question #,Question Text,Student Choice,Correct Answer,Is Correct,Key Concept,Explanation',
+    ];
+
+    quizQuestions.forEach((q, idx) => {
+      const isSelected = selectedAnswers[idx] !== undefined;
+      const isCorrect = selectedAnswers[idx] === q.correct;
+      const studentChoice = isSelected ? q.options[selectedAnswers[idx]] : 'Unanswered';
+      const correctChoice = q.options[q.correct];
+
+      csvLines.push(
+        [
+          idx + 1,
+          escapeCsv(q.q),
+          escapeCsv(studentChoice),
+          escapeCsv(correctChoice),
+          isCorrect ? 'YES (Correct)' : 'NO (Incorrect)',
+          escapeCsv(q.keyConcept || ''),
+          escapeCsv(q.explanation || ''),
+        ].join(',')
+      );
+    });
+
+    const csvContent = csvLines.join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const safeTopic = activeQuizTopic.replace(/[^a-zA-Z0-9]/g, '_').slice(0, 30);
+    link.download = `Synexora_Quiz_${safeTopic}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Download full active quiz question-by-question evaluation report as PDF
   const handleDownloadActiveQuizPdf = () => {
     if (quizQuestions.length === 0) return;
@@ -500,16 +874,16 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
         {/* ============================================================== */}
         {/* QUIZ GENERATOR HUB                                             */}
         {/* ============================================================== */}
-        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-emerald-950 text-white rounded-2xl p-6 sm:p-8 shadow-xl border border-slate-700/50 relative overflow-hidden">
+        <div className="bg-[#FFFFFF] text-[#111111] rounded-3xl p-6 sm:p-8 shadow-sm border border-[#E8E1D2] relative overflow-hidden">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-400/30">
+            <span className="text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-full bg-[#FFF8E8] text-[#111111] border border-[#E8E1D2]">
               Topic-Driven Knowledge Evaluation
             </span>
           </div>
-          <h2 className="text-lg sm:text-xl font-black text-white mb-2">
+          <h2 className="text-xl sm:text-2xl font-extrabold text-[#111111] mb-2 tracking-tight">
             What concept or topic would you like to evaluate today?
           </h2>
-          <p className="text-xs text-slate-300 mb-5 max-w-2xl">
+          <p className="text-xs text-[#777777] mb-6 max-w-2xl leading-relaxed">
             Type any academic subject, algorithm, theory, or chapter. Our Groq AI engine will construct high-yield multiple-choice questions with step-by-step diagnostic feedback.
           </p>
 
@@ -523,29 +897,29 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
           >
             <div className="grid grid-cols-1 sm:grid-cols-12 gap-3">
               <div className="sm:col-span-5">
-                <label className="text-[10px] font-bold text-slate-300 uppercase block mb-1">
+                <label className="text-[10px] font-bold text-[#777777] uppercase block mb-1">
                   Topic / Concept / Chapter
                 </label>
                 <input
                   type="text"
                   value={topicInput}
                   onChange={(e) => setTopicInput(e.target.value)}
-                  placeholder="e.g. Binary Search Trees, ACID Transactions, Gradient Descent, Thermodynamics..."
+                  placeholder="e.g. Binary Search Trees, ACID Transactions, Gradient Descent..."
                   required
                   disabled={isGenerating}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-800/90 border border-slate-600 text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-400 font-medium"
+                  className="input-clean font-medium text-xs"
                 />
               </div>
 
               <div className="sm:col-span-3">
-                <label className="text-[10px] font-bold text-slate-300 uppercase block mb-1">
+                <label className="text-[10px] font-bold text-[#777777] uppercase block mb-1">
                   Course Domain
                 </label>
                 <select
                   value={courseInput}
                   onChange={(e) => setCourseInput(e.target.value)}
                   disabled={isGenerating}
-                  className="w-full px-3 py-2.5 rounded-xl bg-slate-800/90 border border-slate-600 text-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  className="input-clean text-xs font-medium"
                 >
                   <option value="Computer Science">Computer Science</option>
                   <option value="Mathematics">Mathematics</option>
@@ -557,14 +931,14 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
               </div>
 
               <div className="sm:col-span-2">
-                <label className="text-[10px] font-bold text-slate-300 uppercase block mb-1">
+                <label className="text-[10px] font-bold text-[#777777] uppercase block mb-1">
                   Difficulty
                 </label>
                 <select
                   value={difficulty}
                   onChange={(e) => setDifficulty(e.target.value as any)}
                   disabled={isGenerating}
-                  className="w-full px-3 py-2.5 rounded-xl bg-slate-800/90 border border-slate-600 text-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  className="input-clean text-xs font-medium"
                 >
                   <option value="easy">Easy</option>
                   <option value="medium">Medium</option>
@@ -573,14 +947,14 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
               </div>
 
               <div className="sm:col-span-2">
-                <label className="text-[10px] font-bold text-slate-300 uppercase block mb-1">
+                <label className="text-[10px] font-bold text-[#777777] uppercase block mb-1">
                   Questions
                 </label>
                 <select
                   value={questionCount}
                   onChange={(e) => setQuestionCount(Number(e.target.value))}
                   disabled={isGenerating}
-                  className="w-full px-3 py-2.5 rounded-xl bg-slate-800/90 border border-slate-600 text-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                  className="input-clean text-xs font-medium"
                 >
                   <option value={3}>3 Questions</option>
                   <option value={5}>5 Questions</option>
@@ -591,8 +965,8 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
             </div>
 
             {/* Quick Topic Suggestion Pills */}
-            <div className="flex items-center gap-2 overflow-x-auto text-[11px] pt-1">
-              <span className="text-slate-400 text-[10px] uppercase font-bold shrink-0">Popular:</span>
+            <div className="flex items-center gap-2 overflow-x-auto text-[11px] pt-1 pb-1">
+              <span className="text-[#777777] text-[10px] uppercase font-bold shrink-0">Popular:</span>
               {[
                 'Binary Search Trees & AVL',
                 'ACID Database Transactions',
@@ -609,7 +983,7 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
                     handleGenerateQuiz(pill);
                   }}
                   disabled={isGenerating}
-                  className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-emerald-500/20 border border-white/10 hover:border-emerald-400/40 text-slate-200 hover:text-emerald-300 shrink-0 transition-all text-[11px]"
+                  className="px-3 py-1 rounded-full bg-[#FFF8E8] hover:bg-[#F7F1E3] border border-[#E8E1D2] text-[#111111] font-medium shrink-0 transition-all text-[11px]"
                 >
                   {pill}
                 </button>
@@ -617,8 +991,8 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
             </div>
 
             {generatorError && (
-              <div className="p-3 bg-red-500/20 border border-red-400/40 rounded-xl text-red-200 text-xs flex items-center gap-2">
-                <X className="w-4 h-4 text-red-400 shrink-0" />
+              <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl text-rose-700 text-xs flex items-center gap-2">
+                <X className="w-4 h-4 text-rose-500 shrink-0" />
                 <span>{generatorError}</span>
               </div>
             )}
@@ -627,7 +1001,7 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
               <button
                 type="submit"
                 disabled={isGenerating || !topicInput.trim()}
-                className="px-6 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-xs flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50"
+                className="btn-primary px-6 py-3 text-xs font-bold gap-2 shadow-sm disabled:opacity-50"
               >
                 {isGenerating ? (
                   <>
@@ -649,30 +1023,30 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
         {/* INTERACTIVE QUIZ & EVALUATION RESULTS INTERFACE                */}
         {/* ============================================================== */}
         {isTakingQuiz && quizQuestions.length > 0 && (
-          <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6 animate-fade-in">
+          <div className="bg-[#FFFFFF] border border-[#E8E1D2] rounded-3xl p-6 sm:p-8 shadow-sm space-y-6 animate-fade-in">
             {/* Quiz Top Status Bar */}
-            <div className="flex items-center justify-between pb-4 border-b border-slate-200 flex-wrap gap-3">
+            <div className="flex items-center justify-between pb-4 border-b border-[#E8E1D2] flex-wrap gap-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                  <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-[#FFF8E8] text-[#111111] border border-[#E8E1D2]">
                     {activeQuizCourse}
                   </span>
-                  <span className="text-xs text-slate-400">•</span>
-                  <span className="text-xs font-semibold text-slate-600 capitalize">
+                  <span className="text-xs text-[#777777]">•</span>
+                  <span className="text-xs font-semibold text-[#777777] capitalize">
                     {difficulty} Difficulty
                   </span>
                 </div>
-                <h3 className="text-base font-bold text-slate-900 mt-1">{activeQuizTopic}</h3>
+                <h3 className="text-base font-extrabold text-[#111111] mt-1">{activeQuizTopic}</h3>
               </div>
 
               {!isSubmitted ? (
                 <div className="text-right">
-                  <span className="text-xs font-bold text-slate-700">
+                  <span className="text-xs font-bold text-[#111111]">
                     Question {currentQIndex + 1} of {quizQuestions.length}
                   </span>
-                  <div className="w-32 bg-slate-100 h-2 rounded-full overflow-hidden mt-1">
+                  <div className="w-32 bg-[#F7F1E3] h-2 rounded-full overflow-hidden mt-1">
                     <div
-                      className="bg-emerald-500 h-full rounded-full transition-all duration-300"
+                      className="bg-[#F4C542] h-full rounded-full transition-all duration-300"
                       style={{
                         width: `${((currentQIndex + 1) / quizQuestions.length) * 100}%`,
                       }}
@@ -680,13 +1054,13 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
                   </div>
                 </div>
               ) : (
-                <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 px-4 py-2 rounded-xl">
-                  <Award className="w-6 h-6 text-emerald-600" />
+                <div className="flex items-center gap-3 bg-[#FFF8E8] border border-[#F4C542] px-4 py-2 rounded-2xl">
+                  <Award className="w-6 h-6 text-[#111111]" />
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#777777] block">
                       Evaluation Score
                     </span>
-                    <span className="text-xl font-black text-emerald-900">{quizScore}%</span>
+                    <span className="text-xl font-black text-[#111111]">{quizScore}%</span>
                   </div>
                 </div>
               )}
@@ -696,24 +1070,26 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
             {!isSubmitted && currentQ && (
               <div className="space-y-5">
                 <div className="flex items-start justify-between gap-3">
-                  <h4 className="text-sm sm:text-base font-bold text-slate-900 leading-relaxed">
-                    <span className="text-emerald-600 mr-2">Q{currentQIndex + 1}.</span>
+                  <h4 className="text-sm sm:text-base font-bold text-[#111111] leading-relaxed">
+                    <span className="text-[#F4C542] bg-[#111111] px-2 py-0.5 rounded-full text-xs mr-2 font-black">
+                      Q{currentQIndex + 1}
+                    </span>
                     {currentQ.q}
                   </h4>
                   <button
                     type="button"
                     onClick={() => toggleSpeak(currentQ.q, `q-${currentQIndex}`)}
-                    className={`p-1.5 rounded-lg border text-xs flex items-center gap-1 shrink-0 ${
+                    className={`p-2 rounded-full border text-xs flex items-center gap-1 shrink-0 ${
                       speakingId === `q-${currentQIndex}`
-                        ? 'bg-amber-100 text-amber-900 border-amber-300'
-                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100'
+                        ? 'bg-[#FFF8E8] text-[#111111] border-[#F4C542]'
+                        : 'bg-[#FFFDF7] text-[#777777] border-[#E8E1D2] hover:bg-[#FFF8E8] hover:text-[#111111]'
                     }`}
                     title="Listen to question"
                   >
                     {speakingId === `q-${currentQIndex}` ? (
-                      <VolumeX className="w-3.5 h-3.5 text-amber-700 animate-pulse" />
+                      <VolumeX className="w-3.5 h-3.5 text-[#111111] animate-pulse" />
                     ) : (
-                      <Volume2 className="w-3.5 h-3.5 text-slate-600" />
+                      <Volume2 className="w-3.5 h-3.5 text-[#777777]" />
                     )}
                   </button>
                 </div>
@@ -726,32 +1102,32 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
                       <button
                         key={optIdx}
                         onClick={() => handleSelectOption(currentQIndex, optIdx)}
-                        className={`w-full p-4 rounded-xl border text-left text-xs sm:text-sm font-medium transition-all flex items-center justify-between gap-3 ${
+                        className={`w-full p-4 rounded-2xl border text-left text-xs sm:text-sm font-semibold transition-all flex items-center justify-between gap-3 ${
                           isSelected
-                            ? 'bg-emerald-50 border-emerald-500 text-emerald-950 shadow-xs ring-1 ring-emerald-400'
-                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300'
+                            ? 'bg-[#FFF8E8] border-[#F4C542] text-[#111111] shadow-xs ring-2 ring-[#F4C542]/30'
+                            : 'bg-[#FFFFFF] border-[#E8E1D2] text-[#3F3F3F] hover:bg-[#FFFDF7] hover:border-[#D6CCA8]'
                         }`}
                       >
                         <div className="flex items-center gap-3">
                           <span
-                            className={`w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center shrink-0 ${
+                            className={`w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center shrink-0 ${
                               isSelected
-                                ? 'bg-emerald-600 text-white'
-                                : 'bg-slate-100 text-slate-600'
+                                ? 'bg-[#111111] text-[#F4C542]'
+                                : 'bg-[#FFF8E8] text-[#111111] border border-[#E8E1D2]'
                             }`}
                           >
                             {String.fromCharCode(65 + optIdx)}
                           </span>
                           <span>{opt}</span>
                         </div>
-                        {isSelected && <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
+                        {isSelected && <Check className="w-4 h-4 text-[#111111] shrink-0" />}
                       </button>
                     );
                   })}
                 </div>
 
                 {/* Question Navigation Controls */}
-                <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between pt-4 border-t border-[#E8E1D2]">
                   <button
                     type="button"
                     onClick={() => setCurrentQIndex(Math.max(0, currentQIndex - 1))}
@@ -766,12 +1142,12 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
                       <button
                         key={dotIdx}
                         onClick={() => setCurrentQIndex(dotIdx)}
-                        className={`w-2.5 h-2.5 rounded-full transition-all ${
+                        className={`h-2.5 rounded-full transition-all ${
                           dotIdx === currentQIndex
-                            ? 'bg-emerald-600 w-5'
+                            ? 'bg-[#111111] w-6'
                             : selectedAnswers[dotIdx] !== undefined
-                            ? 'bg-emerald-300'
-                            : 'bg-slate-200'
+                            ? 'bg-[#F4C542] w-2.5'
+                            : 'bg-[#E8E1D2] w-2.5'
                         }`}
                       />
                     ))}
@@ -781,7 +1157,7 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
                     <button
                       type="button"
                       onClick={() => setCurrentQIndex(currentQIndex + 1)}
-                      className="btn-primary text-xs py-2 px-5 bg-emerald-600 hover:bg-emerald-700"
+                      className="btn-primary text-xs py-2 px-5 font-bold"
                     >
                       Next Question
                     </button>
@@ -789,7 +1165,7 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
                     <button
                       type="button"
                       onClick={handleSubmitQuiz}
-                      className="btn-primary text-xs py-2 px-6 bg-emerald-600 hover:bg-emerald-700 font-bold"
+                      className="btn-primary text-xs py-2 px-6 font-extrabold"
                     >
                       Submit Evaluation
                     </button>
@@ -804,27 +1180,27 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
             {isSubmitted && (
               <div className="space-y-6 animate-fade-in">
                 {savedSuccessMsg && (
-                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <div className="p-3.5 bg-[#FFF8E8] border border-[#F4C542] rounded-2xl text-[#111111] text-xs flex items-center gap-2 font-bold">
+                    <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
                     <span>{savedSuccessMsg}</span>
                   </div>
                 )}
 
                 {/* Diagnostics Summary Header */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl text-center">
-                    <span className="text-[10px] font-bold uppercase text-slate-500 block">Total Questions</span>
-                    <span className="text-xl font-bold text-slate-900">{quizQuestions.length}</span>
+                  <div className="p-5 bg-[#FFFDF7] border border-[#E8E1D2] rounded-2xl text-center">
+                    <span className="text-[10px] font-bold uppercase text-[#777777] block">Total Questions</span>
+                    <span className="text-2xl font-extrabold text-[#111111]">{quizQuestions.length}</span>
                   </div>
-                  <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl text-center">
-                    <span className="text-[10px] font-bold uppercase text-emerald-600 block">Correct Answers</span>
-                    <span className="text-xl font-bold text-emerald-700">
+                  <div className="p-5 bg-emerald-50/70 border border-emerald-200 rounded-2xl text-center">
+                    <span className="text-[10px] font-bold uppercase text-emerald-700 block">Correct Answers</span>
+                    <span className="text-2xl font-extrabold text-emerald-800">
                       {quizQuestions.filter((q, i) => selectedAnswers[i] === q.correct).length}
                     </span>
                   </div>
-                  <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-center">
-                    <span className="text-[10px] font-bold uppercase text-red-600 block">Needs Review</span>
-                    <span className="text-xl font-bold text-red-700">
+                  <div className="p-5 bg-rose-50/70 border border-rose-200 rounded-2xl text-center">
+                    <span className="text-[10px] font-bold uppercase text-rose-700 block">Needs Review</span>
+                    <span className="text-2xl font-extrabold text-rose-800">
                       {quizQuestions.filter((q, i) => selectedAnswers[i] !== q.correct).length}
                     </span>
                   </div>
@@ -832,8 +1208,8 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
 
                 {/* Review All Questions with Step-by-Step Educational Solutions */}
                 <div className="space-y-4 pt-2">
-                  <h4 className="text-sm font-bold text-slate-800 flex items-center gap-2">
-                    <BookOpen className="w-4 h-4 text-emerald-600" />
+                  <h4 className="text-sm font-extrabold text-[#111111] flex items-center gap-2">
+                    <BookOpen className="w-4 h-4 text-[#F4C542]" />
                     <span>Detailed Question-by-Question Diagnostic Review</span>
                   </h4>
 
@@ -845,34 +1221,34 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
                     return (
                       <div
                         key={idx}
-                        className={`p-5 rounded-xl border text-xs leading-relaxed transition-all ${
+                        className={`p-5 rounded-2xl border text-xs leading-relaxed transition-all ${
                           isCorrect
-                            ? 'bg-emerald-50/40 border-emerald-200'
-                            : 'bg-red-50/40 border-red-200'
+                            ? 'bg-[#FFFDF7] border-emerald-200'
+                            : 'bg-rose-50/30 border-rose-200'
                         }`}
                       >
-                        <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-start justify-between gap-3 mb-2 flex-wrap">
                           <div className="flex items-center gap-2">
                             <span
                               className={`w-6 h-6 rounded-full font-bold flex items-center justify-center text-xs ${
                                 isCorrect
-                                  ? 'bg-emerald-600 text-white'
-                                  : 'bg-red-600 text-white'
+                                  ? 'bg-[#10B981] text-white'
+                                  : 'bg-rose-600 text-white'
                               }`}
                             >
                               {idx + 1}
                             </span>
                             <span
-                              className={`font-bold uppercase tracking-wider text-[10px] px-2 py-0.5 rounded ${
+                              className={`font-bold uppercase tracking-wider text-[10px] px-2.5 py-0.5 rounded-full ${
                                 isCorrect
                                   ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-red-100 text-red-800'
+                                  : 'bg-rose-100 text-rose-800'
                               }`}
                             >
                               {isCorrect ? 'Correct' : 'Incorrect'}
                             </span>
                             {q.keyConcept && (
-                              <span className="text-[10px] font-semibold text-slate-500">
+                              <span className="text-[10px] font-semibold text-[#777777]">
                                 Concept: {q.keyConcept}
                               </span>
                             )}
@@ -884,25 +1260,25 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
                               type="button"
                               onClick={() => handleSaveWeakConceptToMemory(q, idx)}
                               disabled={isSaved || isSaving}
-                              className={`px-2.5 py-1 rounded-md text-[11px] font-semibold flex items-center gap-1 transition-colors ${
+                              className={`px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1 transition-colors ${
                                 isSaved
-                                  ? 'bg-green-100 text-green-800 border border-green-300'
-                                  : 'bg-white text-slate-700 border border-slate-300 hover:bg-emerald-50 hover:text-emerald-700'
+                                  ? 'bg-[#FFF8E8] text-[#111111] border border-[#F4C542]'
+                                  : 'bg-[#FFFFFF] text-[#3F3F3F] border border-[#E8E1D2] hover:bg-[#FFF8E8] hover:text-[#111111]'
                               }`}
                             >
                               {isSaving ? (
                                 <>
-                                  <Loader2 className="w-3 h-3 animate-spin text-emerald-600" />
+                                  <Loader2 className="w-3 h-3 animate-spin text-[#111111]" />
                                   <span>Saving to Memory...</span>
                                 </>
                               ) : isSaved ? (
                                 <>
-                                  <Check className="w-3 h-3 text-emerald-600" />
+                                  <Check className="w-3 h-3 text-[#10B981]" />
                                   <span>Saved to Memory</span>
                                 </>
                               ) : (
                                 <>
-                                  <Brain className="w-3 h-3 text-emerald-600" />
+                                  <Brain className="w-3 h-3 text-[#111111]" />
                                   <span>Save to Memory Flashcards</span>
                                 </>
                               )}
@@ -910,7 +1286,7 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
                           )}
                         </div>
 
-                        <p className="font-bold text-slate-900 text-xs sm:text-sm mb-3">{q.q}</p>
+                        <p className="font-bold text-[#111111] text-xs sm:text-sm mb-3">{q.q}</p>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-3">
                           {q.options.map((opt, optIdx) => {
@@ -920,12 +1296,12 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
                             return (
                               <div
                                 key={optIdx}
-                                className={`p-2.5 rounded-lg border text-xs flex items-center justify-between ${
+                                className={`p-3 rounded-xl border text-xs flex items-center justify-between ${
                                   isOptCorrect
-                                    ? 'bg-emerald-100 border-emerald-300 text-emerald-950 font-bold'
+                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-bold'
                                     : isOptSelected
-                                    ? 'bg-red-100 border-red-300 text-red-950'
-                                    : 'bg-white border-slate-200 text-slate-600'
+                                    ? 'bg-rose-50 border-rose-300 text-rose-950 font-semibold'
+                                    : 'bg-[#FFFFFF] border-[#E8E1D2] text-[#3F3F3F]'
                                 }`}
                               >
                                 <span>
@@ -933,15 +1309,15 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
                                   {opt}
                                 </span>
                                 {isOptCorrect && <Check className="w-3.5 h-3.5 text-emerald-700 shrink-0" />}
-                                {!isOptCorrect && isOptSelected && <X className="w-3.5 h-3.5 text-red-700 shrink-0" />}
+                                {!isOptCorrect && isOptSelected && <X className="w-3.5 h-3.5 text-rose-700 shrink-0" />}
                               </div>
                             );
                           })}
                         </div>
 
                         {/* Explanation */}
-                        <div className="p-3 bg-white rounded-lg border border-slate-200 text-slate-700 text-xs">
-                          <strong className="text-slate-900 block mb-0.5">Explanation:</strong>
+                        <div className="p-3.5 bg-[#FFF8E8]/50 rounded-xl border border-[#E8E1D2] text-[#3F3F3F] text-xs">
+                          <strong className="text-[#111111] block mb-0.5">Explanation:</strong>
                           <p>{q.explanation}</p>
                         </div>
                       </div>
@@ -950,7 +1326,7 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
                 </div>
 
                 {/* Retake / New Topic / Download PDF Actions */}
-                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-[#E8E1D2]">
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
@@ -958,7 +1334,7 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
                         setIsTakingQuiz(false);
                         setQuizQuestions([]);
                       }}
-                      className="btn-secondary text-xs py-2 px-4"
+                      className="btn-secondary text-xs py-2.5 px-4 font-bold"
                     >
                       Evaluate Another Topic
                     </button>
@@ -966,18 +1342,28 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
                     <button
                       type="button"
                       onClick={handleDownloadActiveQuizPdf}
-                      className="btn-secondary text-xs py-2 px-3.5 flex items-center gap-1.5 text-emerald-700 bg-emerald-50/70 hover:bg-emerald-100 border-emerald-300 font-semibold shadow-xs"
+                      className="btn-secondary text-xs py-2.5 px-4 flex items-center gap-1.5 font-bold"
                       title="Download full quiz questions, answers, and solutions as a PDF"
                     >
-                      <FileDown className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>Download Quiz PDF Report</span>
+                      <FileText className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>Download Quiz .PDF</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleDownloadActiveQuizCsv}
+                      className="btn-secondary text-xs py-2.5 px-4 flex items-center gap-1.5 font-bold"
+                      title="Download full quiz questions and answers as a CSV spreadsheet"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5 text-blue-700" />
+                      <span>Download Quiz .CSV</span>
                     </button>
                   </div>
 
                   <button
                     type="button"
                     onClick={() => handleGenerateQuiz(activeQuizTopic)}
-                    className="btn-primary text-xs py-2 px-5 bg-emerald-600 hover:bg-emerald-700 flex items-center gap-1.5"
+                    className="btn-primary text-xs py-2.5 px-5 font-bold flex items-center gap-1.5"
                   >
                     <RefreshCw className="w-3.5 h-3.5" />
                     <span>Generate New Questions on {activeQuizTopic}</span>
@@ -991,82 +1377,117 @@ Ensure mastery of this concept for upcoming evaluations and coursework in ${acti
         {/* ============================================================== */}
         {/* EVALUATION RECORDS HISTORY TABLE                               */}
         {/* ============================================================== */}
-        <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-          <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+        <div className="bg-[#FFFFFF] border border-[#E8E1D2] rounded-3xl overflow-hidden shadow-xs">
+          <div className="px-6 py-5 border-b border-[#E8E1D2] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-emerald-600" />
+              <h3 className="text-sm font-extrabold text-[#111111] flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-[#F4C542]" />
                 <span>Evaluation & Assessment History</span>
               </h3>
-              <p className="text-[11px] text-slate-500">
+              <p className="text-[11px] text-[#777777]">
                 Track your quiz scores across courses to measure diagnostic knowledge retention.
               </p>
             </div>
-            <span className="text-xs text-slate-400 font-medium">{assessments.length} logged evaluations</span>
+
+            {/* Download Progress Report Actions */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={handleExportProgressPdf}
+                disabled={assessments.length === 0}
+                className="btn-secondary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5 disabled:opacity-40"
+                title="Download comprehensive evaluation progress report as PDF"
+              >
+                <FileText className="w-3.5 h-3.5 text-emerald-700" />
+                <span>Export Progress .PDF</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleExportProgressCsv}
+                disabled={assessments.length === 0}
+                className="btn-secondary text-xs py-1.5 px-3 font-bold flex items-center gap-1.5 disabled:opacity-40"
+                title="Download comprehensive evaluation progress report as CSV spreadsheet"
+              >
+                <FileSpreadsheet className="w-3.5 h-3.5 text-blue-700" />
+                <span>Export Progress .CSV</span>
+              </button>
+
+              <span className="text-xs text-[#777777] font-semibold bg-[#FFF8E8] px-3 py-1 rounded-full border border-[#E8E1D2]">
+                {assessments.length} records
+              </span>
+            </div>
           </div>
 
           <table className="w-full text-left text-xs">
-            <thead className="bg-slate-50 border-b border-slate-200 font-semibold text-slate-600 uppercase">
+            <thead className="bg-[#FFF8E8] border-b border-[#E8E1D2] font-bold text-[#111111] uppercase tracking-wider text-[10px]">
               <tr>
-                <th className="px-5 py-3">Evaluation Topic / Title</th>
-                <th className="px-3 py-3 hidden sm:table-cell">Course</th>
-                <th className="px-3 py-3">Score</th>
-                <th className="px-3 py-3 hidden md:table-cell">Date</th>
-                <th className="px-4 py-3 text-right">Actions</th>
+                <th className="px-6 py-3.5">Evaluation Topic / Title</th>
+                <th className="px-3 py-3.5 hidden sm:table-cell">Course</th>
+                <th className="px-3 py-3.5">Score</th>
+                <th className="px-3 py-3.5 hidden md:table-cell">Date</th>
+                <th className="px-6 py-3.5 text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-[#E8E1D2]/60">
               {isLoading ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-400">
-                    <Loader2 className="w-4 h-4 animate-spin text-emerald-600 mx-auto mb-2" />
+                  <td colSpan={5} className="p-8 text-center text-[#777777]">
+                    <Loader2 className="w-4 h-4 animate-spin text-[#111111] mx-auto mb-2" />
                     <span>Loading evaluation history...</span>
                   </td>
                 </tr>
               ) : assessments.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center text-slate-400">
+                  <td colSpan={5} className="p-8 text-center text-[#777777]">
                     No evaluations recorded yet. Generate your first topic quiz above!
                   </td>
                 </tr>
               ) : (
                 assessments.map((a) => (
-                  <tr key={a._id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-5 py-3.5">
-                      <p className="font-bold text-slate-900">{a.title}</p>
-                      <p className="text-[10px] text-slate-400 sm:hidden">{a.course} • {a.date}</p>
+                  <tr key={a._id} className="hover:bg-[#FFF8E8]/40 transition-colors">
+                    <td className="px-6 py-4">
+                      <p className="font-bold text-[#111111]">{a.title}</p>
+                      <p className="text-[10px] text-[#777777] sm:hidden">{a.course} • {a.date}</p>
                     </td>
-                    <td className="px-3 py-3.5 hidden sm:table-cell">
-                      <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-medium text-[11px]">
+                    <td className="px-3 py-4 hidden sm:table-cell">
+                      <span className="bg-[#FFF8E8] text-[#111111] border border-[#E8E1D2] px-2.5 py-0.5 rounded-full font-bold text-[10px]">
                         {a.course}
                       </span>
                     </td>
-                    <td className="px-3 py-3.5">
+                    <td className="px-3 py-4">
                       <span
-                        className={`font-bold px-2 py-0.5 rounded text-[11px] ${
+                        className={`font-bold px-2.5 py-0.5 rounded-full text-[11px] ${
                           a.score.includes('%') && parseInt(a.score, 10) >= 75
                             ? 'bg-emerald-100 text-emerald-800'
                             : a.score.includes('%') && parseInt(a.score, 10) >= 50
-                            ? 'bg-amber-100 text-amber-800'
-                            : 'bg-slate-100 text-slate-700'
+                            ? 'bg-[#FFF8E8] text-[#111111] border border-[#F4C542]'
+                            : 'bg-[#F7F1E3] text-[#777777]'
                         }`}
                       >
                         {a.score}
                       </span>
                     </td>
-                    <td className="px-3 py-3.5 text-slate-500 hidden md:table-cell">{a.date}</td>
-                    <td className="px-4 py-3.5 text-right">
+                    <td className="px-3 py-4 text-[#777777] hidden md:table-cell">{a.date}</td>
+                    <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1.5">
                         <button
                           onClick={() => handleDownloadRecordPdf(a)}
-                          className="p-1.5 text-slate-500 hover:text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors"
+                          className="p-1.5 text-[#777777] hover:text-emerald-700 rounded-full hover:bg-emerald-50 transition-colors"
                           title="Download Evaluation Report as PDF"
                         >
-                          <FileDown className="w-4 h-4 text-emerald-600" />
+                          <FileText className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDownloadRecordCsv(a)}
+                          className="p-1.5 text-[#777777] hover:text-blue-700 rounded-full hover:bg-blue-50 transition-colors"
+                          title="Download Evaluation Report as CSV"
+                        >
+                          <FileSpreadsheet className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteAssessment(a._id)}
-                          className="p-1.5 text-slate-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+                          className="p-1.5 text-[#777777] hover:text-rose-600 rounded-full hover:bg-rose-50 transition-colors"
                           title="Delete record"
                         >
                           <Trash2 className="w-3.5 h-3.5" />

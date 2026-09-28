@@ -88,6 +88,25 @@ const seedSuperAdminIfNeeded = async () => {
       console.log('🏛️ [Auto-Seed] Demo Institution Admin created: admin@synexora.edu / admin123');
     }
 
+    // Seed Demo Institution Teacher
+    const teacherExists = await User.findOne({ email: 'teacher@synexora.edu' });
+    if (!teacherExists) {
+      await User.create({
+        name: 'Prof. Marcus Vance (Teacher)',
+        email: 'teacher@synexora.edu',
+        password: 'teacher123',
+        role: 'institution_teacher',
+        accountStatus: 'active',
+        institutionId: demoInst._id,
+        institutionCode: 'INST-DEMO',
+        facultyIdNumber: 'FAC-2026-018',
+        department: 'Computer Science & AI',
+        major: 'Computer Science & AI',
+        university: demoInst.name,
+      });
+      console.log('👨‍🏫 [Auto-Seed] Demo Institution Teacher created: teacher@synexora.edu / teacher123');
+    }
+
     // Seed Demo Campus Student
     const studentExists = await User.findOne({ email: 'student@synexora.edu' });
     if (!studentExists) {
@@ -332,12 +351,48 @@ router.post(
         });
       }
 
-      // Check if affiliated institution is suspended
-      if (user.institutionId && user.institutionId.status === 'suspended') {
-        return res.status(403).json({
-          success: false,
-          message: 'Access Restricted: Your campus license has been suspended by the Super Administrator.',
-        });
+      // Institutional user verification: Ensure institution was created by Super Admin & is active
+      const isInstitutionalUser = ['institution_admin', 'institution_teacher', 'institution_student'].includes(user.role);
+      if (isInstitutionalUser) {
+        let activeInst = user.institutionId;
+
+        // If not populated or null, attempt lookup via institutionCode or adminUser
+        if (!activeInst && user.institutionCode) {
+          activeInst = await Institution.findOne({ code: user.institutionCode.toUpperCase().trim() });
+          if (activeInst) {
+            user.institutionId = activeInst._id;
+            await user.save();
+          }
+        }
+        if (!activeInst && user.role === 'institution_admin') {
+          activeInst = await Institution.findOne({ adminUser: user._id });
+          if (activeInst) {
+            user.institutionId = activeInst._id;
+            user.institutionCode = activeInst.code;
+            await user.save();
+          }
+        }
+
+        if (!activeInst) {
+          return res.status(403).json({
+            success: false,
+            message: 'Access Denied: Your institution details do not exist or were deleted by the Super Administrator. Only registered institutions can sign in.',
+          });
+        }
+
+        if (activeInst.status === 'suspended') {
+          return res.status(403).json({
+            success: false,
+            message: 'Access Restricted: Your campus license has been suspended by the Super Administrator.',
+          });
+        }
+
+        if (activeInst.status === 'pending_approval') {
+          return res.status(403).json({
+            success: false,
+            message: 'Access Pending: Your institution is awaiting approval by the Super Administrator.',
+          });
+        }
       }
 
       const token = generateToken(user._id);
@@ -354,6 +409,8 @@ router.post(
         department: user.department,
         major: user.major,
         university: user.university,
+        assignedTeacher: user.assignedTeacher,
+        assignedTeacherName: user.assignedTeacherName,
         gpa: user.gpa,
         streak: user.streak,
         semester: user.semester,

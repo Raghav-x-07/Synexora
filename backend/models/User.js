@@ -56,6 +56,16 @@ const userSchema = new mongoose.Schema(
       trim: true,
       uppercase: true,
     },
+    assignedTeacher: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    assignedTeacherName: {
+      type: String,
+      default: '',
+      trim: true,
+    },
     studentIdNumber: {
       type: String,
       default: '',

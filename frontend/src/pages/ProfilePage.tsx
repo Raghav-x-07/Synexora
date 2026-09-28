@@ -29,27 +29,33 @@ export const ProfilePage: React.FC = () => {
 
   return (
     <AppLayout>
-      <div className="space-y-6 max-w-3xl">
+      <div className="space-y-6 max-w-3xl pb-16">
         {/* Header */}
-        <div className="pb-4 border-b border-slate-200">
-          <h1 className="text-xl font-bold text-slate-900 flex items-center gap-2">
-            <User className="w-5 h-5 text-green-600" />
-            <span>Student Profile</span>
-          </h1>
-          <p className="text-xs text-slate-500">Manage your personal information and university affiliation</p>
+        <div className="pb-6 border-b border-[#E8E1D2] flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-[#111111] text-[#F4C542] flex items-center justify-center shadow-sm">
+            <User className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-black text-[#111111] tracking-tight">
+              Student Profile
+            </h1>
+            <p className="text-xs text-[#777777] font-medium mt-0.5">
+              Manage your personal information and university affiliation
+            </p>
+          </div>
         </div>
 
         {statusMessage && (
-          <div className="p-3.5 rounded-md bg-green-50 border border-green-200 text-green-800 text-xs font-medium flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />
+          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>{statusMessage}</span>
           </div>
         )}
 
         {/* Profile Form */}
-        <form onSubmit={handleSave} className="bg-white border border-slate-200 rounded-lg p-6 space-y-4">
+        <form onSubmit={handleSave} className="bg-white border border-[#E8E1D2] rounded-3xl p-6 sm:p-8 shadow-xs space-y-5">
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-bold text-[#111111] uppercase tracking-wider mb-1.5">
               Full Name
             </label>
             <input
@@ -62,21 +68,21 @@ export const ProfilePage: React.FC = () => {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-xs font-bold text-[#111111] uppercase tracking-wider mb-1.5">
               Email Address (Account ID)
             </label>
             <input
               type="email"
               value={user?.email || ''}
               disabled
-              className="input-clean bg-slate-100 text-slate-500 cursor-not-allowed"
+              className="input-clean bg-[#FFF8E8] text-[#777777] cursor-not-allowed border-[#E8E1D2]"
             />
-            <p className="text-[11px] text-slate-400 mt-1">Email is tied to your authentication credentials.</p>
+            <p className="text-[11px] text-[#777777] mt-1.5">Email is tied to your authentication credentials.</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-bold text-[#111111] uppercase tracking-wider mb-1.5">
                 Academic Major
               </label>
               <input
@@ -89,7 +95,7 @@ export const ProfilePage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+              <label className="block text-xs font-bold text-[#111111] uppercase tracking-wider mb-1.5">
                 University / Institution
               </label>
               <input
@@ -102,14 +108,14 @@ export const ProfilePage: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-            <span className="text-xs text-slate-400">
-              Account Role: <strong className="text-slate-700 capitalize">{user?.role || 'student'}</strong>
+          <div className="pt-4 border-t border-[#E8E1D2] flex items-center justify-between">
+            <span className="text-xs text-[#777777]">
+              Account Role: <strong className="text-[#111111] capitalize">{user?.role?.replace('_', ' ') || 'student'}</strong>
             </span>
             <button
               type="submit"
               disabled={isSaving}
-              className="btn-primary gap-1.5 text-xs disabled:opacity-50"
+              className="btn-primary gap-1.5 text-xs py-2.5 px-5 font-bold disabled:opacity-50"
             >
               {isSaving ? (
                 <>
@@ -129,3 +135,4 @@ export const ProfilePage: React.FC = () => {
     </AppLayout>
   );
 };
+

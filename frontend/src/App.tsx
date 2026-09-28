@@ -40,11 +40,11 @@ function App() {
           }
         />
 
-        {/* Institution Admin Portal */}
+        {/* Institution & Students Portal */}
         <Route
           path="/institution-portal"
           element={
-            <RoleProtectedRoute allowedRoles={['institution_admin']}>
+            <RoleProtectedRoute allowedRoles={['institution_admin', 'institution_teacher', 'educator', 'super_admin', 'admin']}>
               <InstitutionPortalPage />
             </RoleProtectedRoute>
           }
@@ -62,7 +62,7 @@ function App() {
         <Route
           path="/classroom"
           element={
-            <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'institution_teacher', 'institution_student']} strict={true}>
+            <RoleProtectedRoute allowedRoles={['institution_admin', 'institution_teacher', 'institution_student', 'educator', 'student']} strict={true}>
               <ClassroomPage />
             </RoleProtectedRoute>
           }
@@ -70,7 +70,7 @@ function App() {
         <Route
           path="/classroom/:id"
           element={
-            <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'institution_teacher', 'institution_student']} strict={true}>
+            <RoleProtectedRoute allowedRoles={['institution_admin', 'institution_teacher', 'institution_student', 'educator', 'student']} strict={true}>
               <ClassroomPage />
             </RoleProtectedRoute>
           }
@@ -78,7 +78,7 @@ function App() {
         <Route
           path="/classrooms"
           element={
-            <RoleProtectedRoute allowedRoles={['super_admin', 'admin', 'institution_admin', 'institution_teacher', 'institution_student']} strict={true}>
+            <RoleProtectedRoute allowedRoles={['institution_admin', 'institution_teacher', 'institution_student', 'educator', 'student']} strict={true}>
               <ClassroomPage />
             </RoleProtectedRoute>
           }

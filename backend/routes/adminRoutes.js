@@ -97,7 +97,19 @@ router.get('/institutions', protect, requireSuperAdmin, async (req, res) => {
 // @desc    Onboard new institution by Super Admin
 // @access  Private (Super Admin)
 router.post('/institutions', protect, requireSuperAdmin, async (req, res) => {
-  const { name, code, domain, maxSeats = 500, plan = 'professional', departments = [] } = req.body;
+  const {
+    name,
+    code,
+    domain,
+    maxSeats = 500,
+    plan = 'professional',
+    departments = [],
+    contactEmail = '',
+    phone = '',
+    address = '',
+    bannerTheme = 'indigo',
+    status = 'active',
+  } = req.body;
 
   if (!name || !name.trim()) {
     return res.status(400).json({
@@ -111,8 +123,20 @@ router.post('/institutions', protect, requireSuperAdmin, async (req, res) => {
 
     const existing = await Institution.findOne({ code: generatedCode });
     if (existing) {
+      if (code) {
+        return res.status(400).json({
+          success: false,
+          message: `An institution with code "${generatedCode}" already exists.`,
+        });
+      }
       generatedCode = `INST-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
     }
+
+    const deptArray = Array.isArray(departments) && departments.length > 0
+      ? departments
+      : typeof departments === 'string' && departments.trim()
+      ? departments.split(',').map((d) => d.trim()).filter(Boolean)
+      : ['Computer Science', 'Data Science & AI', 'Business'];
 
     const institution = await Institution.create({
       name: name.trim(),
@@ -120,8 +144,12 @@ router.post('/institutions', protect, requireSuperAdmin, async (req, res) => {
       domain: domain ? domain.trim() : '',
       maxSeats: parseInt(maxSeats, 10) || 500,
       plan,
-      departments: departments.length > 0 ? departments : ['Computer Science', 'Data Science & AI', 'Business'],
-      status: 'active',
+      departments: deptArray,
+      contactEmail: contactEmail ? contactEmail.trim() : '',
+      phone: phone ? phone.trim() : '',
+      address: address ? address.trim() : '',
+      bannerTheme,
+      status: status || 'active',
       adminUser: req.user._id,
     });
 
@@ -135,6 +163,131 @@ router.post('/institutions', protect, requireSuperAdmin, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to onboard institution.',
+      error: err.message,
+    });
+  }
+});
+
+// @route   PUT /api/admin/institutions/:id
+// @desc    Update full institution details by Super Admin
+// @access  Private (Super Admin)
+router.put('/institutions/:id', protect, requireSuperAdmin, async (req, res) => {
+  const {
+    name,
+    code,
+    domain,
+    maxSeats,
+    plan,
+    departments,
+    contactEmail,
+    phone,
+    address,
+    bannerTheme,
+    status,
+  } = req.body;
+
+  try {
+    const institution = await Institution.findById(req.params.id);
+    if (!institution) {
+      return res.status(404).json({ success: false, message: 'Institution not found.' });
+    }
+
+    if (code && code.trim().toUpperCase() !== institution.code) {
+      const codeExists = await Institution.findOne({
+        code: code.trim().toUpperCase(),
+        _id: { $ne: req.params.id },
+      });
+      if (codeExists) {
+        return res.status(400).json({
+          success: false,
+          message: `Institution code "${code.trim().toUpperCase()}" is already assigned to another campus.`,
+        });
+      }
+      institution.code = code.trim().toUpperCase();
+    }
+
+    if (name) institution.name = name.trim();
+    if (domain !== undefined) institution.domain = domain.trim();
+    if (maxSeats !== undefined) institution.maxSeats = parseInt(maxSeats, 10);
+    if (plan) institution.plan = plan;
+    if (contactEmail !== undefined) institution.contactEmail = contactEmail.trim();
+    if (phone !== undefined) institution.phone = phone.trim();
+    if (address !== undefined) institution.address = address.trim();
+    if (bannerTheme) institution.bannerTheme = bannerTheme;
+    if (status) institution.status = status;
+
+    if (departments !== undefined) {
+      institution.departments = Array.isArray(departments)
+        ? departments
+        : typeof departments === 'string'
+        ? departments.split(',').map((d) => d.trim()).filter(Boolean)
+        : institution.departments;
+    }
+
+    await institution.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Institution "${institution.name}" updated successfully.`,
+      institution,
+    });
+  } catch (err) {
+    console.error('[Admin Update Institution Error]', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to update institution details.',
+      error: err.message,
+    });
+  }
+});
+
+// @route   DELETE /api/admin/institutions/:id
+// @desc    Delete institution and revoke sign-in access for its users
+// @access  Private (Super Admin)
+router.delete('/institutions/:id', protect, requireSuperAdmin, async (req, res) => {
+  try {
+    const institution = await Institution.findById(req.params.id);
+    if (!institution) {
+      return res.status(404).json({ success: false, message: 'Institution not found.' });
+    }
+
+    const instId = institution._id;
+    const instCode = institution.code;
+    const instName = institution.name;
+
+    // 1. Mark all affiliated users as suspended and remove institution reference so they cannot sign in
+    await User.updateMany(
+      {
+        $or: [{ institutionId: instId }, { institutionCode: instCode }],
+        role: { $in: ['institution_admin', 'institution_teacher', 'institution_student'] },
+      },
+      {
+        $set: {
+          accountStatus: 'suspended',
+          institutionId: null,
+          institutionCode: '',
+        },
+      }
+    );
+
+    // 2. Delete classrooms tied to this institution
+    await Classroom.deleteMany({
+      $or: [{ institutionId: instId }, { institutionCode: instCode }],
+    });
+
+    // 3. Delete the institution document
+    await Institution.findByIdAndDelete(instId);
+
+    return res.status(200).json({
+      success: true,
+      message: `Institution "${instName}" (${instCode}) and associated campus access deleted successfully.`,
+      deletedId: instId,
+    });
+  } catch (err) {
+    console.error('[Admin Delete Institution Error]', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to delete institution.',
       error: err.message,
     });
   }
@@ -374,6 +527,210 @@ router.post('/users/create', protect, requireSuperAdmin, async (req, res) => {
     return res.status(500).json({
       success: false,
       message: 'Failed to create user account.',
+      error: err.message,
+    });
+  }
+});
+
+// @route   GET /api/admin/institutions/:id/students
+// @desc    Get all students belonging to a specific institution with study progress telemetry
+// @access  Private (Super Admin)
+router.get('/institutions/:id/students', protect, requireSuperAdmin, async (req, res) => {
+  const { department, search } = req.query;
+  const StudyLog = require('../models/StudyLog');
+  const Classroom = require('../models/Classroom');
+
+  try {
+    const institution = await Institution.findById(req.params.id);
+    if (!institution) {
+      return res.status(404).json({ success: false, message: 'Institution not found.' });
+    }
+
+    const query = {
+      institutionId: institution._id,
+      role: 'institution_student',
+    };
+
+    if (department && department !== 'all') {
+      query.department = department;
+    }
+
+    if (search && search.trim()) {
+      query.$or = [
+        { name: { $regex: search.trim(), $options: 'i' } },
+        { email: { $regex: search.trim(), $options: 'i' } },
+        { studentIdNumber: { $regex: search.trim(), $options: 'i' } },
+      ];
+    }
+
+    const students = await User.find(query).select('-password').sort({ name: 1 }).lean();
+    const studentIds = students.map((s) => s._id);
+
+    // Fetch study logs for these students
+    const logs = await StudyLog.find({ user: { $in: studentIds } }).lean();
+    const logsByStudent = {};
+    studentIds.forEach((id) => {
+      logsByStudent[id.toString()] = [];
+    });
+    logs.forEach((log) => {
+      const idStr = log.user?.toString();
+      if (logsByStudent[idStr]) logsByStudent[idStr].push(log);
+    });
+
+    // Fetch classrooms for this institution
+    const classrooms = await Classroom.find({ institutionId: institution._id }).select('title code students').lean();
+
+    const studentsWithTelemetry = students.map((s) => {
+      const sLogs = logsByStudent[s._id.toString()] || [];
+      const totalMinutes = sLogs.reduce((acc, l) => acc + (l.durationMinutes || 0), 0);
+      const totalHours = (totalMinutes / 60).toFixed(1);
+      const enrolledClasses = classrooms.filter(
+        (c) => Array.isArray(c.students) && c.students.some((st) => st.toString() === s._id.toString())
+      ).length;
+
+      return {
+        ...s,
+        totalMinutes,
+        totalHours,
+        sessionCount: sLogs.length,
+        enrolledClasses,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      institution: {
+        _id: institution._id,
+        name: institution.name,
+        code: institution.code,
+        domain: institution.domain,
+        departments: institution.departments || [],
+        maxSeats: institution.maxSeats,
+        usedSeats: students.length,
+      },
+      count: studentsWithTelemetry.length,
+      students: studentsWithTelemetry,
+    });
+  } catch (err) {
+    console.error('[Admin Get Institution Students Error]', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch institution students.',
+      error: err.message,
+    });
+  }
+});
+
+// @route   POST /api/admin/institutions/:id/students
+// @desc    Super Admin directly enrolls a student into an institution
+// @access  Private (Super Admin)
+router.post('/institutions/:id/students', protect, requireSuperAdmin, async (req, res) => {
+  const { name, email, password, studentIdNumber, department, batchYear } = req.body;
+
+  if (!name || !name.trim() || !email || !email.trim() || !password) {
+    return res.status(400).json({
+      success: false,
+      message: 'Name, email, and password are required.',
+    });
+  }
+
+  try {
+    const institution = await Institution.findById(req.params.id);
+    if (!institution) {
+      return res.status(404).json({ success: false, message: 'Institution not found.' });
+    }
+
+    const existing = await User.findOne({ email: email.toLowerCase().trim() });
+    if (existing) {
+      return res.status(400).json({
+        success: false,
+        message: 'A user account with this email address already exists.',
+      });
+    }
+
+    const student = await User.create({
+      name: name.trim(),
+      email: email.toLowerCase().trim(),
+      password,
+      role: 'institution_student',
+      accountStatus: 'active',
+      institutionId: institution._id,
+      institutionCode: institution.code,
+      studentIdNumber: studentIdNumber ? studentIdNumber.trim() : `STU-${Date.now().toString().slice(-4)}`,
+      department: department || (institution.departments && institution.departments[0]) || 'General',
+      batchYear: batchYear || '2024-2028',
+    });
+
+    // Update seat count
+    const studentCount = await User.countDocuments({
+      institutionId: institution._id,
+      role: 'institution_student',
+      accountStatus: 'active',
+    });
+    institution.usedSeats = studentCount;
+    await institution.save();
+
+    return res.status(201).json({
+      success: true,
+      message: `Student "${student.name}" enrolled into ${institution.name} successfully.`,
+      student: {
+        _id: student._id,
+        name: student.name,
+        email: student.email,
+        studentIdNumber: student.studentIdNumber,
+        department: student.department,
+        batchYear: student.batchYear,
+        accountStatus: student.accountStatus,
+        createdAt: student.createdAt,
+      },
+    });
+  } catch (err) {
+    console.error('[Admin Add Student Error]', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to enroll student.',
+      error: err.message,
+    });
+  }
+});
+
+// @route   DELETE /api/admin/institutions/:id/students/:studentId
+// @desc    Delete/remove student from institution
+// @access  Private (Super Admin)
+router.delete('/institutions/:id/students/:studentId', protect, requireSuperAdmin, async (req, res) => {
+  try {
+    const institution = await Institution.findById(req.params.id);
+    if (!institution) {
+      return res.status(404).json({ success: false, message: 'Institution not found.' });
+    }
+
+    const student = await User.findOneAndDelete({
+      _id: req.params.studentId,
+      institutionId: institution._id,
+    });
+
+    if (!student) {
+      return res.status(404).json({ success: false, message: 'Student not found in this institution.' });
+    }
+
+    // Refresh seat count
+    const studentCount = await User.countDocuments({
+      institutionId: institution._id,
+      role: 'institution_student',
+      accountStatus: 'active',
+    });
+    institution.usedSeats = studentCount;
+    await institution.save();
+
+    return res.status(200).json({
+      success: true,
+      message: `Student "${student.name}" removed from ${institution.name} successfully.`,
+    });
+  } catch (err) {
+    console.error('[Admin Remove Student Error]', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to remove student.',
       error: err.message,
     });
   }
