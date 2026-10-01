@@ -714,15 +714,15 @@ router.delete('/:id', protect, async (req, res) => {
 });
 
 // @route   POST /api/classrooms/ai-helper
-// @desc    AI Assistant for Classroom (Rubric breakdown, assignment simplification, study hints)
+// @desc    AI Assistant for Classroom (Materials generator, doubt solver, document Q&A, video prep, rubric breakdown)
 // @access  Private
 router.post('/ai-helper', protect, async (req, res) => {
-  const { action = 'summarize', title, description, subject = 'General' } = req.body;
+  const { action = 'materials', title, description, subject = 'General', question, documentContent } = req.body;
 
-  if (!title) {
+  if (!title && !question && !documentContent) {
     return res.status(400).json({
       success: false,
-      message: 'Assignment title/details are required for AI assistance.',
+      message: 'Topic, question, or document text is required for AI assistance.',
     });
   }
 
@@ -736,7 +736,83 @@ router.post('/ai-helper', protect, async (req, res) => {
     }
 
     let prompt = '';
-    if (action === 'rubric') {
+    if (action === 'materials') {
+      prompt = `You are Synexora Academic Intelligence AI, an elite university professor and curriculum designer.
+Generate a comprehensive, beautifully structured Study Material & Learning Guide for the following classroom topic:
+
+SUBJECT / DOMAIN: ${subject}
+TOPIC / LESSON: ${title}
+ADDITIONAL CONTEXT / NOTES: ${description || 'Standard academic syllabus'}
+
+Format your response cleanly using these exact sections:
+
+### 📖 Concept Overview & Core Definition
+- Precise, formal academic definition and intuitive 2-sentence breakdown.
+- Why this concept is critical in ${subject}.
+
+### 🧠 Core Principles & Theoretical Mechanics
+- Step-by-step technical breakdown of fundamental principles, formulas, or algorithmic mechanics.
+- Key terminology and definitions with \`inline code/syntax\` or bold highlights.
+
+### 💻 Practical Example & Implementation
+- Concrete real-world walkthrough, example calculation, architecture flow, or practical code snippet demonstrating the concept in action.
+
+### ⚠️ Common Mistakes & Pitfalls
+- Top 3 pitfalls students encounter on exams or projects, and how to avoid them.
+
+### 🎯 Key Exam & Interview Takeaways
+- Bulleted memory summary and fast revision takeaways.
+
+### ❓ Self-Check Practice Questions
+1. Conceptual Question
+2. Applied Problem / Scenario Question`;
+    } else if (action === 'explain-material') {
+      prompt = `You are Synexora AI Academic Tutor.
+A student in the "${subject}" classroom is asking for a clear, step-by-step breakdown of this coursework/material:
+
+TITLE / ASSIGNMENT: ${title}
+DESCRIPTION / INSTRUCTIONS: ${description || 'Course material'}
+STUDENT'S DOUBT / FOCUS: ${question || 'Explain everything in simple, clear steps.'}
+
+Please provide:
+### 📌 Summary in Plain English
+Clear 2-sentence explanation of what this material/assignment is asking for.
+
+### 🔍 Detailed Step-by-Step Breakdown
+Break down how to understand or solve it step by step.
+
+### 💡 Tips & Recommended Approach
+Best practices, formulas or starter hints to succeed.`;
+    } else if (action === 'document-qa') {
+      prompt = `You are Synexora Document & Lecture Assistant.
+A student has a doubt on the following classroom document or notes:
+
+=== DOCUMENT / LECTURE CONTEXT ===
+Title: ${title || 'Class Document'}
+Subject: ${subject}
+Content:
+${(documentContent || description || '').slice(0, 4000)}
+=================================
+
+STUDENT'S QUESTION / DOUBT:
+${question || 'Summarize the key points and explain the most important concepts.'}
+
+Provide an accurate, grounded, helpful answer directly addressing the student's question based on the document provided.`;
+    } else if (action === 'doubt') {
+      prompt = `You are Synexora Classroom AI Tutor for "${subject}".
+Student Question: ${question || title}
+Context: ${description || 'Classroom learning doubt'}
+
+Format your answer with:
+### 📖 Direct Answer & Core Concept
+Clear, concise explanation resolving the doubt.
+
+### 💡 Step-by-Step Explanation & Mechanics
+Detailed explanation with examples.
+
+### 🎯 Quick Takeaway & Mnemonic
+Easy way to remember it.`;
+    } else if (action === 'rubric') {
       prompt = `You are Synexora Academic Instructor AI.
 Generate a structured 4-tier grading rubric (Exemplary, Proficient, Developing, Incomplete) and key expectations for the following assignment:
 SUBJECT: ${subject}
@@ -764,7 +840,7 @@ INSTRUCTIONS: ${description || 'Standard coursework'}`;
           messages: [{ role: 'user', content: prompt }],
           model,
           temperature: 0.4,
-          max_tokens: 800,
+          max_tokens: 1600,
         });
         if (completion) break;
       } catch (e) {

@@ -26,8 +26,10 @@ import {
   Paperclip,
   UserPlus,
   X,
+  Film,
 } from 'lucide-react';
 import { StructuredPostRenderer } from '../components/StructuredPostRenderer';
+import { ClassroomAIAssistantModal, AIAssistantMode } from '../components/ClassroomAIAssistantModal';
 
 interface Attachment {
   title: string;
@@ -228,6 +230,26 @@ export const ClassroomPage: React.FC = () => {
 
   // Copy code notification
   const [copiedCode, setCopiedCode] = useState(false);
+
+  // Classroom AI Learning Assistant Modal State
+  const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+  const [aiModalMode, setAiModalMode] = useState<AIAssistantMode>('materials');
+  const [aiModalTopic, setAiModalTopic] = useState('');
+  const [aiModalDescription, setAiModalDescription] = useState('');
+  const [aiModalClassworkId, setAiModalClassworkId] = useState('');
+
+  const openAiAssistant = (
+    mode: AIAssistantMode = 'materials',
+    topicText: string = '',
+    desc: string = '',
+    cwId: string = ''
+  ) => {
+    setAiModalMode(mode);
+    setAiModalTopic(topicText || selectedClass?.subject || '');
+    setAiModalDescription(desc);
+    setAiModalClassworkId(cwId);
+    setIsAiModalOpen(true);
+  };
 
   // People Search
   const [peopleSearch, setPeopleSearch] = useState('');
@@ -842,6 +864,15 @@ export const ClassroomPage: React.FC = () => {
               >
                 People ({1 + (selectedClass.students?.length || 0)})
               </button>
+              <button
+                type="button"
+                onClick={() => openAiAssistant('materials', selectedClass.subject)}
+                className="px-3.5 py-1.5 rounded-full bg-[#111111] text-[#F4C542] hover:bg-[#222222] font-bold flex items-center gap-1.5 transition-all shadow-xs hover:scale-105"
+                title="Ask AI in this classroom - generate study materials, concept videos, or solve coursework doubts"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-[#F4C542]" />
+                <span>✨ Ask AI</span>
+              </button>
             </div>
 
             <div className="flex items-center gap-2">
@@ -1000,25 +1031,84 @@ export const ClassroomPage: React.FC = () => {
                 </p>
               </div>
 
-              {/* Class Code Card overlay */}
-              <div className="mt-5 sm:mt-0 sm:absolute sm:right-6 sm:bottom-6 bg-white/10 backdrop-blur-md border border-white/20 p-3.5 rounded-2xl text-xs flex items-center gap-3 shadow-sm">
-                <div>
-                  <span className="text-[10px] text-white/70 block uppercase font-bold">Class Code</span>
-                  <span className="text-sm font-mono font-black text-white">{selectedClass.code}</span>
-                </div>
+              {/* Class Code & AI Action overlay */}
+              <div className="mt-5 sm:mt-0 sm:absolute sm:right-6 sm:bottom-6 flex flex-wrap items-center gap-2.5">
                 <button
-                  onClick={() => handleCopyCode(selectedClass.code)}
-                  className="p-2 rounded-xl bg-white/20 hover:bg-white/30 text-white transition-colors"
-                  title="Copy Code"
+                  type="button"
+                  onClick={() => openAiAssistant('materials', selectedClass.subject)}
+                  className="bg-[#111111] text-[#F4C542] hover:bg-[#222222] border border-[#F4C542]/40 px-3.5 py-2.5 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-sm transition-all hover:scale-105"
+                  title="Ask AI to learn any topic or concept in this class"
                 >
-                  {copiedCode ? <Check className="w-4 h-4 text-emerald-300" /> : <Copy className="w-4 h-4" />}
+                  <Sparkles className="w-4 h-4 text-[#F4C542]" />
+                  <span>✨ Ask AI to Learn</span>
                 </button>
+
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 p-2.5 rounded-2xl text-xs flex items-center gap-3 shadow-sm">
+                  <div>
+                    <span className="text-[9px] text-white/70 block uppercase font-bold">Class Code</span>
+                    <span className="text-xs font-mono font-black text-white">{selectedClass.code}</span>
+                  </div>
+                  <button
+                    onClick={() => handleCopyCode(selectedClass.code)}
+                    className="p-1.5 rounded-xl bg-white/20 hover:bg-white/30 text-white transition-colors"
+                    title="Copy Code"
+                  >
+                    {copiedCode ? <Check className="w-3.5 h-3.5 text-emerald-300" /> : <Copy className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               </div>
             </div>
 
             {/* TAB 1: STREAM (Announcements & Discussions) */}
             {activeTab === 'stream' && (
               <div className="max-w-4xl mx-auto space-y-6">
+                {/* Classroom AI Learning Quick Hub Banner */}
+                <div className="rounded-3xl bg-gradient-to-r from-[#FFF8E8] via-[#FFFDF8] to-[#FFF8E8] border border-[#E8E1D2] p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-[#111111] text-[#F4C542] flex items-center justify-center font-bold shrink-0 shadow-xs">
+                      <Sparkles className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-[#111111] text-[#F4C542]">
+                          Classroom AI Tutor
+                        </span>
+                        <span className="text-[10px] font-bold text-[#777777]">
+                          {selectedClass.subject}
+                        </span>
+                      </div>
+                      <h4 className="text-sm font-black text-[#111111] mt-0.5">
+                        Need to learn anything inside this classroom?
+                      </h4>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <button
+                      onClick={() => openAiAssistant('materials', selectedClass.subject)}
+                      className="px-3 py-1.5 rounded-xl bg-white text-[#111111] hover:bg-[#111111] hover:text-[#F4C542] text-xs font-bold border border-[#E8E1D2] transition-colors flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                      <span>Study Materials</span>
+                    </button>
+                    <button
+                      onClick={() => openAiAssistant('video', selectedClass.subject)}
+                      className="px-3 py-1.5 rounded-xl bg-white text-[#111111] hover:bg-[#111111] hover:text-[#F4C542] text-xs font-bold border border-[#E8E1D2] transition-colors flex items-center gap-1.5 shadow-2xs"
+                    >
+                      <Film className="w-3.5 h-3.5" />
+                      <span>Concept Video</span>
+                    </button>
+                    <button
+                      onClick={() => openAiAssistant('materials', selectedClass.subject)}
+                      className="px-3.5 py-1.5 rounded-xl bg-[#111111] text-[#F4C542] hover:bg-[#222222] text-xs font-bold transition-colors flex items-center gap-1.5 shadow-xs"
+                    >
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Ask AI</span>
+                    </button>
+                  </div>
+                </div>
+
+>>>>>>> 4b85379 (feat: enhance platform UI/UX, classroom assistant, timer, and institution portal)
                 {/* Main Column: Announcement Composer & Feed */}
                 <div className="space-y-5">
                   {/* Announcement Composer */}
@@ -1112,17 +1202,30 @@ export const ClassroomPage: React.FC = () => {
                               </div>
                             </div>
 
-                            {/* Delete Post Button for Teacher / Author */}
-                            {(isTeacher || (ann.authorId && ann.authorId === user?._id) || (ann.authorEmail && ann.authorEmail === user?.email)) && (
+                            <div className="flex items-center gap-2">
                               <button
                                 type="button"
-                                onClick={() => handleDeleteAnnouncement(ann._id)}
-                                className="p-1.5 rounded-xl text-[#777777] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                                title="Delete Announcement"
+                                onClick={() => openAiAssistant('document', `${ann.authorName}'s Announcement`, ann.content)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-[#FFF8E8] hover:bg-[#111111] text-[#111111] hover:text-[#F4C542] border border-[#E8E1D2] transition-colors shadow-2xs cursor-pointer"
+                                title="Ask AI to explain or summarize this announcement"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
+                                <Sparkles className="w-3 h-3 text-[#F4C542]" />
+                                <span>Ask AI</span>
                               </button>
-                            )}
+
+                              {/* Delete Post Button for Teacher / Author */}
+                              {(isTeacher || (ann.authorId && ann.authorId === user?._id) || (ann.authorEmail && ann.authorEmail === user?.email)) && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteAnnouncement(ann._id)}
+                                  className="p-1.5 rounded-xl text-[#777777] hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  title="Delete Announcement"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              )}
+                            </div>
+>>>>>>> 4b85379 (feat: enhance platform UI/UX, classroom assistant, timer, and institution portal)
                           </div>
 
                           {/* Post Content & Rich AI Render */}
@@ -1319,18 +1422,30 @@ export const ClassroomPage: React.FC = () => {
                         </div>
 
                         {/* Action Footer */}
-                        <div className="pt-3.5 border-t border-[#E8E1D2] flex items-center justify-between text-xs">
+                        <div className="pt-3.5 border-t border-[#E8E1D2] flex flex-wrap items-center justify-between gap-2 text-xs">
                           <span className="text-[11px] text-[#777777]">
                             Posted on {new Date(cw.createdAt).toLocaleDateString()}
                           </span>
 
-                          <button
-                            onClick={() => handleOpenSubmissions(cw)}
-                            className="btn-primary text-xs py-2 px-4 font-bold flex items-center gap-1.5"
-                          >
-                            <FolderOpen className="w-3.5 h-3.5" />
-                            <span>{isTeacher ? 'View All Submissions' : 'Turn In / View Work'}</span>
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openAiAssistant('document', cw.title, cw.description || '', cw._id)}
+                              className="px-3 py-1.5 rounded-2xl border border-[#E8E1D2] bg-[#FFF8E8] hover:bg-[#111111] text-[#111111] hover:text-[#F4C542] font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                              title="Ask AI to explain this assignment or generate study materials"
+                            >
+                              <Sparkles className="w-3.5 h-3.5 text-[#F4C542]" />
+                              <span>Ask AI to Explain</span>
+                            </button>
+
+                            <button
+                              onClick={() => handleOpenSubmissions(cw)}
+                              className="btn-primary text-xs py-2 px-4 font-bold flex items-center gap-1.5"
+                            >
+                              <FolderOpen className="w-3.5 h-3.5" />
+                              <span>{isTeacher ? 'View All Submissions' : 'Turn In / View Work'}</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))
@@ -2251,6 +2366,23 @@ export const ClassroomPage: React.FC = () => {
               )}
             </div>
           </div>
+        )}
+        {/* ============================================================== */}
+        {/* MODAL 5: CLASSROOM AI LEARNING ASSISTANT                       */}
+        {/* ============================================================== */}
+        {selectedClass && (
+          <ClassroomAIAssistantModal
+            isOpen={isAiModalOpen}
+            onClose={() => setIsAiModalOpen(false)}
+            classroomId={selectedClass._id}
+            classroomTitle={selectedClass.title}
+            classroomSubject={selectedClass.subject}
+            classworkList={selectedClass.classwork || []}
+            initialMode={aiModalMode}
+            initialTopic={aiModalTopic}
+            initialDescription={aiModalDescription}
+            initialClassworkId={aiModalClassworkId}
+          />
         )}
       </div>
     </AppLayout>
